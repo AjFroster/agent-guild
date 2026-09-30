@@ -1,0 +1,1 @@
+{"type": "assistant", "timestamp": "2026-09-30T12:00:02.000Z", "cwd": "/home/example/guild-demo", "message": {"role": "assistant", "content": [{"type": "tool_use", "name": "Grep", "input": {"pattern": "winProbability"}}], "stop_reason": "tool_use"}}
