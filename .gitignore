@@ -1,0 +1,17 @@
+node_modules/
+dist/
+build/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+web/e2e-screenshots/
+.playwright-cli/
+.playwright/
