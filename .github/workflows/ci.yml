@@ -1,0 +1,237 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to a PR makes the previous run's answer irrelevant, so stop it. Never cancel
+# main: its runs are the record of what is green.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `ci`, not `install`: fails if package.json and the lockfile disagree.
+      - name: Install dependencies
+        run: npm ci
+
+      # Each check runs even if an earlier one failed, so one push shows every problem
+      # instead of one at a time. The last step is the gate.
+      - name: Type check
+        id: types
+        run: npm run typecheck
+        continue-on-error: true
+
+      - name: Lint
+        id: lint
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Format
+        id: format
+        run: npm run format:check
+        continue-on-error: true
+
+      - name: Unit tests
+        id: unit
+        run: npm test
+        continue-on-error: true
+
+      - name: Summary
+        if: always()
+        env:
+          TYPES: ${{ steps.types.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+          UNIT: ${{ steps.unit.outcome }}
+        run: |
+          mark() { [ "$1" = success ] && echo "✅ pass" || echo "❌ $1"; }
+          {
+            echo "## Checks"
+            echo
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Type check | $(mark "$TYPES") |"
+            echo "| Lint | $(mark "$LINT") |"
+            echo "| Format | $(mark "$FORMAT") |"
+            echo "| Unit tests | $(mark "$UNIT") |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          for s in "$TYPES" "$LINT" "$FORMAT" "$UNIT"; do
+            [ "$s" = success ] || { echo "::error::a check failed; see the summary table"; exit 1; }
+          done
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  browser:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # pushes screenshots to the ci-screenshots branch
+      pull-requests: write # posts them on the PR
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Install Chromium
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      # Demo mode replays recorded fixtures frozen at a fixed second, so these tests have no
+      # live backend, network or clock to flake on. That is why this job blocks merges from
+      # the start, where movie-league's real-backend browser job had to earn it.
+      - name: Run browser tests
+        working-directory: web
+        run: npx playwright test
+
+      # Always, not only on failure: the point is to confirm a GREEN run rendered something.
+      - uses: actions/upload-artifact@v7
+        if: always()
+        id: shots
+        with:
+          name: ui-screenshots
+          path: web/e2e-screenshots/
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+      # GitHub strips data: URIs from images in summaries and PR comments, so the images
+      # need a real URL. A branch on a public repo gives one through raw.githubusercontent,
+      # with no auth. Skipped for fork PRs, whose token cannot push.
+      - name: Publish the screenshots
+        if: >-
+          always() && github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        id: publish
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          test -d web/e2e-screenshots || exit 0
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # A worktree keeps the checkout under test untouched.
+          git fetch origin ci-screenshots --depth=1 2>/dev/null \
+            && git worktree add ../shots ci-screenshots \
+            || git worktree add --orphan -b ci-screenshots ../shots
+
+          # The sha is in the path because GitHub's image proxy (camo) caches by URL: a
+          # stable path would keep showing the first version ever published.
+          SHA=$(git rev-parse --short HEAD)
+          DIR="pr-$PR/$SHA"
+          rm -rf "../shots/pr-$PR"   # keep only the current commit's shots
+          mkdir -p "../shots/$DIR"
+          cp web/e2e-screenshots/*.png "../shots/$DIR/"
+
+          cd ../shots
+          git add -A
+          if git diff --cached --quiet; then
+            echo "screenshots unchanged"
+          else
+            git commit -q -m "ci: screenshots for PR #$PR at $SHA"
+            git push -q origin ci-screenshots
+          fi
+          echo "base=https://raw.githubusercontent.com/${{ github.repository }}/ci-screenshots/$DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Put the screenshots in the run summary
+        if: always()
+        env:
+          SHOTS_URL: ${{ steps.shots.outputs.artifact-url }}
+          BASE: ${{ steps.publish.outputs.base }}
+        run: |
+          {
+            echo "## UI screenshots"
+            echo
+            echo "Captured while the browser tests ran, so a green tick can be checked by eye."
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          for f in $(ls web/e2e-screenshots/*.png 2>/dev/null | sort); do
+            name=$(basename "$f" .png | sed 's/^[0-9]*-//; s/-/ /g')
+            {
+              echo "### ${name}"
+              echo
+              if [ -n "$BASE" ]; then echo "![${name}](${BASE}/$(basename "$f"))"; else echo "_Published only for pull requests from this repo._"; fi
+              echo
+            } >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "[Download at full resolution]($SHOTS_URL)" >> "$GITHUB_STEP_SUMMARY"
+
+      # One comment per PR, updated in place. The shot list comes from the directory, so a
+      # new capture() in a spec shows up here without editing this workflow.
+      - name: Show them on the pull request
+        if: always() && github.event_name == 'pull_request' && steps.publish.outputs.base != ''
+        uses: actions/github-script@v9
+        env:
+          BASE: ${{ steps.publish.outputs.base }}
+        with:
+          script: |
+            const fs = require('fs')
+            const shots = fs.readdirSync('web/e2e-screenshots')
+              .filter((f) => f.endsWith('.png'))
+              .sort()
+            const body = [
+              '<!-- ui-screenshots -->',
+              '### UI screenshots',
+              '',
+              `From the browser tests on ${context.sha.slice(0, 7)}.`,
+              '',
+              ...shots.map((file) => {
+                const label = file.replace(/\.png$/, '').replace(/^[0-9]+-/, '').replace(/-/g, ' ')
+                return `<details open><summary>${label}</summary>\n\n` +
+                       `![${label}](${process.env.BASE}/${file})\n\n</details>`
+              }),
+            ].join('\n')
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: context.issue.number,
+            })
+            const mine = comments.find((c) => c.body.includes('<!-- ui-screenshots -->'))
+            if (mine) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner, repo: context.repo.repo, comment_id: mine.id, body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: context.issue.number, body,
+              })
+            }
