@@ -94,6 +94,17 @@ describe('applyEvent', () => {
     expect(state.heroes.a).toMatchObject({ status: 'gone', xp: 0 });
   });
 
+  it('brings a resumed hero back with the XP it had', () => {
+    const state = replay([
+      start('a'),
+      { t: 1, session: 'a', type: 'stop' },
+      { t: 2, session: 'a', type: 'session_end' },
+      start('a', 3),
+    ]);
+    expect(state.heroes.a).toMatchObject({ status: 'idle', xp: XP_PER_TURN });
+    expect(state.order).toEqual(['a']);
+  });
+
   it('does not reset a live hero when session_start repeats', () => {
     const state = replay([start('a'), { t: 1, session: 'a', type: 'stop' }, start('a', 2)]);
     expect(state.heroes.a?.xp).toBe(XP_PER_TURN);

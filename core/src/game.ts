@@ -72,7 +72,10 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
   if (event.type === 'session_start' || event.type === 'subagent_start') {
     if (existing && existing.status !== 'gone') return state;
     const parentId = event.type === 'subagent_start' ? event.parent : null;
-    const hero = newHero(event.session, event.name, parentId);
+    // A resumed session comes back with the XP it earned before it went quiet.
+    const hero = existing
+      ? { ...existing, status: 'idle' as const, location: 'guildhall' as const }
+      : newHero(event.session, event.name, parentId);
     return {
       heroes: { ...state.heroes, [hero.id]: hero },
       order: existing ? state.order : [...state.order, hero.id],
