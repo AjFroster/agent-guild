@@ -2,6 +2,7 @@ import { type GuildState, type Hero, XP_PER_LEVEL, depthOf, replay, roster } fro
 import { useEffect, useMemo, useRef } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
+import { type LiveStatus, useLiveEvents } from './live.ts';
 import { BUILDINGS, VILLAGE_HEIGHT, VILLAGE_WIDTH, drawVillage } from './village.ts';
 
 const STATUS_LABEL: Record<Hero['status'], string> = {
@@ -14,7 +15,10 @@ const STATUS_LABEL: Record<Hero['status'], string> = {
 export function App() {
   const demo = useMemo(() => readDemoRequest(window.location.search), []);
 
-  if (demo === null) return <Landing />;
+  if (demo === null) {
+    const token = new URLSearchParams(window.location.search).get('token');
+    return token ? <Live token={token} /> : <Landing />;
+  }
   if ('error' in demo) {
     return (
       <main className="page">
@@ -31,9 +35,11 @@ function Landing() {
   return (
     <main className="page">
       <h1>Agent Guild</h1>
-      <p className="muted">
-        Live sessions arrive with the local server in the next milestone. Until then, try a recorded guild:
+      <p>
+        To watch your own Claude Code sessions, run <code>npm start</code> in the agent-guild folder and open
+        the link it prints. The link carries a token that only your machine knows.
       </p>
+      <p className="muted">Or try a recorded guild:</p>
       <DemoLinks />
     </main>
   );
@@ -53,7 +59,31 @@ function DemoLinks() {
   );
 }
 
-function Guild({ state }: { state: GuildState }) {
+const LIVE_LABEL: Record<LiveStatus, string> = {
+  connecting: 'Connecting…',
+  live: 'Live',
+  reconnecting: 'Reconnecting…',
+  unauthorized: 'Token rejected',
+};
+
+function Live({ token }: { token: string }) {
+  const { events, status } = useLiveEvents(token);
+  const state = useMemo(() => replay(events), [events]);
+  if (status === 'unauthorized') {
+    return (
+      <main className="page">
+        <h1>Agent Guild</h1>
+        <p role="alert">
+          The server did not accept this link's token. It changes every time <code>npm start</code> runs, so
+          open the newest link it printed.
+        </p>
+      </main>
+    );
+  }
+  return <Guild state={state} live={LIVE_LABEL[status]} />;
+}
+
+function Guild({ state, live }: { state: GuildState; live?: string }) {
   const heroes = roster(state);
   const waiting = heroes.filter((h) => h.status === 'needs_you');
 
@@ -61,6 +91,11 @@ function Guild({ state }: { state: GuildState }) {
     <main className="guild" data-testid="guild">
       <header className="topbar">
         <h1>Agent Guild</h1>
+        {live && (
+          <span className="live" data-testid="live-status">
+            {live}
+          </span>
+        )}
         {waiting.length > 0 && (
           <p className="beacon" role="status" data-testid="beacon">
             {waiting.map((h) => h.name).join(', ')} {waiting.length === 1 ? 'needs' : 'need'} you

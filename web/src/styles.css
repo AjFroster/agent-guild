@@ -166,3 +166,17 @@ a {
   content: '●';
   color: #7fbf5f;
 }
+
+.live {
+  font-size: 13px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+code {
+  background: var(--panel);
+  padding: 1px 6px;
+  border-radius: 4px;
+}

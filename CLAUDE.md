@@ -11,7 +11,10 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   replays `fixtures/<fixture>.json` frozen at that second.
 - `fixtures/`: recorded event streams. **Fictional names and titles only.** Never commit
   real prompts, paths or usernames.
-- `server/` (next milestone): Fastify on 127.0.0.1 with a token.
+- `server/`: Fastify on 127.0.0.1 with a per-run token. `watcher.ts` follows
+  `~/.claude/projects/**.jsonl` read-only; `core/src/transcript.ts` decides what crosses
+  over (tool names, todos, turn ends) and drops everything else. Keep it that way.
+- `web/e2e/transcripts/`: fake transcripts the live browser test runs against.
 
 ## Workflow
 
@@ -40,4 +43,5 @@ If the change needs a new state on screen, add or extend a fixture and a `captur
     npm run typecheck
     npm run lint
     npm run format
-    npm run e2e         # Playwright, builds and serves web/ itself
+    npm start           # build web, serve it live on 127.0.0.1:4747
+    npm run e2e         # Playwright: demo mode plus the real server on fake transcripts
