@@ -271,8 +271,28 @@ test('the librarians find and review a skill, and the user installs it from the 
   await page.locator('.roster').getByRole('button', { name: 'Open Reviewer' }).click();
   await expect(page.getByTestId('hero-rank')).toContainText('Librarian');
   await page.getByTestId('back').click();
+  // A skill the user wrote: no stars, so it sorts after the Archive's.
+  await mkdir(join(LIVE_SKILLS, 'zebra-notes'), { recursive: true });
+  await writeFile(
+    join(LIVE_SKILLS, 'zebra-notes', 'SKILL.md'),
+    '---\nname: zebra-notes\ndescription: Keep notes.\n---\n',
+  );
   await page.getByTestId('open-library').click();
   const library = page.getByTestId('library-page');
+  // Every skill the user has, sortable by stars.
+  const yours = library.getByTestId('your-skills');
+  const order = () => yours.locator('tbody tr strong').allTextContents();
+  await expect(yours.getByTestId('your-skill-csv-wrangler')).toContainText('★ 6,400');
+  await expect(yours.getByTestId('your-skill-csv-wrangler')).toContainText('acme-labs/agent-skills');
+  await expect(yours.getByTestId('your-skill-zebra-notes')).toContainText('—');
+  expect(await order()).toEqual(['csv-wrangler', 'zebra-notes']);
+  await yours.getByTestId('sort-name').click();
+  await yours.getByTestId('sort-name').click();
+  expect(await order()).toEqual(['zebra-notes', 'csv-wrangler']);
+  await yours.getByTestId('sort-stars').click();
+  expect(await order()).toEqual(['csv-wrangler', 'zebra-notes']);
+  await yours.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'e2e-screenshots/22-your-skills.png', animations: 'disabled' });
   await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
   await expect(library.getByTestId('library-min-stars')).toHaveText('★ 5,000');
   await expect(library.getByTestId('library-archive')).toContainText('1 installed');

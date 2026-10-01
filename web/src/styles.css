@@ -1167,3 +1167,46 @@ h2.ts-ribbon {
   color: #b22828;
   font-size: 26px;
 }
+
+.skills-table-wrap {
+  overflow-x: auto;
+}
+
+.skills-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.skills-table th,
+.skills-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(60, 36, 16, 0.18);
+}
+
+.skills-table td.stars {
+  white-space: nowrap;
+  font-weight: 700;
+  color: #8a5a00;
+}
+
+.skills-table a {
+  color: #7a2e12;
+}
+
+.skills-table .sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  color: #3c2410;
+  cursor: pointer;
+}
+
+.skills-table .sort:focus-visible {
+  outline: 2px solid #7a2e12;
+  outline-offset: 2px;
+}

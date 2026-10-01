@@ -21,6 +21,7 @@ import {
 } from './libraryScene.ts';
 import { ago } from './panels.tsx';
 import { SceneCanvas } from './SceneCanvas.tsx';
+import { type SkillSort, nextSort, skillRows, sortSkills } from './skillList.ts';
 
 /**
  * The Library page, reached by clicking the Library on the map. On top, the Library's
@@ -134,6 +135,7 @@ export function LibraryPage({
         Click a librarian to {control ? 'open its chat' : 'see its session'}
         {control ? ', or the Archive board to review skills.' : '.'}
       </p>
+      {status && <YourSkills status={status} />}
       <ul className="plain library-desks" aria-label="Librarians">
         {desks.map((d) => (
           <Desk key={d.hero?.id ?? d.name} {...d} now={now} onTalk={control?.onTalk} />
@@ -309,6 +311,73 @@ function LibraryCards({
           </ul>
         )}
       </div>
+    </div>
+  );
+}
+
+const SOURCE_LABEL = { personal: 'Yours', synced: 'Synced', plugin: 'Plugin' } as const;
+
+/** Every skill the user has, sortable by stars (known for skills installed from the Archive) or name. */
+function YourSkills({ status }: { status: SkillsStatus }) {
+  const [sort, setSort] = useState<SkillSort>({ key: 'stars', dir: 'desc' });
+  const rows = useMemo(() => sortSkills(skillRows(status.installed, status.entries), sort), [status, sort]);
+  const header = (key: SkillSort['key'], label: string) => {
+    const active = sort.key === key;
+    return (
+      <th aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+        <button
+          type="button"
+          className="sort"
+          onClick={() => setSort(nextSort(sort, key))}
+          data-testid={`sort-${key}`}
+        >
+          {label} {active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}
+        </button>
+      </th>
+    );
+  };
+  return (
+    <div className="ts-card" data-testid="your-skills">
+      <h3 className="ts-ribbon ts-ribbon-yellow">Your skills ({rows.length})</h3>
+      <p className="muted small">
+        Stars are known for skills installed from the Archive; skills you wrote or got from a plugin show —
+        and sort last.
+      </p>
+      {rows.length === 0 ? (
+        <p className="muted small">No skills installed yet.</p>
+      ) : (
+        <div className="skills-table-wrap">
+          <table className="skills-table">
+            <thead>
+              <tr>
+                {header('name', 'Skill')}
+                {header('stars', '★ Stars')}
+                <th>From</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={`${r.source}:${r.name}`} data-testid={`your-skill-${r.name}`}>
+                  <td>
+                    <strong>{r.name}</strong>
+                    {r.description && <div className="muted small">{r.description}</div>}
+                  </td>
+                  <td className="stars">{r.stars === null ? '—' : `★ ${r.stars.toLocaleString()}`}</td>
+                  <td className="small">
+                    {r.repo ? (
+                      <a href={`https://github.com/${r.repo}`} target="_blank" rel="noreferrer">
+                        {r.repo}
+                      </a>
+                    ) : (
+                      SOURCE_LABEL[r.source]
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
