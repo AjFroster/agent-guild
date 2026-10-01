@@ -299,7 +299,7 @@ export function currentQuest(hero: Hero): string | null {
 }
 
 /** How long a Knight stands before the throne after an order before going to work. */
-export const AUDIENCE_SECONDS = 4;
+export const AUDIENCE_SECONDS = 6;
 
 /** Whether a Knight is in the Throne Room hearing its latest order at time `now`. */
 export function inAudience(hero: Hero, now: number): boolean {

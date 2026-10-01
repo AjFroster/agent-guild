@@ -380,8 +380,8 @@ describe('orders and the Throne Room', () => {
   it('keeps a Knight in audience for a few seconds after its order, then sends it to work', () => {
     const hero = applyEvent(asleep, { t: 100, session: 'a', type: 'ordered' }).heroes.a!;
     expect(inAudience(hero, 100)).toBe(true);
-    expect(inAudience(hero, 103.9)).toBe(true);
-    expect(inAudience(hero, 104)).toBe(false);
+    expect(inAudience(hero, 105.9)).toBe(true);
+    expect(inAudience(hero, 106)).toBe(false);
     expect(inAudience(hero, 99)).toBe(false); // a replay from before the order
     expect(inAudience(asleep.heroes.a!, 100)).toBe(false); // never ordered
   });

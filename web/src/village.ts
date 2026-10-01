@@ -565,6 +565,7 @@ export function drawVillage(
   }
 
   drawBarracks(ctx, nowMs);
+  drawThroneRoom(ctx);
 
   // Trees and buildings drawn back to front by their base, so nearer things overlap.
   const scenery: { y: number; draw: () => void }[] = [
@@ -653,6 +654,7 @@ export function drawVillage(
       p.left && !fighting,
       picked || hovered,
       fighting,
+      p.hearing,
     );
   }
 }
@@ -736,6 +738,88 @@ function dummy(ctx: CanvasRenderingContext2D, x: number, y: number, tilt: number
   ctx.fill();
   ctx.stroke();
   ctx.restore();
+}
+
+/** The Throne Room: a stone dais before the castle gate, where Knights hear their orders. */
+export const THRONE_ROOM = { left: 450, top: 548, right: 830, bottom: 712 };
+
+/**
+ * The Throne Room floor: a stone dais with a red carpet running down from the castle gate
+ * to a golden throne, banners at its front corners, and its name. The King stands before
+ * the throne; ordered Knights stand on the dais either side of him.
+ */
+function drawThroneRoom(ctx: CanvasRenderingContext2D): void {
+  const { left, top, right, bottom } = THRONE_ROOM;
+  const cx = THRONE.x;
+  ctx.save();
+  // Stone floor with a darker edge and a grid of flagstones.
+  ctx.fillStyle = '#a7a59a';
+  ctx.strokeStyle = '#5f5d55';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.roundRect(left, top, right - left, bottom - top, 10);
+  ctx.fill();
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(80, 78, 70, 0.35)';
+  ctx.lineWidth = 1;
+  for (let x = left + 38; x < right; x += 38) {
+    ctx.beginPath();
+    ctx.moveTo(x, top + 3);
+    ctx.lineTo(x, bottom - 3);
+    ctx.stroke();
+  }
+  for (let y = top + 32; y < bottom; y += 32) {
+    ctx.beginPath();
+    ctx.moveTo(left + 3, y);
+    ctx.lineTo(right - 3, y);
+    ctx.stroke();
+  }
+  // Red carpet from the castle gate down the middle of the dais.
+  ctx.fillStyle = '#a3262a';
+  ctx.fillRect(cx - 22, BUILDINGS.guildhall.y - 8, 44, bottom - BUILDINGS.guildhall.y + 4);
+  ctx.fillStyle = '#e0b030';
+  ctx.fillRect(cx - 22, BUILDINGS.guildhall.y - 8, 3, bottom - BUILDINGS.guildhall.y + 4);
+  ctx.fillRect(cx + 19, BUILDINGS.guildhall.y - 8, 3, bottom - BUILDINGS.guildhall.y + 4);
+  // The throne, behind where the King stands.
+  const ty = THRONE.y - 30;
+  ctx.fillStyle = '#d9a520';
+  ctx.strokeStyle = '#5a3d00';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(cx - 26, ty - 58, 52, 62, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#b3242a';
+  ctx.beginPath();
+  ctx.roundRect(cx - 18, ty - 50, 36, 46, 4);
+  ctx.fill();
+  ctx.fillStyle = '#ffd75e';
+  for (const dx of [-26, 0, 26]) {
+    ctx.beginPath();
+    ctx.arc(cx + dx, ty - 60, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+  // Banners on poles at the front corners.
+  for (const x of [left + 22, right - 22]) {
+    ctx.fillStyle = '#5c4223';
+    ctx.fillRect(x - 2, top - 62, 4, 74);
+    ctx.fillStyle = '#b3242a';
+    ctx.beginPath();
+    ctx.moveTo(x + 2, top - 58);
+    ctx.lineTo(x + 26, top - 58);
+    ctx.lineTo(x + 26, top - 20);
+    ctx.lineTo(x + 14, top - 28);
+    ctx.lineTo(x + 2, top - 20);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#ffd75e';
+    ctx.beginPath();
+    ctx.arc(x + 14, top - 44, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  label(ctx, 'Throne Room', left + 70, bottom - 26, 'rgba(60, 44, 0, 0.85)', '#ffd75e', 13);
 }
 
 /** A bedroll: a straw mat, a pillow at the head and a blanket in the sleeper's colour. */
@@ -851,6 +935,8 @@ function drawUnit(
   focused: boolean,
   /** Swinging at a dummy (or drilling) rather than standing. */
   fighting: boolean,
+  /** Before the throne hearing an order: awake, whatever its status says. */
+  hearing = false,
 ): void {
   const rank = rankOf(hero);
   const k = RANK_SCALE[rank];
@@ -880,7 +966,7 @@ function drawUnit(
   if (rank === 'king') crown(ctx, x, y - 56 * k);
   // Beside the head rather than above it, where it would cover the building name.
   const mark = bubbleFor(hero);
-  if (mark) bubble(ctx, x + 30 * k, y - 30 * k, mark, k, nowMs);
+  if (mark && !(hearing && mark === 'sleep')) bubble(ctx, x + 30 * k, y - 30 * k, mark, k, nowMs);
 
   const fg = hero.status === 'needs_you' ? '#ffcc33' : '#f1efe6';
   if (rank === 'king' || rank === 'knight') {
