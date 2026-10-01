@@ -1,57 +1,249 @@
 [
-  { "t": 0, "session": "s-ada", "type": "session_start", "name": "Ada" },
+  {
+    "t": 0,
+    "session": "s-ada",
+    "type": "session_start",
+    "name": "Ada"
+  },
+  {
+    "t": 0.5,
+    "session": "s-ada",
+    "type": "meta",
+    "model": "claude-opus-5-5",
+    "branch": "feat/win-probability"
+  },
   {
     "t": 1,
     "session": "s-ada",
     "type": "todos",
     "todos": [
-      { "id": "1", "title": "Map the ratings module", "status": "in_progress" },
-      { "id": "2", "title": "Add win probability to the API", "status": "pending" },
-      { "id": "3", "title": "Show it on the fixtures page", "status": "pending" },
-      { "id": "4", "title": "Cover it with tests", "status": "pending" }
+      {
+        "id": "1",
+        "title": "Map the ratings module",
+        "status": "in_progress"
+      },
+      {
+        "id": "2",
+        "title": "Add win probability to the API",
+        "status": "pending"
+      },
+      {
+        "id": "3",
+        "title": "Show it on the fixtures page",
+        "status": "pending"
+      },
+      {
+        "id": "4",
+        "title": "Cover it with tests",
+        "status": "pending"
+      }
     ]
   },
-  { "t": 2, "session": "s-scout", "type": "subagent_start", "parent": "s-ada", "name": "Scout" },
-  { "t": 3, "session": "s-scout", "type": "tool", "tool": "Grep" },
-  { "t": 4, "session": "s-tester", "type": "subagent_start", "parent": "s-ada", "name": "Tester" },
-  { "t": 5, "session": "s-tester", "type": "tool", "tool": "Bash" },
-  { "t": 6, "session": "s-grace", "type": "session_start", "name": "Grace" },
-  { "t": 7, "session": "s-grace", "type": "tool", "tool": "WebSearch" },
+  {
+    "t": 2,
+    "session": "s-scout",
+    "type": "subagent_start",
+    "parent": "s-ada",
+    "name": "Scout"
+  },
+  {
+    "t": 2.5,
+    "session": "s-ada",
+    "type": "tool",
+    "tool": "Read"
+  },
+  {
+    "t": 3,
+    "session": "s-scout",
+    "type": "tool",
+    "tool": "Grep"
+  },
+  {
+    "t": 3.5,
+    "session": "s-ada",
+    "type": "tool",
+    "tool": "Grep"
+  },
+  {
+    "t": 4,
+    "session": "s-tester",
+    "type": "subagent_start",
+    "parent": "s-ada",
+    "name": "Tester"
+  },
+  {
+    "t": 4.5,
+    "session": "s-scout",
+    "type": "tool",
+    "tool": "Read"
+  },
+  {
+    "t": 5,
+    "session": "s-tester",
+    "type": "tool",
+    "tool": "Bash"
+  },
+  {
+    "t": 5.5,
+    "session": "s-tester",
+    "type": "meta",
+    "model": "claude-sonnet-5-5"
+  },
+  {
+    "t": 6,
+    "session": "s-grace",
+    "type": "session_start",
+    "name": "Grace"
+  },
+  {
+    "t": 6.5,
+    "session": "s-grace",
+    "type": "meta",
+    "model": "claude-opus-5-5",
+    "branch": "docs/readme"
+  },
+  {
+    "t": 7,
+    "session": "s-grace",
+    "type": "tool",
+    "tool": "WebSearch"
+  },
   {
     "t": 8,
     "session": "s-ada",
     "type": "todos",
     "todos": [
-      { "id": "1", "title": "Map the ratings module", "status": "completed" },
-      { "id": "2", "title": "Add win probability to the API", "status": "in_progress" },
-      { "id": "3", "title": "Show it on the fixtures page", "status": "pending" },
-      { "id": "4", "title": "Cover it with tests", "status": "pending" }
+      {
+        "id": "1",
+        "title": "Map the ratings module",
+        "status": "completed"
+      },
+      {
+        "id": "2",
+        "title": "Add win probability to the API",
+        "status": "in_progress"
+      },
+      {
+        "id": "3",
+        "title": "Show it on the fixtures page",
+        "status": "pending"
+      },
+      {
+        "id": "4",
+        "title": "Cover it with tests",
+        "status": "pending"
+      }
     ]
   },
-  { "t": 9, "session": "s-ada", "type": "tool", "tool": "Edit" },
+  {
+    "t": 9,
+    "session": "s-ada",
+    "type": "tool",
+    "tool": "Edit"
+  },
+  {
+    "t": 10,
+    "session": "s-ada",
+    "type": "tool",
+    "tool": "Bash"
+  },
+  {
+    "t": 11,
+    "session": "s-ada",
+    "type": "tool",
+    "tool": "Edit"
+  },
   {
     "t": 12,
     "session": "s-ada",
     "type": "todos",
     "todos": [
-      { "id": "1", "title": "Map the ratings module", "status": "completed" },
-      { "id": "2", "title": "Add win probability to the API", "status": "completed" },
-      { "id": "3", "title": "Show it on the fixtures page", "status": "in_progress" },
-      { "id": "4", "title": "Cover it with tests", "status": "pending" }
+      {
+        "id": "1",
+        "title": "Map the ratings module",
+        "status": "completed"
+      },
+      {
+        "id": "2",
+        "title": "Add win probability to the API",
+        "status": "completed"
+      },
+      {
+        "id": "3",
+        "title": "Show it on the fixtures page",
+        "status": "in_progress"
+      },
+      {
+        "id": "4",
+        "title": "Cover it with tests",
+        "status": "pending"
+      }
     ]
   },
-  { "t": 14, "session": "s-scout", "type": "subagent_stop" },
+  {
+    "t": 13,
+    "session": "s-tester",
+    "type": "tool",
+    "tool": "Bash"
+  },
+  {
+    "t": 14,
+    "session": "s-scout",
+    "type": "subagent_stop"
+  },
+  {
+    "t": 15,
+    "session": "s-ada",
+    "type": "stop"
+  },
+  {
+    "t": 15.5,
+    "session": "s-ada",
+    "type": "tool",
+    "tool": "Read"
+  },
   {
     "t": 16,
     "session": "s-ada",
     "type": "todos",
     "todos": [
-      { "id": "1", "title": "Map the ratings module", "status": "completed" },
-      { "id": "2", "title": "Add win probability to the API", "status": "completed" },
-      { "id": "3", "title": "Show it on the fixtures page", "status": "completed" },
-      { "id": "4", "title": "Cover it with tests", "status": "in_progress" }
+      {
+        "id": "1",
+        "title": "Map the ratings module",
+        "status": "completed"
+      },
+      {
+        "id": "2",
+        "title": "Add win probability to the API",
+        "status": "completed"
+      },
+      {
+        "id": "3",
+        "title": "Show it on the fixtures page",
+        "status": "completed"
+      },
+      {
+        "id": "4",
+        "title": "Cover it with tests",
+        "status": "in_progress"
+      }
     ]
   },
-  { "t": 17, "session": "s-ada", "type": "tool", "tool": "Write" },
-  { "t": 20, "session": "s-grace", "type": "needs_input" }
+  {
+    "t": 17,
+    "session": "s-ada",
+    "type": "tool",
+    "tool": "Write"
+  },
+  {
+    "t": 18,
+    "session": "s-grace",
+    "type": "tool",
+    "tool": "WebFetch"
+  },
+  {
+    "t": 20,
+    "session": "s-grace",
+    "type": "needs_input"
+  }
 ]

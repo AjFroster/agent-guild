@@ -39,10 +39,23 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 | Finished turn                                           | 10 XP, back to the Guildhall         |
 | AskUserQuestion                                         | "Needs you" beacon                   |
 
+## Using it
+
+- **Click a hero** to see that session: what it is doing now, its project branch and
+  model, party members, quests, which buildings it spends its time in, and its latest tool
+  calls.
+- **Click a building** to see who is there now, which tools send heroes there, and the
+  latest activity inside.
+- Everything on the map can also be opened from the side panel with the keyboard.
+  `Esc`, or clicking open grass, goes back to the guild.
+- A selection lives in the URL (`?select=hero:<id>` or `?select=building:forge`), so a
+  reload keeps it.
+
 ## Status
 
 - [x] Game rules, demo replay, CI with screenshots on every PR
 - [x] Live sessions from Claude Code transcripts (read-only, 127.0.0.1, token)
+- [x] Pixel-art village; clickable heroes and buildings with detail panels
 - [ ] Permission prompts as "needs you" (needs Claude Code hooks, opt-in)
 - [ ] Visual regression baselines
 

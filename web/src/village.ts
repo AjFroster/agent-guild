@@ -25,6 +25,8 @@ const WALK_PX_PER_S = 240;
 interface Building {
   label: string;
   file: string;
+  /** Width over height of the art, so layout and hit-testing need no loaded image. */
+  aspect: number;
   /** Bottom-centre of the building on the canvas. */
   x: number;
   y: number;
@@ -32,11 +34,11 @@ interface Building {
 }
 
 export const BUILDINGS: Record<Location, Building> = {
-  library: { label: 'Library', file: 'Library', x: 130, y: 200, height: 165 },
-  forge: { label: 'Forge', file: 'Forge', x: 440, y: 200, height: 175 },
-  arena: { label: 'Arena', file: 'Arena', x: 750, y: 200, height: 165 },
-  tower: { label: 'Tower', file: 'Tower', x: 150, y: 435, height: 170 },
-  guildhall: { label: 'Guildhall', file: 'Castle', x: 560, y: 435, height: 145 },
+  library: { label: 'Library', file: 'Library', aspect: 210 / 420, x: 130, y: 200, height: 165 },
+  forge: { label: 'Forge', file: 'Forge', aspect: 307 / 460, x: 440, y: 200, height: 175 },
+  arena: { label: 'Arena', file: 'Arena', aspect: 320 / 429, x: 750, y: 200, height: 165 },
+  tower: { label: 'Tower', file: 'Tower', aspect: 195 / 390, x: 150, y: 435, height: 170 },
+  guildhall: { label: 'Guildhall', file: 'Castle', aspect: 400 / 270, x: 560, y: 435, height: 145 },
 };
 
 /** Fixed, hand-placed trees: decoration that never moves between frames or runs. */
@@ -145,12 +147,76 @@ export function walkerPosition(
   };
 }
 
+/** Something on the map the user can click: a hero or a building. */
+export type Selection = { kind: 'hero'; id: string } | { kind: 'building'; id: Location };
+
+export const sameSelection = (a: Selection | null, b: Selection | null) =>
+  a?.kind === b?.kind && a?.id === b?.id;
+
+export interface Placed {
+  hero: Hero;
+  x: number;
+  y: number;
+  moving: boolean;
+  left: boolean;
+}
+
+/** Where every hero is drawn right now: at its slot, or part way along a walk. */
+export function placeHeroes(
+  state: GuildState,
+  walkers: ReadonlyMap<string, Walker>,
+  nowMs: number,
+): Placed[] {
+  const targets = heroPositions(state);
+  return roster(state).map((hero) => {
+    const target = targets.get(hero.id)!;
+    const walker = walkers.get(hero.id);
+    const pos = walker ? walkerPosition(walker, nowMs) : { ...target, moving: false, left: false };
+    return { hero, ...pos };
+  });
+}
+
+function buildingBox(b: Building) {
+  const w = b.aspect * b.height;
+  // Down to the bottom of the name tag, so clicking the label counts too.
+  return { left: b.x - w / 2, right: b.x + w / 2, top: b.y - b.height, bottom: b.y + 24 };
+}
+
+/**
+ * What is under a point on the canvas. Heroes win over buildings, and of two heroes the
+ * one drawn in front (lower on screen) wins, matching what the user sees on top.
+ */
+export function hitTest(
+  state: GuildState,
+  walkers: ReadonlyMap<string, Walker>,
+  nowMs: number,
+  px: number,
+  py: number,
+): Selection | null {
+  const placed = placeHeroes(state, walkers, nowMs).sort((a, b) => b.y - a.y);
+  for (const p of placed) {
+    if (Math.abs(px - p.x) <= 26 && py >= p.y - 62 && py <= p.y + 24) return { kind: 'hero', id: p.hero.id };
+  }
+  for (const [id, b] of Object.entries(BUILDINGS) as [Location, Building][]) {
+    const box = buildingBox(b);
+    if (px >= box.left && px <= box.right && py >= box.top && py <= box.bottom)
+      return { kind: 'building', id };
+  }
+  return null;
+}
+
+export interface VillageView {
+  selected: Selection | null;
+  hovered: Selection | null;
+}
+
 export function drawVillage(
   ctx: CanvasRenderingContext2D,
   state: GuildState,
   sprites: Sprites,
   nowMs: number,
   walkers: ReadonlyMap<string, Walker>,
+  view: VillageView = { selected: null, hovered: null },
 ): void {
   ctx.imageSmoothingEnabled = false;
 
@@ -171,7 +237,7 @@ export function drawVillage(
       y: b.y,
       draw: () => {
         const img = sprites.buildings[b.file]!;
-        const w = (img.width / img.height) * b.height;
+        const w = b.aspect * b.height;
         ctx.drawImage(img, b.x - w / 2, b.y - b.height, w, b.height);
         label(ctx, b.label, b.x, b.y + 4, 'rgba(20, 26, 18, 0.72)', '#f1efe6', 13);
       },
@@ -179,16 +245,14 @@ export function drawVillage(
   ];
   scenery.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
-  const targets = heroPositions(state);
-  const colors = heroColors(state);
-  const heroes = roster(state);
+  for (const [id, b] of Object.entries(BUILDINGS) as [Location, Building][]) {
+    const sel = { kind: 'building', id } as const;
+    if (sameSelection(view.selected, sel)) outline(ctx, buildingBox(b), '#ffcc33', 3);
+    else if (sameSelection(view.hovered, sel)) outline(ctx, buildingBox(b), 'rgba(241, 239, 230, 0.8)', 2);
+  }
 
-  const placed = heroes.map((hero) => {
-    const target = targets.get(hero.id)!;
-    const walker = walkers.get(hero.id);
-    const pos = walker ? walkerPosition(walker, nowMs) : { ...target, moving: false, left: false };
-    return { hero, ...pos };
-  });
+  const colors = heroColors(state);
+  const placed = placeHeroes(state, walkers, nowMs);
 
   // Party lines under the units.
   ctx.strokeStyle = 'rgba(241, 239, 230, 0.55)';
@@ -205,6 +269,9 @@ export function drawVillage(
   ctx.setLineDash([]);
 
   for (const p of placed.sort((a, b) => a.y - b.y)) {
+    const sel = { kind: 'hero', id: p.hero.id } as const;
+    if (sameSelection(view.selected, sel)) ring(ctx, p.x, p.y, '#ffcc33');
+    else if (sameSelection(view.hovered, sel)) ring(ctx, p.x, p.y, 'rgba(241, 239, 230, 0.85)');
     drawUnit(ctx, sprites, p.hero, colors.get(p.hero.id)!, p.x, p.y, nowMs, p.moving, p.left);
   }
 }
@@ -250,6 +317,28 @@ function drawUnit(
     hero.status === 'needs_you' ? '#ffcc33' : '#f1efe6',
     11,
   );
+}
+
+/** A ground ring under a hero's feet: selected or hovered. */
+function ring(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(x, y - 2, 26, 10, 0, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function outline(
+  ctx: CanvasRenderingContext2D,
+  box: { left: number; right: number; top: number; bottom: number },
+  color: string,
+  width: number,
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.roundRect(box.left - 6, box.top - 6, box.right - box.left + 12, box.bottom - box.top + 10, 10);
+  ctx.stroke();
 }
 
 /** A "!" speech bubble over a hero that is waiting on the user. */
