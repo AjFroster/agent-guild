@@ -1,0 +1,3 @@
+# The one Python dependency: drawing the guild's props (scripts/art/props.py).
+# Pinned, so CI draws them exactly as they were drawn here.
+pillow==12.3.0

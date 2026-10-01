@@ -6,7 +6,8 @@ Tiny Swords has no indoor furniture, so the Library's shelves, books, lectern an
 drawn here. Add new props the same way and run:
 
     pip install pillow
-    python3 scripts/art/props.py
+    python3 scripts/art/props.py            # draw them
+    python3 scripts/art/props.py --check    # CI: are the committed PNGs up to date?
 
 It writes web/public/assets/props/*.png. Animated props are horizontal strips of frames;
 web/src/scene.ts (PROPS) lists their frame sizes.
@@ -486,7 +487,25 @@ PROPS={
     'hat_portal': wizard_hat((110,60,180),(120,180,250),True),
     'staff': staff(),
 }
-if __name__=='__main__':
-    os.makedirs(OUT_DIR,exist_ok=True)
+def check():
+    """CI: the committed PNGs must be exactly what this script draws, pixel for pixel."""
+    import sys
+    stale=[]
     for name,im in PROPS.items():
-        im.save(os.path.join(OUT_DIR,name+'.png'),optimize=True); print(name,im.size)
+        path=os.path.join(OUT_DIR,name+'.png')
+        try:
+            committed=Image.open(path).convert('RGBA')
+        except FileNotFoundError:
+            stale.append(name+' (missing)'); continue
+        if committed.size!=im.size or committed.tobytes()!=im.convert('RGBA').tobytes(): stale.append(name)
+    if stale:
+        print('Props out of date (run python3 scripts/art/props.py and commit):', ', '.join(stale)); sys.exit(1)
+    print(f'All {len(PROPS)} props match the script.')
+
+if __name__=='__main__':
+    import sys
+    if '--check' in sys.argv: check()
+    else:
+        os.makedirs(OUT_DIR,exist_ok=True)
+        for name,im in PROPS.items():
+            im.save(os.path.join(OUT_DIR,name+'.png'),optimize=True); print(name,im.size)

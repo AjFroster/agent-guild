@@ -53,6 +53,20 @@ jobs:
         run: npm test
         continue-on-error: true
 
+      # The props are drawn by a script; the PNGs committed must be what it draws now.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: scripts/art/requirements.txt
+
+      - name: Art
+        id: art
+        run: |
+          pip install -r scripts/art/requirements.txt
+          python3 scripts/art/props.py --check
+        continue-on-error: true
+
       # The runner image ships shellcheck; the autostart script is the only shell we own.
       - name: Shell scripts
         id: shell
@@ -67,6 +81,7 @@ jobs:
           FORMAT: ${{ steps.format.outcome }}
           UNIT: ${{ steps.unit.outcome }}
           SHELL_LINT: ${{ steps.shell.outcome }}
+          ART: ${{ steps.art.outcome }}
         run: |
           mark() { [ "$1" = success ] && echo "✅ pass" || echo "❌ $1"; }
           {
@@ -79,8 +94,9 @@ jobs:
             echo "| Format | $(mark "$FORMAT") |"
             echo "| Unit tests | $(mark "$UNIT") |"
             echo "| Shell scripts | $(mark "$SHELL_LINT") |"
+            echo "| Art (props up to date) | $(mark "$ART") |"
           } >> "$GITHUB_STEP_SUMMARY"
-          for s in "$TYPES" "$LINT" "$FORMAT" "$UNIT" "$SHELL_LINT"; do
+          for s in "$TYPES" "$LINT" "$FORMAT" "$UNIT" "$SHELL_LINT" "$ART"; do
             [ "$s" = success ] || { echo "::error::a check failed; see the summary table"; exit 1; }
           done
 
