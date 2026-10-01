@@ -26,6 +26,7 @@ test('the live guild shows sessions read from Claude Code transcripts', async ({
   // The prompt in the transcript must never reach the page.
   await expect(page.getByText('fixture prompt')).toHaveCount(0);
 
+  await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
   await page.screenshot({ path: 'e2e-screenshots/6-live-session.png', animations: 'disabled' });
   expect(errors).toEqual([]);
 });

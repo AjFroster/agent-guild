@@ -45,7 +45,7 @@ a {
 
 .guild {
   display: grid;
-  grid-template-columns: 760px 1fr;
+  grid-template-columns: 880px 1fr;
   grid-template-rows: auto 1fr;
   gap: 16px 20px;
   padding: 20px;
