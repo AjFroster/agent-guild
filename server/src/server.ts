@@ -26,7 +26,10 @@ export interface ServerOptions {
   maxEvents?: number;
 }
 
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1']);
+// `localhost` makes Fastify listen on both 127.0.0.1 and ::1. The ::1 socket is the one
+// WSL forwards to Windows in its default NAT mode, so a Windows browser can reach the
+// server at http://localhost:<port> while it stays unreachable from the network.
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', 'localhost']);
 const LOOPBACK_NAMES = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 export function isLoopback(host: string): boolean {
@@ -56,7 +59,9 @@ export interface GuildServer {
 
 export function createServer(opts: ServerOptions): GuildServer {
   if (!isLoopback(opts.host)) {
-    throw new Error(`Refusing to listen on ${opts.host}: agent-guild only binds 127.0.0.1 or ::1.`);
+    throw new Error(
+      `Refusing to listen on ${opts.host}: agent-guild only binds localhost, 127.0.0.1 or ::1.`,
+    );
   }
   if (opts.token.length < 16) throw new Error('The token must be at least 16 characters.');
 

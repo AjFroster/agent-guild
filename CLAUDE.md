@@ -43,5 +43,5 @@ If the change needs a new state on screen, add or extend a fixture and a `captur
     npm run typecheck
     npm run lint
     npm run format
-    npm start           # build web, serve it live on 127.0.0.1:4747
+    npm start           # build web, serve it live on localhost:4747
     npm run e2e         # Playwright: demo mode plus the real server on fake transcripts

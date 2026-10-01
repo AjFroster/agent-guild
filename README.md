@@ -16,8 +16,8 @@ npm ci
 npm start
 ```
 
-Open the link it prints (`http://127.0.0.1:4747/?token=…`). The token is new every run,
-and the server only listens on 127.0.0.1.
+Open the link it prints (`http://localhost:4747/?token=…`). The token is new every run,
+and the server only listens on localhost (127.0.0.1 and ::1).
 
 | Variable                    | Default              |                                                                |
 | --------------------------- | -------------------- | -------------------------------------------------------------- |

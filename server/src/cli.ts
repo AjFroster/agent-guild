@@ -23,7 +23,7 @@ const maxAgeHours = Number(process.env.AGENT_GUILD_MAX_AGE_HOURS ?? 3);
 const idleMinutes = Number(process.env.AGENT_GUILD_IDLE_MINUTES ?? 20);
 const webDir = resolve(import.meta.dirname, '../../web/dist');
 
-const { app, publish } = createServer({ host: '127.0.0.1', token, webDir });
+const { app, publish } = createServer({ host: 'localhost', token, webDir });
 const watcher = new TranscriptWatcher({
   root,
   maxAgeMs: maxAgeHours * 3_600_000,
@@ -31,11 +31,13 @@ const watcher = new TranscriptWatcher({
   onEvents: publish,
 });
 
-await app.listen({ host: '127.0.0.1', port });
+await app.listen({ host: 'localhost', port });
 watcher.start();
 
 console.log(`Agent Guild is watching ${root}`);
-console.log(`Open: http://127.0.0.1:${port}/?token=${token}`);
+// `localhost`, not 127.0.0.1: from Windows, WSL only forwards the ::1 socket, which a
+// browser reaches through the name.
+console.log(`Open: http://localhost:${port}/?token=${token}`);
 
 const shutdown = () => {
   watcher.stop();

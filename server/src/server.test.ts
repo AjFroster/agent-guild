@@ -24,6 +24,10 @@ describe('binding', () => {
     expect(() => createServer({ host: '192.168.1.20', token: TOKEN })).toThrow(/Refusing to listen/);
   });
 
+  it('accepts localhost, which listens on both loopback addresses', () => {
+    expect(() => createServer({ host: 'localhost', token: TOKEN })).not.toThrow();
+  });
+
   it('refuses a short token', () => {
     expect(() => createServer({ host: '127.0.0.1', token: 'short' })).toThrow(/at least 16/);
   });
