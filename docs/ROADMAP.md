@@ -29,7 +29,7 @@ MCP tool.
 | Desktop notifications, settings panel                       | AQ                    | done                                               |
 | First-run hint                                              | AQ                    | done                                               |
 | Guild-wide activity feed with filters                       | AQ                    | next                                               |
-| Token counts, session report card                           | AQ                    | next                                               |
+| Token counts, session report card                           | AQ                    | done                                               |
 | Multiple `~/.claude*` directories                           | AQ                    | next                                               |
 | Consent-gated hooks installer; exact permission-wait signal | PA                    | planned                                            |
 | Agent teams (lead + teammates)                              | PA                    | planned                                            |

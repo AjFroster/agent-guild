@@ -40,6 +40,18 @@ export const GuildEvent = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('needs_input') }),
   /** The agent finished its turn. */
   z.object({ ...base, type: z.literal('stop') }),
+  /**
+   * Tokens one model reply used, read from the transcript's usage numbers. Counts only:
+   * nothing about what the tokens said.
+   */
+  z.object({
+    ...base,
+    type: z.literal('usage'),
+    input: z.number().int().nonnegative(),
+    output: z.number().int().nonnegative(),
+    cacheRead: z.number().int().nonnegative(),
+    cacheWrite: z.number().int().nonnegative(),
+  }),
   /** Which model the session runs on and which git branch it is on, when they change. */
   z.object({
     ...base,

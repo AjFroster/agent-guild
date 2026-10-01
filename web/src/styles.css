@@ -316,6 +316,31 @@ button {
   overflow-wrap: anywhere;
 }
 
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.tile {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+.tile dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.tile dd {
+  margin: 2px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .panel h3 {
   font-size: 14px;
   color: var(--muted);

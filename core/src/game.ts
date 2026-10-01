@@ -24,6 +24,15 @@ export interface Hero {
   recent: Activity[];
   model: string | null;
   branch: string | null;
+  /** Tokens the hero's own replies used; a party member's count separately. */
+  tokens: Tokens;
+}
+
+export interface Tokens {
+  input: number;
+  output: number;
+  cacheRead: number;
+  cacheWrite: number;
 }
 
 export interface Activity {
@@ -44,6 +53,22 @@ export const XP_PER_LEVEL = 150;
 export const RECENT_LIMIT = 25;
 
 export const LOCATIONS: readonly Location[] = ['library', 'forge', 'arena', 'tower', 'guildhall'];
+
+export const noTokens = (): Tokens => ({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
+
+export function addTokens(a: Tokens, b: Tokens): Tokens {
+  return {
+    input: a.input + b.input,
+    output: a.output + b.output,
+    cacheRead: a.cacheRead + b.cacheRead,
+    cacheWrite: a.cacheWrite + b.cacheWrite,
+  };
+}
+
+/** Every token the model read or wrote, cached or not. */
+export function totalTokens(t: Tokens): number {
+  return t.input + t.output + t.cacheRead + t.cacheWrite;
+}
 
 const noVisits = (): Record<Location, number> => ({ library: 0, forge: 0, arena: 0, tower: 0, guildhall: 0 });
 
@@ -96,6 +121,7 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     recent: [],
     model: null,
     branch: null,
+    tokens: noTokens(),
   };
 }
 
@@ -142,6 +168,9 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
       };
       break;
     }
+    case 'usage':
+      hero = { ...hero, tokens: addTokens(hero.tokens, event) };
+      break;
     case 'meta':
       hero = { ...hero, model: event.model ?? hero.model, branch: event.branch ?? hero.branch };
       break;
@@ -188,6 +217,30 @@ export function roster(state: GuildState): Hero[] {
   const membersOf = (id: string) => present.filter((h) => h.parentId === id);
   const withParty = (hero: Hero): Hero[] => [hero, ...membersOf(hero.id).flatMap(withParty)];
   return present.filter((h) => h.parentId === null || !presentIds.has(h.parentId)).flatMap(withParty);
+}
+
+/**
+ * Tokens a hero and its whole party used, members who have left included: their work
+ * was done for this hero.
+ */
+export function partyTokens(state: GuildState, hero: Hero): Tokens {
+  let sum = hero.tokens;
+  const seen = new Set([hero.id]);
+  const visit = (id: string) => {
+    for (const member of Object.values(state.heroes)) {
+      if (member.parentId !== id || seen.has(member.id)) continue;
+      seen.add(member.id);
+      sum = addTokens(sum, member.tokens);
+      visit(member.id);
+    }
+  };
+  visit(hero.id);
+  return sum;
+}
+
+/** Tokens across every hero the guild has seen, present or gone. */
+export function guildTokens(state: GuildState): Tokens {
+  return Object.values(state.heroes).reduce((sum, h) => addTokens(sum, h.tokens), noTokens());
 }
 
 /** How deep a hero sits in its party tree: 0 for a leader. */

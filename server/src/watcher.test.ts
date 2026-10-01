@@ -62,6 +62,22 @@ describe('TranscriptWatcher', () => {
     expect(JSON.stringify(events)).not.toMatch(/secret|do not leak/);
   });
 
+  it('counts the tokens of a reply written over several lines once, across scans', async () => {
+    const project = join(root, 'p');
+    await mkdir(project);
+    const file = join(project, 's.jsonl');
+    const part = (s: number, name: string) => ({
+      ...tool(s, name),
+      message: { ...tool(s, name).message, id: 'msg_1', usage: { input_tokens: 7, output_tokens: 90 } },
+    });
+    await writeFile(file, line(part(1, 'Read')) + line(part(1, 'Grep')));
+    const w = watcher();
+    await w.scan();
+    await appendFile(file, line(part(1, 'Edit')));
+    await w.scan();
+    expect(replay(events).heroes.s!.tokens).toEqual({ input: 7, output: 90, cacheRead: 0, cacheWrite: 0 });
+  });
+
   it('holds a half-written line until its newline arrives', async () => {
     const project = join(root, 'p');
     await mkdir(project);

@@ -37,6 +37,13 @@ test('the live guild shows sessions read from Claude Code transcripts', async ({
 
   await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
   await page.screenshot({ path: 'e2e-screenshots/6-live-session.png', animations: 'disabled' });
+
+  // Token counts come through from the transcript's usage, a reply split over two lines
+  // counted once: 1,200 + 300 + 8,000 + 500 for the first reply, 9,900 for the second.
+  await lead.getByRole('button', { name: 'Open guild-demo' }).click();
+  const card = page.getByTestId('report-card');
+  await expect(card).toContainText('Tokens20k');
+  await expect(card.getByTestId('token-split')).toContainText('1.4k in · 1k out');
   expect(errors).toEqual([]);
 });
 

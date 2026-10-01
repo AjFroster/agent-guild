@@ -110,3 +110,51 @@ describe('names', () => {
     expect(subagentName(null, 'Helper')).toBe('Helper');
   });
 });
+
+describe('token usage', () => {
+  const reply = (id: string, usage: Record<string, number>, content: unknown[] = []) => ({
+    type: 'assistant',
+    timestamp: at,
+    message: { id, role: 'assistant', content, stop_reason: null, usage },
+  });
+  const usageOf = (events: ReturnType<typeof eventsFromLine>) => events.filter((e) => e.type === 'usage');
+
+  it('reads the four counts and nothing else', () => {
+    const events = eventsFromLine(
+      reply('m1', {
+        input_tokens: 12,
+        output_tokens: 340,
+        cache_read_input_tokens: 9000,
+        cache_creation_input_tokens: 500,
+      }),
+      { session: 's1', usage: new Map() },
+    );
+    expect(usageOf(events)).toEqual([
+      { t, session: 's1', type: 'usage', input: 12, output: 340, cacheRead: 9000, cacheWrite: 500 },
+    ]);
+  });
+
+  it('counts a reply split over several lines once, and only what grew', () => {
+    const usage = new Map();
+    const u = { input_tokens: 10, output_tokens: 50 };
+    const first = eventsFromLine(reply('m1', u, [{ type: 'text', text: 'a' }]), { session: 's1', usage });
+    const again = eventsFromLine(reply('m1', u, [{ type: 'tool_use', name: 'Read' }]), {
+      session: 's1',
+      usage,
+    });
+    const grew = eventsFromLine(reply('m1', { ...u, output_tokens: 80 }), { session: 's1', usage });
+    const next = eventsFromLine(reply('m2', u), { session: 's1', usage });
+    expect(usageOf(first)).toHaveLength(1);
+    expect(usageOf(again)).toEqual([]);
+    expect(usageOf(grew)).toMatchObject([{ input: 0, output: 30 }]);
+    expect(usageOf(next)).toMatchObject([{ input: 10, output: 50 }]);
+  });
+
+  it('ignores usage numbers that are missing, negative or not numbers', () => {
+    const events = eventsFromLine(
+      reply('m1', { input_tokens: -5, output_tokens: Number.NaN, cache_read_input_tokens: 'x' as never }),
+      { session: 's1', usage: new Map() },
+    );
+    expect(usageOf(events)).toEqual([]);
+  });
+});

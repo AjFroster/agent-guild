@@ -1,7 +1,14 @@
 import { open, readFile, readdir, stat } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
-import { type GuildEvent, eventsFromLine, lineTime, sessionName, subagentName } from '@agent-guild/core';
+import {
+  type GuildEvent,
+  type Tokens,
+  eventsFromLine,
+  lineTime,
+  sessionName,
+  subagentName,
+} from '@agent-guild/core';
 
 /**
  * Follows Claude Code transcripts under a projects directory and turns new lines into
@@ -42,6 +49,8 @@ interface Tracked {
   /** The folder the session runs in. Kept on the server for chats; never broadcast. */
   cwd: string | null;
   file: string;
+  /** Usage counted per reply, so a reply split over several lines counts once. */
+  usage: Map<string, Tokens>;
 }
 
 const MAX_READ = 8 * 1024 * 1024;
@@ -166,7 +175,7 @@ export class TranscriptWatcher {
       tracked.ended = false;
     }
     for (const line of parsed) {
-      for (const e of eventsFromLine(line, { session: tracked.session })) {
+      for (const e of eventsFromLine(line, { session: tracked.session, usage: tracked.usage })) {
         if (e.type === 'meta') {
           // Every assistant line carries these; forward only a change.
           const key = `${e.model ?? ''}\n${e.branch ?? ''}`;
@@ -198,6 +207,7 @@ export class TranscriptWatcher {
       lastMeta: '',
       cwd: null,
       file,
+      usage: new Map(),
     };
     this.tracked.set(file, tracked);
     return tracked;

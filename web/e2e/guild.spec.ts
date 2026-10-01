@@ -85,3 +85,17 @@ test('a non-numeric time is rejected', async ({ page }) => {
   await page.goto('/?demo=party&t=soon');
   await expect(page.getByRole('alert')).toContainText('must be a number');
 });
+
+test('a hero shows a report card with its tokens and its party total', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=party&t=20&select=hero:s-ada');
+  const card = page.getByTestId('report-card');
+  await expect(card).toContainText('Time on task');
+  await expect(card).toContainText('Quests done3/4');
+  await expect(card.getByTestId('token-split')).toContainText('with party');
+  await expect(page.getByTestId('panel-hero')).toBeVisible();
+  await capture(page, '12-report-card');
+  await page.goto('/?demo=party&t=20');
+  await expect(page.getByTestId('guild-tokens')).toContainText('tokens');
+  expect(errors).toEqual([]);
+});

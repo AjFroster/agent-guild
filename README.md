@@ -6,7 +6,7 @@ on you.
 
 Local-first. Watching is read-only: the guild follows the transcripts Claude Code
 already writes to `~/.claude/projects/` and never changes your Claude settings, and the
-map only receives tool names, todo titles and turn ends.
+map only receives tool names, todo titles, turn ends and token counts.
 
 Chatting is not read-only. **New session** and **Open chat** run your own `claude` CLI
 in headless mode (`claude -p`, streaming JSON), with your login and settings, in a folder
@@ -84,7 +84,9 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 
 - **Click a hero** to see that session: what it is doing now, its project branch and
   model, party members, quests, which buildings it spends its time in, and its latest tool
-  calls.
+  calls. Its **report card** sums it up: time on task, turns, tool calls, quests done,
+  and tokens used (in, out, cache read and write, and with its party for a leader). The
+  guild panel shows the total across every session.
 - **Click a building** to see who is there now, which tools send heroes there, and the
   latest activity inside.
 - Everything on the map can also be opened from the side panel with the keyboard.

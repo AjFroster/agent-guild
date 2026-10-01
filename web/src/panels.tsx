@@ -6,11 +6,15 @@ import {
   type Location,
   XP_PER_LEVEL,
   depthOf,
+  guildTokens,
+  partyTokens,
   roster,
   toolsFor,
+  totalTokens,
 } from '@agent-guild/core';
 import type { ReactNode } from 'react';
 
+import { compact, duration } from './format.ts';
 import { BUILDINGS, type Selection } from './village.ts';
 
 /** Side panels: the guild overview, one hero, or one building. */
@@ -138,6 +142,7 @@ export function GuildPanel({
           ))}
         </ol>
       )}
+      <GuildTotal state={state} />
       <h2 className="section">Buildings</h2>
       <ul className="buildings">
         {LOCATIONS.map((loc) => {
@@ -160,6 +165,16 @@ export function GuildPanel({
       <p className="muted small hint">Click a hero or a building on the map for details.</p>
       {children}
     </>
+  );
+}
+
+function GuildTotal({ state }: { state: GuildState }) {
+  const total = totalTokens(guildTokens(state));
+  if (total === 0) return null;
+  return (
+    <p className="muted small" data-testid="guild-tokens">
+      The guild has used {compact(total)} tokens.
+    </p>
   );
 }
 
@@ -232,11 +247,9 @@ export function HeroPanel({
         <dd>{ago(now - hero.startedAt)}</dd>
         <dt>Last active</dt>
         <dd>{ago(now - hero.lastActiveAt)}</dd>
-        <dt>Turns</dt>
-        <dd>{hero.turns}</dd>
-        <dt>Tool calls</dt>
-        <dd>{calls}</dd>
       </dl>
+
+      <ReportCard state={state} hero={hero} calls={calls} />
 
       {party.length > 0 && (
         <>
@@ -280,6 +293,42 @@ export function HeroPanel({
         onSelect={onSelect}
         showHero={false}
       />
+    </section>
+  );
+}
+
+/** How the session went, in numbers: time, turns, tools, quests, tokens. */
+function ReportCard({ state, hero, calls }: { state: GuildState; hero: Hero; calls: number }) {
+  const own = hero.tokens;
+  const tokens = totalTokens(own);
+  const withParty = totalTokens(partyTokens(state, hero));
+  const done = hero.quests.filter((q) => q.status === 'completed').length;
+  const tiles: [string, string][] = [
+    ['Time on task', duration(hero.lastActiveAt - hero.startedAt)],
+    ['Turns', String(hero.turns)],
+    ['Tool calls', String(calls)],
+    ['Quests done', hero.quests.length ? `${done}/${hero.quests.length}` : '–'],
+    ['Tokens', tokens ? compact(tokens) : '–'],
+    ['Per turn', tokens && hero.turns ? compact(tokens / hero.turns) : '–'],
+  ];
+  return (
+    <section className="report-card" data-testid="report-card" aria-label="Report card">
+      <h3>Report card</h3>
+      <dl className="tiles">
+        {tiles.map(([label, value]) => (
+          <div key={label} className="tile">
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {tokens > 0 && (
+        <p className="muted small" data-testid="token-split">
+          {compact(own.input)} in · {compact(own.output)} out · {compact(own.cacheRead)} cache read ·{' '}
+          {compact(own.cacheWrite)} cache write
+          {withParty > tokens && <> · {compact(withParty)} with party</>}
+        </p>
+      )}
     </section>
   );
 }
