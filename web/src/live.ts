@@ -10,6 +10,8 @@ export interface Announcements {
   control: { enabled: boolean; allowBypass?: boolean } | null;
   /** The King's session id, once one is crowned. */
   king: { id: string | null } | null;
+  /** Reviewed skills waiting on the user, and a counter that ticks when the Archive changes. */
+  skills: { waiting: number; version: number };
   chats: ChatInfo[];
   crierVersion: number;
 }
@@ -28,6 +30,7 @@ export function useLiveEvents(token: string): {
   const [announcements, setAnnouncements] = useState<Announcements>({
     control: null,
     king: null,
+    skills: { waiting: 0, version: 0 },
     chats: [],
     crierVersion: 0,
   });
@@ -49,6 +52,12 @@ export function useLiveEvents(token: string): {
     );
     source.addEventListener('king', (e) =>
       setAnnouncements((a) => ({ ...a, king: json(e) as Announcements['king'] })),
+    );
+    source.addEventListener('skills', (e) =>
+      setAnnouncements((a) => ({
+        ...a,
+        skills: { waiting: (json(e) as { waiting: number }).waiting, version: a.skills.version + 1 },
+      })),
     );
     source.addEventListener('chats', (e) =>
       setAnnouncements((a) => ({ ...a, chats: json(e) as ChatInfo[] })),

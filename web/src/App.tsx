@@ -1,5 +1,5 @@
 import { type GuildEvent, type GuildState, replay, roster } from '@agent-guild/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
 import { type Api, type ChatInfo, api } from './api.ts';
@@ -7,11 +7,13 @@ import { ChatDrawer, CrierCard, CrownDialog, NewChatDialog, ReportDrawer } from 
 import { type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
-import { resolveSelection, useDrawer, useSelection } from './selection.ts';
+import { resolveSelection, useDrawer, usePanelTab, useSelection } from './selection.ts';
+import { SkillsPanel } from './skills.tsx';
 import { browserStore, takeToken } from './token.ts';
 import { useHint, useSettings } from './settings.ts';
 import { useNotices } from './useNotices.ts';
 import { VillageCanvas } from './VillageCanvas.tsx';
+import type { Selection } from './village.ts';
 
 export function App() {
   const demo = useMemo(() => readDemoRequest(window.location.search), []);
@@ -74,6 +76,8 @@ interface Control {
   allowBypass: boolean;
   /** The King's session, once crowned. */
   kingId: string | null;
+  /** Reviewed skills waiting on the user, and a counter that ticks when the Archive changes. */
+  skills: { waiting: number; version: number };
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -130,6 +134,7 @@ function Live({ token }: { token: string }) {
               crierVersion: announcements.crierVersion,
               allowBypass: announcements.control.allowBypass === true,
               kingId: announcements.king?.id ?? null,
+              skills: announcements.skills,
             }
           : undefined
       }
@@ -154,7 +159,16 @@ function Guild({
 }) {
   const heroes = roster(state);
   const waiting = heroes.filter((h) => h.status === 'needs_you');
-  const [rawSelection, select] = useSelection();
+  const [rawSelection, selectRaw] = useSelection();
+  const [tab, openTab] = usePanelTab();
+  // Picking something on the map shows it, so it brings the Guild tab back.
+  const select = useCallback(
+    (s: Selection | null) => {
+      if (s) openTab('guild');
+      selectRaw(s);
+    },
+    [openTab, selectRaw],
+  );
   const selection = resolveSelection(state, rawSelection);
   const hero = selection?.kind === 'hero' ? state.heroes[selection.id] : undefined;
   const [settings, updateSettings] = useSettings();
@@ -240,7 +254,38 @@ function Guild({
       </div>
       <Toasts toasts={toasts} onOpen={select} onDismiss={dismiss} />
       <aside className="panel" aria-label="Guild details">
-        {hero ? (
+        {control && (
+          <div className="panel-tabs" role="tablist" aria-label="Side panel">
+            <button
+              type="button"
+              role="tab"
+              className="panel-tab"
+              aria-selected={tab === 'guild'}
+              onClick={() => openTab('guild')}
+              data-testid="tab-guild"
+            >
+              Guild
+            </button>
+            <button
+              type="button"
+              role="tab"
+              className="panel-tab"
+              aria-selected={tab === 'skills'}
+              onClick={() => openTab('skills')}
+              data-testid="tab-skills"
+            >
+              Skills
+              {control.skills.waiting > 0 && (
+                <span className="tab-badge" aria-label={`${control.skills.waiting} to review`}>
+                  {control.skills.waiting}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+        {control && tab === 'skills' ? (
+          <SkillsPanel api={control.api} version={control.skills.version} now={now} />
+        ) : hero ? (
           <HeroPanel
             state={state}
             hero={hero}
@@ -249,7 +294,13 @@ function Guild({
             onOpenChat={control && chatId ? () => openDrawer({ kind: 'chat', id: chatId }) : undefined}
           />
         ) : selection?.kind === 'building' ? (
-          <BuildingPanel state={state} location={selection.id} now={now} onSelect={select} />
+          <BuildingPanel
+            state={state}
+            location={selection.id}
+            now={now}
+            onSelect={select}
+            onOpenArchive={control && selection.id === 'library' ? () => openTab('skills') : undefined}
+          />
         ) : (
           <GuildPanel state={state} onSelect={select}>
             {control && (

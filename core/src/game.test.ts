@@ -384,5 +384,11 @@ describe('orders and the Throne Room', () => {
     expect(inAudience(hero, 106)).toBe(false);
     expect(inAudience(hero, 99)).toBe(false); // a replay from before the order
     expect(inAudience(asleep.heroes.a!, 100)).toBe(false); // never ordered
+    const librarian = replay([
+      start('l'),
+      { t: 0, session: 'l', type: 'librarian' },
+      { t: 100, session: 'l', type: 'ordered' },
+    ]).heroes.l!;
+    expect(inAudience(librarian, 101)).toBe(false); // sent by the schedule, not the King
   });
 });

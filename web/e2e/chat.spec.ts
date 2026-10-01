@@ -1,9 +1,9 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { type Page, expect, test } from '@playwright/test';
 
-import { LIVE_DIR, LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
+import { LIVE_DIR, LIVE_HOME, LIVE_PORT, LIVE_SKILLS, LIVE_TOKEN } from '../playwright.config.ts';
 
 /**
  * Chatting with sessions and the Town Crier, against the real server with
@@ -230,4 +230,48 @@ test('a Knight shows what it is working on, and "Talk" on the map opens its chat
   const chat = page.getByTestId('chat');
   await expect(chat.getByRole('heading', { name: 'Bedivere' })).toBeVisible();
   await page.screenshot({ path: 'e2e-screenshots/18-talk-opens-chat.png', animations: 'disabled' });
+});
+
+test('the librarians find and review a skill, and the user installs it from the Skills tab', async ({
+  page,
+}) => {
+  await openGuild(page);
+  await page.getByTestId('tab-skills').click();
+  const panel = page.getByTestId('skills-panel');
+  await expect(panel.getByTestId('nothing-to-review')).toBeVisible();
+  await expect(panel.getByTestId('librarians')).toContainText('Paused');
+
+  // Run now: the Scout (fake CLI over the real MCP server) adds a candidate pinned to a
+  // commit, then the Reviewer records its verdict.
+  await panel.getByTestId('librarians-run').click();
+  const card = panel.getByTestId('skill-csv-wrangler');
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toContainText('Fills a gap');
+  await expect(card).toContainText('Nothing installed handles plain CSV files.');
+  await expect(page.getByTestId('tab-skills')).toContainText('1');
+  await expect(panel).toContainText('Scout Librarian');
+  await page.screenshot({ path: 'e2e-screenshots/19-skills-to-review.png', animations: 'disabled' });
+
+  // The user's decision: installed at the reviewed commit, into the skills folder.
+  await card.getByTestId('install-csv-wrangler').click();
+  await expect(panel.getByTestId('nothing-to-review')).toBeVisible({ timeout: 20_000 });
+  await expect(panel.getByTestId('archive')).toContainText('Installed');
+  expect(await readFile(join(LIVE_SKILLS, 'csv-wrangler', 'SKILL.md'), 'utf8')).toContain(
+    'name: csv-wrangler',
+  );
+  await expect(page.getByTestId('tab-skills')).not.toContainText('1');
+  await page.screenshot({ path: 'e2e-screenshots/20-skill-installed.png', animations: 'disabled' });
+
+  // The librarians are on the map, as librarians.
+  await page.getByTestId('tab-guild').click();
+  await page.locator('.roster').getByRole('button', { name: 'Open Reviewer' }).click();
+  await expect(page.getByTestId('hero-rank')).toContainText('Librarian');
+  await page.getByTestId('back').click();
+
+  // The King learns of it from the Archive.
+  await page.getByTestId('talk-to-king').click();
+  const chat = page.getByTestId('chat');
+  await chat.getByTestId('composer').fill('consult the archive');
+  await chat.getByTestId('composer').press('Enter');
+  await expect(chat.getByTestId('msg-assistant').last()).toContainText('csv-wrangler', { timeout: 20_000 });
 });

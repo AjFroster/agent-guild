@@ -15,6 +15,10 @@ export const LIVE_TOKEN = 'e2e-token-0123456789abcdef';
 export const LIVE_DIR = join(tmpdir(), 'agent-guild-e2e-projects');
 /** Stands in for the user's home: chats may start in folders under it. */
 export const LIVE_HOME = join(tmpdir(), 'agent-guild-e2e-home');
+/** Stand-ins for GitHub repositories, for the librarians' test (e2e/make-skill-repo.mjs). */
+export const LIVE_REMOTES = join(tmpdir(), 'agent-guild-e2e-remotes');
+/** The skills folder the live server reads and installs into, never the real ~/.claude. */
+export const LIVE_SKILLS = join(LIVE_HOME, '.claude', 'skills');
 
 export default defineConfig({
   testDir: './e2e',
@@ -46,7 +50,7 @@ export default defineConfig({
     {
       // The real server, following a folder of fake transcripts instead of ~/.claude.
       // It builds too, because it serves web/dist itself and must not race the job above.
-      command: `rm -rf ${LIVE_DIR} ${LIVE_HOME} && cp -r e2e/transcripts ${LIVE_DIR} && mkdir -p ${LIVE_HOME}/proj ${LIVE_HOME}/.agent-guild && echo '{"enabled":false}' > ${LIVE_HOME}/.agent-guild/town-crier.json && npx vite build --emptyOutDir false && node ../server/src/cli.ts`,
+      command: `rm -rf ${LIVE_DIR} ${LIVE_HOME} && cp -r e2e/transcripts ${LIVE_DIR} && mkdir -p ${LIVE_HOME}/proj ${LIVE_HOME}/.agent-guild && echo '{"enabled":false}' > ${LIVE_HOME}/.agent-guild/town-crier.json && node e2e/make-skill-repo.mjs ${LIVE_REMOTES} && npx vite build --emptyOutDir false && node ../server/src/cli.ts`,
       url: `http://127.0.0.1:${LIVE_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 120_000,
@@ -60,6 +64,11 @@ export default defineConfig({
         AGENT_GUILD_DATA_DIR: join(LIVE_HOME, '.agent-guild'),
         AGENT_GUILD_MAX_AGE_HOURS: '0',
         AGENT_GUILD_IDLE_MINUTES: '0',
+        CLAUDE_SKILLS_DIR: LIVE_SKILLS,
+        CLAUDE_PLUGINS_DIR: join(LIVE_HOME, '.claude', 'plugins'),
+        AGENT_GUILD_SKILL_GIT_BASE: `file://${LIVE_REMOTES}/`,
+        // Where the fake Scout looks up the commit it "found".
+        FAKE_SKILL_REPO: join(LIVE_REMOTES, 'acme-labs', 'agent-skills.git'),
       },
       stdout: 'pipe',
       stderr: 'pipe',

@@ -9,7 +9,7 @@ export type HeroStatus = 'working' | 'idle' | 'needs_you' | 'gone';
  * Footsoldiers when they change things (edit files, run commands) and Workers while
  * they only read and search.
  */
-export type Rank = 'king' | 'knight' | 'footsoldier' | 'worker';
+export type Rank = 'king' | 'knight' | 'footsoldier' | 'worker' | 'librarian';
 
 export interface Hero {
   id: string;
@@ -40,6 +40,8 @@ export interface Hero {
   crowned: boolean;
   /** The King has given this Knight orders. */
   commanded: boolean;
+  /** One of the librarians, who find and review skills for the Archive. */
+  librarian: boolean;
   /** When it was last given an order (epoch seconds), or null. */
   orderedAt: number | null;
 }
@@ -150,6 +152,7 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     git: null,
     crowned: false,
     commanded: false,
+    librarian: false,
     orderedAt: null,
   };
 }
@@ -210,6 +213,9 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
       break;
     case 'commanded':
       hero = { ...hero, commanded: true, orderedAt: event.t, status: 'working' };
+      break;
+    case 'librarian':
+      hero = { ...hero, librarian: true };
       break;
     case 'ordered':
       // Given an order: up, even out of bed, and off to hear it.
@@ -306,6 +312,8 @@ export function inAudience(hero: Hero, now: number): boolean {
   return (
     hero.parentId === null &&
     !hero.crowned &&
+    // A librarian's work comes from the guild's schedule, not from the throne.
+    !hero.librarian &&
     hero.orderedAt !== null &&
     now >= hero.orderedAt &&
     now - hero.orderedAt < AUDIENCE_SECONDS
@@ -314,6 +322,7 @@ export function inAudience(hero: Hero, now: number): boolean {
 
 export function rankOf(hero: Hero): Rank {
   if (hero.crowned) return 'king';
+  if (hero.librarian) return 'librarian';
   if (hero.parentId === null) return 'knight';
   return hero.visits.forge + hero.visits.arena > 0 ? 'footsoldier' : 'worker';
 }
