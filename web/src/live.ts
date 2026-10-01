@@ -1,15 +1,33 @@
 import { EventStream, type GuildEvent } from '@agent-guild/core';
 import { useEffect, useState } from 'react';
 
+import type { ChatInfo } from './api.ts';
+
 export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'unauthorized';
+
+/** Server announcements that ride the same stream: chat list, Town Crier, control on/off. */
+export interface Announcements {
+  control: { enabled: boolean } | null;
+  chats: ChatInfo[];
+  crierVersion: number;
+}
 
 /**
  * Follows the local server's event stream. The server sends every event so far as a
  * `snapshot`, then new ones as `events`. EventSource reconnects on its own after a drop,
  * and the fresh snapshot replaces what we had, so a reconnect cannot double-count XP.
  */
-export function useLiveEvents(token: string): { events: GuildEvent[]; status: LiveStatus } {
+export function useLiveEvents(token: string): {
+  events: GuildEvent[];
+  status: LiveStatus;
+  announcements: Announcements;
+} {
   const [events, setEvents] = useState<GuildEvent[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcements>({
+    control: null,
+    chats: [],
+    crierVersion: 0,
+  });
   const [status, setStatus] = useState<LiveStatus>('connecting');
 
   useEffect(() => {
@@ -21,6 +39,18 @@ export function useLiveEvents(token: string): { events: GuildEvent[]; status: Li
       const result = EventStream.safeParse(JSON.parse(data));
       return result.success ? result.data : [];
     };
+
+    const json = (e: Event) => JSON.parse((e as MessageEvent<string>).data) as unknown;
+    source.addEventListener('control', (e) =>
+      setAnnouncements((a) => ({ ...a, control: json(e) as Announcements['control'] })),
+    );
+    source.addEventListener('chats', (e) =>
+      setAnnouncements((a) => ({ ...a, chats: json(e) as ChatInfo[] })),
+    );
+    // The Town Crier's details are fetched on demand; this only says they changed.
+    source.addEventListener('crier', () =>
+      setAnnouncements((a) => ({ ...a, crierVersion: a.crierVersion + 1 })),
+    );
 
     source.addEventListener('snapshot', (e) => {
       opened = true;
@@ -52,5 +82,5 @@ export function useLiveEvents(token: string): { events: GuildEvent[]; status: Li
     return () => source.close();
   }, [token]);
 
-  return { events, status };
+  return { events, status, announcements };
 }

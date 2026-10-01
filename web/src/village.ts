@@ -10,7 +10,7 @@ import { roster } from '@agent-guild/core';
  */
 
 export const VILLAGE_WIDTH = 880;
-export const VILLAGE_HEIGHT = 560;
+export const VILLAGE_HEIGHT = 640;
 
 const ASSET = '/assets/tiny-swords';
 const FRAME = 192;
@@ -105,7 +105,7 @@ export function heroPositions(state: GuildState): Map<string, { x: number; y: nu
       const inRow = Math.min(perRow, heroes.length - row * perRow);
       const col = i % perRow;
       positions.set(hero.id, {
-        x: b.x + (col - (inRow - 1) / 2) * 112,
+        x: b.x + (col - (inRow - 1) / 2) * 124,
         y: b.y + 88 + row * 50,
       });
     });

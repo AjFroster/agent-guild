@@ -22,13 +22,15 @@ test('the live guild shows sessions read from Claude Code transcripts', async ({
   await page.goto(`${LIVE}/?token=${LIVE_TOKEN}`);
   await expect(page.getByTestId('live-status')).toHaveText('Live');
 
-  const names = page.locator('.roster > .hero strong');
-  await expect(names).toHaveText(['guild-demo', 'Explore']);
+  // Other spec files add sessions to the same server, so check these two by id, and
+  // that the sub-agent sits directly under its leader.
+  await expect(page.getByTestId('hero-sess-lead')).toContainText('guild-demo');
+  await expect(page.getByTestId('hero-sess-lead').locator('+ li')).toContainText('Explore');
 
   const lead = page.getByTestId('hero-sess-lead');
   await expect(lead).toContainText('Quests 1/3');
   await expect(lead).toContainText('Needs you');
-  await expect(page.getByTestId('beacon')).toHaveText('guild-demo needs you');
+  await expect(page.getByTestId('beacon')).toContainText('guild-demo');
 
   // The prompt in the transcript must never reach the page.
   await expect(page.getByText('fixture prompt')).toHaveCount(0);
@@ -61,7 +63,8 @@ test('a session that starts waiting on the user raises a toast that opens it', a
   await expect(page.getByTestId('hero-sess-notice')).toBeVisible();
 
   // Joining is off by default, so nothing yet; then it asks a question.
-  await expect(page.getByTestId('toasts')).toHaveCount(0);
+  // Other specs' sessions may raise their own toasts on this shared server.
+  await expect(page.getByTestId('toasts').getByText('notice-demo')).toHaveCount(0);
   await appendFile(file, line(1, [{ type: 'tool_use', name: 'AskUserQuestion', input: {} }]));
   const toast = page.getByTestId('toasts').getByRole('button', { name: 'notice-demo needs you' });
   await expect(toast).toBeVisible();

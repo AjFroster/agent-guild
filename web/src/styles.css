@@ -77,7 +77,7 @@ a {
 .panel {
   align-self: start;
   /* Scroll inside the panel, level with the map, instead of stretching the page. */
-  max-height: 560px;
+  max-height: 640px;
   box-sizing: border-box;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -486,4 +486,279 @@ kbd {
 .settings form {
   margin-top: 16px;
   text-align: right;
+}
+
+/* --- chat drawer, new session, Town Crier ------------------------------ */
+
+.send {
+  background: var(--accent);
+  color: #1b1500;
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.open-chat {
+  margin: 0 0 12px;
+}
+
+.topbar-end {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(620px, 100vw);
+  z-index: 20;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  box-shadow: -12px 0 40px rgb(0 0 0 / 0.5);
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.drawer-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.drawer-head p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.drawer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.drawer-body {
+  padding: 16px 20px;
+  overflow: auto;
+  flex: 1;
+}
+
+.login-banner {
+  margin: 12px 20px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgb(255 204 51 / 0.12);
+  border: 1px solid var(--accent);
+}
+
+.messages {
+  list-style: none;
+  margin: 0;
+  padding: 16px 20px;
+  overflow: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg-user {
+  align-self: flex-end;
+  max-width: 85%;
+}
+
+.msg-user .bubble {
+  background: #2c3a26;
+  border-radius: 14px 14px 4px 14px;
+  padding: 9px 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg-assistant {
+  line-height: 1.55;
+}
+
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md pre {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow: auto;
+}
+
+.md code {
+  font-size: 0.92em;
+}
+
+.md table {
+  border-collapse: collapse;
+}
+
+.md th,
+.md td {
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+}
+
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 1em;
+  background: var(--accent);
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+.msg-tool details {
+  font-size: 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 10px;
+}
+
+.msg-tool summary {
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msg-tool pre {
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  margin: 8px 0 2px;
+}
+
+.tool-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  background: var(--muted);
+}
+
+.tool-dot.ok {
+  background: #7fbf5f;
+}
+
+.tool-dot.bad {
+  background: #e06c5a;
+}
+
+.msg-result,
+.msg-thinking {
+  font-size: 12px;
+  color: var(--muted);
+  align-self: center;
+}
+
+.msg-notice {
+  font-size: 14px;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+}
+
+.msg-notice.error,
+.msg-result.error,
+.error {
+  color: #f08a78;
+}
+
+.composer {
+  border-top: 1px solid var(--line);
+  padding: 12px 20px 16px;
+}
+
+.composer textarea,
+.form input,
+.form select,
+.form textarea,
+.crier input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.composer textarea {
+  resize: vertical;
+}
+
+.composer-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.crier {
+  margin-top: 8px;
+}
+
+.crier-controls,
+.crier-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.crier input[type='time'] {
+  width: auto;
+}
+
+.crier input[type='number'] {
+  width: 56px;
+}
+
+.crier input[type='checkbox'] {
+  width: auto;
+}
+
+.inline {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
 }

@@ -4,10 +4,15 @@ Your Claude Code sessions as an RPG guild. Sessions are heroes, sub-agents are p
 members, and todos are quests that earn XP. A beacon lights up when an agent is waiting
 on you.
 
-Local-first and read-only. It follows the transcripts Claude Code already writes to
-`~/.claude/projects/` and never changes your Claude settings. Only tool names, todo
-titles and turn ends leave the transcript; prompts, file contents and replies are dropped
-while it reads.
+Local-first. Watching is read-only: the guild follows the transcripts Claude Code
+already writes to `~/.claude/projects/` and never changes your Claude settings, and the
+map only receives tool names, todo titles and turn ends.
+
+Chatting is not read-only. **New session** and **Open chat** run your own `claude` CLI
+in headless mode (`claude -p`, streaming JSON), with your login and settings, in a folder
+you choose inside your home directory. Conversation text then reaches the page, over
+127.0.0.1 only and only with the link's token. Set `AGENT_GUILD_NO_CONTROL=1` to turn
+chats and the Town Crier off and keep the guild watch-only.
 
 ## Run it
 
@@ -41,6 +46,20 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 
 ## Using it
 
+- **New session** starts Claude Code in a folder you pick, with a permission mode
+  (edit files freely, plan only, auto, ask, or skip checks). Talk to it in the chat
+  drawer: replies stream in, tool calls show as rows you can expand, **Stop** ends the
+  current turn.
+- **Open chat** on a session's panel shows its conversation, including sessions you
+  started in a terminal, and lets you continue it (`claude --resume`).
+- **Town Crier** writes a daily report on tech and AI at 18:00, keeping stories Claude
+  scores at or above the cutoff (default 7/10). Change the time and cutoff, run it now,
+  and read past reports in the guild panel. It runs while the guild is running; if 18:00
+  passed while it was off, it runs once at the next start that day. Reports are saved in
+  `~/.agent-guild/town-crier/`.
+- The `claude` CLI must be logged in on this machine once (`claude`, then `/login`). If
+  it is not, the chat says so instead of failing silently.
+
 - **Click a hero** to see that session: what it is doing now, its project branch and
   model, party members, quests, which buildings it spends its time in, and its latest tool
   calls.
@@ -61,7 +80,7 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 - [x] Live sessions from Claude Code transcripts (read-only, 127.0.0.1, token)
 - [x] Pixel-art village; clickable heroes and buildings with detail panels
 - [x] Notices: toasts, sound, desktop notifications, settings
-- [ ] Starting and driving agents from the UI: designed (see docs/ROADMAP.md), not built
+- [x] Chat with sessions from the browser; start new ones; Town Crier daily report
 - [ ] Permission prompts as "needs you" (needs Claude Code hooks, opt-in)
 - [ ] Visual regression baselines
 

@@ -6,36 +6,41 @@ Reviewed against `pixel-agents-hq/pixel-agents` (v1.4.1, open PR #347) and
 ## Controlling agents from the UI
 
 Neither repo ships it. Agent Quest is watch-only. Pixel Agents launches agents only as VS
-Code terminals; its browser build "does not launch Claude for you", and launching and
-typing from the browser is open PR #347 (a server-side PTY per agent, streamed to xterm.js,
-gated by the token).
+Code terminals; its browser build "does not launch Claude for you", and browser launching
+is open PR #347 (a server-side PTY per agent streamed to xterm.js).
 
-The same design was drafted here (terminal manager, token-gated control routes, launch
-folders confined to `$HOME`) and is **not merged**: it lets this web page start coding
-agents on the machine, which needs the owner's explicit decision first. The draft is in a
-local git stash, not in this repo.
+agent-guild does it as chat instead of a terminal: each chat runs the user's own `claude`
+CLI headless with stream-json in and out, and the browser shows streamed replies and tool
+calls. Built at the owner's request, using their Claude login (their choice over an API
+key with the Agent SDK; the SDK docs ask third-party products not to offer claude.ai
+login, so the guild only ever drives the CLI the user already installed and logged in).
+
+Not yet: live Allow/Deny for individual tool calls. Headless runs take a permission mode
+instead; per-call approval needs the Agent SDK's `canUseTool` (API key) or a permission
+MCP tool.
 
 ## Feature inventory
 
-| Feature                                                     | From                  | Status                                       |
-| ----------------------------------------------------------- | --------------------- | -------------------------------------------- |
-| Live sessions, sub-agents as party members                  | both                  | done                                         |
-| Click a character / building for details                    | AQ                    | done                                         |
-| Sound and toast on "finished" / "needs you"                 | PA, AQ                | done                                         |
-| Desktop notifications, settings panel                       | AQ                    | done                                         |
-| First-run hint                                              | AQ                    | done                                         |
-| Guild-wide activity feed with filters                       | AQ                    | next                                         |
-| Token counts, session report card                           | AQ                    | next                                         |
-| Multiple `~/.claude*` directories                           | AQ                    | next                                         |
-| Consent-gated hooks installer; exact permission-wait signal | PA                    | planned                                      |
-| Agent teams (lead + teammates)                              | PA                    | planned                                      |
-| Village editor, saved layouts, project districts            | PA, AQ                | planned                                      |
-| Codex sessions                                              | AQ                    | planned                                      |
-| Launch / type / stop / resume agents from the UI            | PA (VS Code), PA #347 | awaiting decision                            |
-| Approve or deny permissions from the UI                     | none                  | awaiting decision                            |
-| Minimap                                                     | AQ                    | not needed: the whole village fits on screen |
-| LAN mode                                                    | AQ, PA                | not planned: stays on loopback               |
-| External asset packs                                        | PA                    | not planned: art licensing                   |
-| VS Code extension                                           | PA                    | not planned                                  |
+| Feature                                                     | From                  | Status                                             |
+| ----------------------------------------------------------- | --------------------- | -------------------------------------------------- |
+| Live sessions, sub-agents as party members                  | both                  | done                                               |
+| Click a character / building for details                    | AQ                    | done                                               |
+| Sound and toast on "finished" / "needs you"                 | PA, AQ                | done                                               |
+| Desktop notifications, settings panel                       | AQ                    | done                                               |
+| First-run hint                                              | AQ                    | done                                               |
+| Guild-wide activity feed with filters                       | AQ                    | next                                               |
+| Token counts, session report card                           | AQ                    | next                                               |
+| Multiple `~/.claude*` directories                           | AQ                    | next                                               |
+| Consent-gated hooks installer; exact permission-wait signal | PA                    | planned                                            |
+| Agent teams (lead + teammates)                              | PA                    | planned                                            |
+| Village editor, saved layouts, project districts            | PA, AQ                | planned                                            |
+| Codex sessions                                              | AQ                    | planned                                            |
+| Start, chat with, stop and resume sessions from the UI      | PA (VS Code), PA #347 | done (as chat)                                     |
+| Approve or deny individual tool calls from the UI           | none                  | not yet: needs an API key or a permission MCP tool |
+| Scheduled sessions (Town Crier daily report)                | none                  | done                                               |
+| Minimap                                                     | AQ                    | not needed: the whole village fits on screen       |
+| LAN mode                                                    | AQ, PA                | not planned: stays on loopback                     |
+| External asset packs                                        | PA                    | not planned: art licensing                         |
+| VS Code extension                                           | PA                    | not planned                                        |
 
 PA = Pixel Agents, AQ = Agent Quest.
