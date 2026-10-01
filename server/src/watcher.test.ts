@@ -135,4 +135,21 @@ describe('TranscriptWatcher', () => {
     });
     await expect(missing.scan()).resolves.toBeUndefined();
   });
+
+  it('forwards model and branch only when they change', async () => {
+    const project = join(root, 'p');
+    await mkdir(project);
+    const withMeta = (s: number, branch: string) => ({
+      ...tool(s, 'Read'),
+      gitBranch: branch,
+      message: { model: 'claude-opus-5-5', content: [], stop_reason: 'tool_use' },
+    });
+    await writeFile(
+      join(project, 's.jsonl'),
+      line(withMeta(0, 'main')) + line(withMeta(1, 'main')) + line(withMeta(2, 'feat/x')),
+    );
+    await watcher().scan();
+    const metas = events.filter((e) => e.type === 'meta');
+    expect(metas.map((e) => e.type === 'meta' && e.branch)).toEqual(['main', 'feat/x']);
+  });
 });

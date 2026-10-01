@@ -74,6 +74,29 @@ describe('eventsFromLine', () => {
   });
 });
 
+describe('meta', () => {
+  it('reports the model and git branch an assistant line ran on', () => {
+    const line = {
+      ...assistant([{ type: 'tool_use', name: 'Read', input: {} }]),
+      gitBranch: 'feat/guild',
+      message: { model: 'claude-opus-5-5', content: [], stop_reason: 'tool_use' },
+    };
+    expect(eventsFromLine(line, ctx)[0]).toEqual({
+      t,
+      session: 's1',
+      type: 'meta',
+      model: 'claude-opus-5-5',
+      branch: 'feat/guild',
+    });
+  });
+
+  it('caps a very long branch name instead of dropping the line', () => {
+    const line = { ...assistant([], 'end_turn'), gitBranch: 'b'.repeat(300) };
+    const meta = eventsFromLine(line, ctx).find((e) => e.type === 'meta');
+    expect(meta?.type === 'meta' && meta.branch).toHaveLength(100);
+  });
+});
+
 describe('names', () => {
   it('names a session after its project folder', () => {
     expect(sessionName('/home/someone/Sandbox/movie-league', 'x')).toBe('movie-league');
