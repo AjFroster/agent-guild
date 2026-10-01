@@ -5,6 +5,7 @@ import { ago } from './panels.tsx';
 import {
   BUILDINGS,
   ROWS,
+  bubbleFor,
   THRONE,
   VILLAGE_HEIGHT,
   hslToRgb,
@@ -182,5 +183,22 @@ describe('ago', () => {
     expect(ago(5 * 60 + 9)).toBe('5 min ago');
     expect(ago(3 * 3600)).toBe('3 h ago');
     expect(ago(-5)).toBe('just now');
+  });
+});
+
+describe('bubbleFor', () => {
+  const state = replay([
+    { t: 0, session: 'w', type: 'session_start', name: 'W' },
+    { t: 1, session: 'w', type: 'tool', tool: 'Edit' },
+    { t: 0, session: 'q', type: 'session_start', name: 'Q' },
+    { t: 1, session: 'q', type: 'needs_input' },
+    { t: 0, session: 'r', type: 'session_start', name: 'R' },
+    { t: 1, session: 'r', type: 'stop' },
+  ]);
+
+  it('shows "!" to a hero waiting on the user, "zzz" to a resting one, and nothing to a worker', () => {
+    expect(bubbleFor(state.heroes.q!)).toBe('alert');
+    expect(bubbleFor(state.heroes.r!)).toBe('sleep');
+    expect(bubbleFor(state.heroes.w!)).toBeNull();
   });
 });

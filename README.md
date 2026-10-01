@@ -68,7 +68,8 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 | Read/Grep/Glob · Edit/Write · Bash · WebFetch/WebSearch | Library · Forge · Arena · Tower        |
 | TodoWrite items                                         | Quests; each finished quest is 50 XP   |
 | Finished turn                                           | 10 XP, back to the Guildhall           |
-| AskUserQuestion                                         | "Needs you" beacon                     |
+| AskUserQuestion                                         | Red "!" bubble and "needs you" beacon  |
+| Finished its turn, resting                              | "zzz" bubble                           |
 
 ## Using it
 
