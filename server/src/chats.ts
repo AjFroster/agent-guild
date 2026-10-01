@@ -99,6 +99,8 @@ interface Chat {
   /** True until the first process has created the session on disk. */
   fresh: boolean;
   idleTimer: NodeJS.Timeout | null;
+  /** When the chat last did anything (ms), for choosing which idle process to close. */
+  lastActiveMs: number;
   listeners: Set<(change: ChatChange) => void>;
   allowedTools: string[];
   appendSystemPrompt: string | null;
@@ -302,6 +304,7 @@ export class ChatManager {
       child: null,
       fresh: c.fresh,
       idleTimer: null,
+      lastActiveMs: Date.now(),
       listeners: new Set(),
       allowedTools: c.allowedTools,
       appendSystemPrompt: c.appendSystemPrompt,
@@ -313,9 +316,14 @@ export class ChatManager {
   }
 
   private launch(chat: Chat): void {
-    const running = [...this.chats.values()].filter((c) => c.child).length;
-    if (running >= (this.opts.maxRunning ?? 6)) {
-      throw new ChatError(429, 'Too many sessions are running from the guild. Stop one first.');
+    const running = [...this.chats.values()].filter((c) => c.child);
+    if (running.length >= (this.opts.maxRunning ?? 6)) {
+      // Make room by closing the process that has sat idle longest: its session is kept and
+      // its next message resumes it. Only when every process is mid-turn is there no room.
+      const idle = running.filter((c) => !c.info.busy).sort((a, b) => a.lastActiveMs - b.lastActiveMs)[0];
+      if (!idle) throw new ChatError(429, 'Too many sessions are working at once. Stop one first.');
+      this.close(idle);
+      this.emitInfo(idle);
     }
     const args = [
       '-p',
@@ -395,6 +403,7 @@ export class ChatManager {
 
   /** Keep an active process; close it once it has sat idle (not mid-turn) too long. */
   private touch(chat: Chat): void {
+    chat.lastActiveMs = Date.now();
     if (chat.idleTimer) clearTimeout(chat.idleTimer);
     chat.idleTimer = setTimeout(
       () => {
