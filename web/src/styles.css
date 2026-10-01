@@ -376,3 +376,114 @@ button {
   margin-left: auto;
   white-space: nowrap;
 }
+
+/* --- notices, settings, hint ------------------------------------------ */
+
+.topbar-end {
+  margin-left: auto;
+}
+
+.map-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hint-bar {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+kbd {
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 12px;
+}
+
+.toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 10;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 320px;
+}
+
+.toast {
+  display: flex;
+  align-items: stretch;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.45);
+  overflow: hidden;
+}
+
+.toast-needs_you {
+  border-left-color: var(--accent);
+}
+
+.toast-finished {
+  border-left-color: #7fbf5f;
+}
+
+.toast-body {
+  flex: 1;
+  background: none;
+  border: 0;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.toast-close {
+  background: none;
+  border: 0;
+  padding: 0 12px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.settings {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 24px;
+  max-width: 420px;
+}
+
+.settings::backdrop {
+  background: rgb(0 0 0 / 0.55);
+}
+
+.settings h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.settings label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 12px 0;
+}
+
+.settings form {
+  margin-top: 16px;
+  text-align: right;
+}

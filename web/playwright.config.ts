@@ -1,3 +1,6 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -8,6 +11,8 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 5281;
 export const LIVE_PORT = 4748;
 export const LIVE_TOKEN = 'e2e-token-0123456789abcdef';
+/** A scratch copy of e2e/transcripts, so tests can write new sessions into it. */
+export const LIVE_DIR = join(tmpdir(), 'agent-guild-e2e-projects');
 
 export default defineConfig({
   testDir: './e2e',
@@ -39,7 +44,7 @@ export default defineConfig({
     {
       // The real server, following a folder of fake transcripts instead of ~/.claude.
       // It builds too, because it serves web/dist itself and must not race the job above.
-      command: 'npx vite build --emptyOutDir false && node ../server/src/cli.ts',
+      command: `rm -rf ${LIVE_DIR} && cp -r e2e/transcripts ${LIVE_DIR} && npx vite build --emptyOutDir false && node ../server/src/cli.ts`,
       url: `http://127.0.0.1:${LIVE_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 120_000,
@@ -47,7 +52,7 @@ export default defineConfig({
         ...process.env,
         AGENT_GUILD_PORT: String(LIVE_PORT),
         AGENT_GUILD_TOKEN: LIVE_TOKEN,
-        CLAUDE_PROJECTS_DIR: 'e2e/transcripts',
+        CLAUDE_PROJECTS_DIR: LIVE_DIR,
         AGENT_GUILD_MAX_AGE_HOURS: '0',
         AGENT_GUILD_IDLE_MINUTES: '0',
       },
