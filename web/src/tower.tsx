@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 
 import { type Api, ApiError, type PortalInfo, type PortalStatus } from './api.ts';
 import { ago } from './panels.tsx';
-import { SceneCanvas } from './SceneCanvas.tsx';
 import {
   type TowerPick,
   describeTower,
@@ -13,6 +12,7 @@ import {
   towerModel,
   towerPick,
 } from './towerScene.ts';
+import { BuildingPage } from './BuildingPage.tsx';
 
 /**
  * The Tower page, reached by clicking the Tower on the map (docs/TOWER.md). On top, the
@@ -69,27 +69,27 @@ export function TowerPage({
   };
 
   return (
-    <section className="library-page tower-page" data-testid="tower-page" aria-label="The Tower">
-      <div className="library-head">
-        <button type="button" className="ts-button" onClick={onBack} data-testid="tower-back">
-          ← Back to the village
-        </button>
-        <h2 className="ts-ribbon ts-ribbon-blue">The Tower</h2>
-      </div>
-      <SceneCanvas
-        model={model}
-        animate={animate}
-        draw={drawTowerScene}
-        pick={towerPick}
-        same={samePick}
-        onPick={onPick}
-        label={describeTower(model)}
-        testId="tower-scene"
-      />
-      <p className="muted small library-hint">
-        Click a portal to open that service in a new tab. Purple: it runs in a Knight&apos;s folder. Green: a
-        website. A stone arch: listening, but not a website.
-      </p>
+    <BuildingPage
+      id="tower"
+      title="The Tower"
+      ribbon="blue"
+      onBack={onBack}
+      scene={{
+        model,
+        animate,
+        draw: drawTowerScene,
+        pick: towerPick,
+        same: samePick,
+        onPick,
+        label: describeTower(model),
+      }}
+      hint={
+        <>
+          Click a portal to open that service in a new tab. Purple: it runs in a Knight&apos;s folder. Green:
+          a website. A stone arch: listening, but not a website.
+        </>
+      }
+    >
       {control ? (
         <Portals api={control.api} status={status} now={now} onChange={setLocal} />
       ) : (
@@ -111,7 +111,7 @@ export function TowerPage({
           </li>
         ))}
       </ul>
-    </section>
+    </BuildingPage>
   );
 }
 

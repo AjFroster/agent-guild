@@ -20,8 +20,8 @@ import {
   samePick,
 } from './libraryScene.ts';
 import { ago } from './panels.tsx';
-import { SceneCanvas } from './SceneCanvas.tsx';
 import { type SkillSort, nextSort, skillRows, sortSkills } from './skillList.ts';
+import { BuildingPage } from './BuildingPage.tsx';
 
 /**
  * The Library page, reached by clicking the Library on the map. On top, the Library's
@@ -114,27 +114,27 @@ export function LibraryPage({
   };
 
   return (
-    <section className="library-page" data-testid="library-page" aria-label="The Library">
-      <div className="library-head">
-        <button type="button" className="ts-button" onClick={onBack} data-testid="library-back">
-          ← Back to the village
-        </button>
-        <h2 className="ts-ribbon ts-ribbon-yellow">The Library</h2>
-      </div>
-      <SceneCanvas
-        model={model}
-        animate={animate}
-        draw={drawLibraryScene}
-        pick={libraryPick}
-        same={samePick}
-        onPick={onPick}
-        label={describeScene(model)}
-        testId="library-scene"
-      />
-      <p className="muted small library-hint">
-        Click a librarian to {control ? 'open its chat' : 'see its session'}
-        {control ? ', or the Archive board to review skills.' : '.'}
-      </p>
+    <BuildingPage
+      id="library"
+      title="The Library"
+      ribbon="yellow"
+      onBack={onBack}
+      scene={{
+        model,
+        animate,
+        draw: drawLibraryScene,
+        pick: libraryPick,
+        same: samePick,
+        onPick,
+        label: describeScene(model),
+      }}
+      hint={
+        <>
+          Click a librarian to {control ? 'open its chat' : 'see its session'}
+          {control ? ', or the Archive board to review skills.' : '.'}
+        </>
+      }
+    >
       {status && <YourSkills status={status} />}
       <ul className="plain library-desks" aria-label="Librarians">
         {desks.map((d) => (
@@ -164,7 +164,7 @@ export function LibraryPage({
           </ul>
         )}
       </div>
-    </section>
+    </BuildingPage>
   );
 }
 

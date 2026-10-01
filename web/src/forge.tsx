@@ -19,7 +19,7 @@ import {
   samePick,
 } from './forgeScene.ts';
 import { ago } from './panels.tsx';
-import { SceneCanvas } from './SceneCanvas.tsx';
+import { BuildingPage } from './BuildingPage.tsx';
 
 /**
  * The Forge page, reached by clicking the Forge on the map (docs/FORGE.md). On top, the
@@ -117,27 +117,27 @@ export function ForgePage({
   };
 
   return (
-    <section className="library-page forge-page" data-testid="forge-page" aria-label="The Forge">
-      <div className="library-head">
-        <button type="button" className="ts-button" onClick={onBack} data-testid="forge-back">
-          ← Back to the village
-        </button>
-        <h2 className="ts-ribbon ts-ribbon-red">The Forge</h2>
-      </div>
-      <SceneCanvas
-        model={model}
-        animate={animate}
-        draw={drawForgeScene}
-        pick={forgePick}
-        same={samePick}
-        onPick={onPick}
-        label={describeForge(model)}
-        testId="forge-scene"
-      />
-      <p className="muted small library-hint">
-        Click the Blacksmith to {control ? 'open its chat' : 'see its session'}, or a weapon on the rack to
-        see that piece. A sword is a skill, an axe a slash command.
-      </p>
+    <BuildingPage
+      id="forge"
+      title="The Forge"
+      ribbon="red"
+      onBack={onBack}
+      scene={{
+        model,
+        animate,
+        draw: drawForgeScene,
+        pick: forgePick,
+        same: samePick,
+        onPick,
+        label: describeForge(model),
+      }}
+      hint={
+        <>
+          Click the Blacksmith to {control ? 'open its chat' : 'see its session'}, or a weapon on the rack to
+          see that piece. A sword is a skill, an axe a slash command.
+        </>
+      }
+    >
       <ul className="plain library-desks" aria-label="Smiths">
         <SmithDesk name="Blacksmith" hero={blacksmith} now={now} onTalk={control?.onTalk} />
         <li className="ts-card library-desk" data-testid="desk-Armorer" data-state="unhired">
@@ -153,7 +153,7 @@ export function ForgePage({
       </ul>
       {control && <Commission api={control.api} onDone={load} />}
       {control && <Orders api={control.api} status={status} error={error} now={now} onChanged={load} />}
-    </section>
+    </BuildingPage>
   );
 }
 
