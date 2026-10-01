@@ -21,7 +21,12 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   and resumes by session id; `core/src/chat.ts` turns its output and saved transcripts
   into chat items; `server/src/chatRoutes.ts` holds every control route, each behind the
   token. `server/src/crier.ts` is the Town Crier scheduler.
-- `web/e2e/fake-claude.mjs` stands in for the CLI in browser tests. Never call the real
+- The King: `server/src/king.ts` (Court: the rules for orders), `kingRoutes.ts` (the
+  `/api/king` routes) and `kingMcp.ts` (the stdio MCP server the King's CLI runs, one tool
+  per route). Ranks and team colours live in `core/src/game.ts` (`rankOf`) and
+  `web/src/village.ts`.
+- `web/e2e/fake-claude.mjs` stands in for the CLI in browser tests, and plays a scripted
+  King over the real MCP server when given `--mcp-config`. Never call the real
   `claude` from tests: CI has no login, and it would spend the user's usage.
 - `web/src/village.ts`: pure drawing and hit-testing. `VillageCanvas.tsx` owns the
   animation loop; `panels.tsx` the side panels; `selection.ts` keeps the open panel in

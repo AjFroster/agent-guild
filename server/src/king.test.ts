@@ -223,6 +223,15 @@ describe('Court orders', () => {
     });
   });
 
+  it('can order a Knight it just raised, before the guild has read its transcript', async () => {
+    const { court } = setup();
+    await court.raise({ folder: join(home, 'other'), name: 'Gawain', order: 'Start' });
+    // No events for Gawain yet: only the guild's own chat knows him.
+    await expect(court.command('gawain', { order: 'Next' })).resolves.toMatchObject({
+      reply: 'Done: Next',
+    });
+  });
+
   it("reads a Knight's latest messages", async () => {
     const { court } = setup();
     events.push(...knight(ID_A, 'Percival'));

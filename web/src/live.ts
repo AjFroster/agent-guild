@@ -8,6 +8,8 @@ export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'unauthorized'
 /** Server announcements that ride the same stream: chat list, Town Crier, control on/off. */
 export interface Announcements {
   control: { enabled: boolean; allowBypass?: boolean } | null;
+  /** The King's session id, once one is crowned. */
+  king: { id: string | null } | null;
   chats: ChatInfo[];
   crierVersion: number;
 }
@@ -25,6 +27,7 @@ export function useLiveEvents(token: string): {
   const [events, setEvents] = useState<GuildEvent[]>([]);
   const [announcements, setAnnouncements] = useState<Announcements>({
     control: null,
+    king: null,
     chats: [],
     crierVersion: 0,
   });
@@ -43,6 +46,9 @@ export function useLiveEvents(token: string): {
     const json = (e: Event) => JSON.parse((e as MessageEvent<string>).data) as unknown;
     source.addEventListener('control', (e) =>
       setAnnouncements((a) => ({ ...a, control: json(e) as Announcements['control'] })),
+    );
+    source.addEventListener('king', (e) =>
+      setAnnouncements((a) => ({ ...a, king: json(e) as Announcements['king'] })),
     );
     source.addEventListener('chats', (e) =>
       setAnnouncements((a) => ({ ...a, chats: json(e) as ChatInfo[] })),

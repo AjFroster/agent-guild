@@ -76,6 +76,13 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
   (edit files freely, plan only, auto, or ask; "skip checks" only with
   `AGENT_GUILD_ALLOW_BYPASS=1`). Talk to it in the chat drawer: replies stream in, tool
   calls show as rows you can expand, **Stop** ends the current turn.
+- **Talk to the King** crowns a King on your first message: one Claude Code session that
+  works for you by commanding the others. It sees every Knight (session) and what it is
+  doing, gives orders to the Knight already working in a folder, raises a new Knight when
+  none covers the work, and reports back. It cannot edit files or run commands itself,
+  only read; each Knight works under its own permission mode. The guild refuses to let it
+  interrupt a Knight mid-turn, talk over a session that is open in a terminal, or skip
+  permission checks. Gold lines on the map show which Knights serve the King.
 - **Open chat** on a session's panel shows its conversation, including sessions you
   started in a terminal, and lets you continue it (`claude --resume`).
 - **Town Crier** (off until you turn it on, since each run uses your Claude usage)

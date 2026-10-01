@@ -95,6 +95,11 @@
     "name": "Scout"
   },
   {
+    "t": 4,
+    "session": "s-perc",
+    "type": "commanded"
+  },
+  {
     "t": 4.5,
     "session": "s-perc-2",
     "type": "tool",
@@ -118,6 +123,11 @@
     "session": "s-perc",
     "type": "tool",
     "tool": "Edit"
+  },
+  {
+    "t": 6.5,
+    "session": "s-gaw",
+    "type": "commanded"
   },
   {
     "t": 7,
@@ -150,6 +160,11 @@
     "session": "s-gaw",
     "type": "tool",
     "tool": "Bash"
+  },
+  {
+    "t": 9.5,
+    "session": "s-lan",
+    "type": "commanded"
   },
   {
     "t": 10,

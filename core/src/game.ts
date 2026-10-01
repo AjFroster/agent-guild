@@ -38,6 +38,8 @@ export interface Hero {
   git: GitState | null;
   /** The user's King: talks to the user and commands the Knights. */
   crowned: boolean;
+  /** The King has given this Knight orders. */
+  commanded: boolean;
 }
 
 export interface Tokens {
@@ -145,6 +147,7 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     tokens: noTokens(),
     git: null,
     crowned: false,
+    commanded: false,
   };
 }
 
@@ -201,6 +204,9 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
     }
     case 'crown':
       hero = { ...hero, crowned: true };
+      break;
+    case 'commanded':
+      hero = { ...hero, commanded: true };
       break;
     case 'usage':
       hero = { ...hero, tokens: addTokens(hero.tokens, event) };

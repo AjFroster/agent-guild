@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { ago } from './panels.tsx';
 import {
   BUILDINGS,
+  ROWS,
+  THRONE,
+  VILLAGE_HEIGHT,
   hslToRgb,
   heroPositions,
   heroTeams,
@@ -50,8 +53,29 @@ describe('heroPositions', () => {
   it('stands leaders in a row below their building, centred on it', () => {
     const positions = heroPositions(party); // A and B at the guildhall
     const [a, b] = ['a', 'b'].map((id) => positions.get(id)!);
-    expect(a!.x + b!.x).toBe(2 * BUILDINGS.guildhall.x);
+    expect(a!.x + b!.x).toBe(2 * ROWS.guildhall.x);
     expect(a!.y).toBeGreaterThan(BUILDINGS.guildhall.y);
+  });
+
+  it('keeps the King on his throne whatever tools he uses', () => {
+    const state = replay([
+      { t: 0, session: 'k', type: 'session_start', name: 'King' },
+      { t: 0, session: 'k', type: 'crown' },
+      { t: 1, session: 'k', type: 'tool', tool: 'Read' },
+    ]);
+    expect(heroPositions(state).get('k')).toEqual(THRONE);
+  });
+
+  it('keeps a crowd of resting Knights on the map', () => {
+    const crowd = replay(
+      Array.from({ length: 14 }, (_, i) => ({
+        t: i,
+        session: `k${i}`,
+        type: 'session_start' as const,
+        name: `K${i}`,
+      })),
+    );
+    for (const p of heroPositions(crowd).values()) expect(p.y).toBeLessThanOrEqual(VILLAGE_HEIGHT - 16);
   });
 
   it('stands a follower behind its leader, wherever the leader is', () => {

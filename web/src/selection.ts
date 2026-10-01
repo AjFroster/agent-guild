@@ -56,12 +56,14 @@ export function useSelection(): [Selection | null, (s: Selection | null) => void
   return [selection, select];
 }
 
-/** A drawer over the map: a chat, a Town Crier report, or the new-session form. */
-export type Drawer = { kind: 'chat'; id: string } | { kind: 'report'; date: string } | { kind: 'new' };
+/** A drawer over the map: a chat, a Town Crier report, the new-session form, or crowning a King. */
+export type Drawer =
+  { kind: 'chat'; id: string } | { kind: 'report'; date: string } | { kind: 'new' } | { kind: 'king' };
 
 export function parseDrawer(value: string | null): Drawer | null {
   if (!value) return null;
   if (value === 'new') return { kind: 'new' };
+  if (value === 'king') return { kind: 'king' };
   const [kind, ...rest] = value.split(':');
   const arg = rest.join(':');
   if (kind === 'chat' && /^[0-9a-f-]{36}$/i.test(arg)) return { kind: 'chat', id: arg };
@@ -70,7 +72,7 @@ export function parseDrawer(value: string | null): Drawer | null {
 }
 
 const formatDrawer = (d: Drawer) =>
-  d.kind === 'new' ? 'new' : d.kind === 'chat' ? `chat:${d.id}` : `report:${d.date}`;
+  d.kind === 'new' || d.kind === 'king' ? d.kind : d.kind === 'chat' ? `chat:${d.id}` : `report:${d.date}`;
 
 /** The open drawer, kept in `?open=` like the selection, so a reload keeps the chat open. */
 export function useDrawer(): [Drawer | null, (d: Drawer | null) => void] {

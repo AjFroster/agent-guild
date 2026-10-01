@@ -140,3 +140,49 @@ test('control routes refuse requests without the token', async ({ request }) => 
   const stream = await request.get(`${LIVE}/api/chats/00000000-0000-4000-8000-000000000000/stream`);
   expect(stream.status()).toBe(401);
 });
+
+test('the King is crowned, raises a Knight, and gives it orders through the guild tools', async ({
+  page,
+}) => {
+  await openGuild(page);
+  await page.getByTestId('talk-to-king').click();
+  const crown = page.getByTestId('crown');
+  await crown.getByTestId('crown-message').fill(`raise Squire in ${PROJECT}: say hello`);
+  await crown.getByTestId('crown-start').click();
+
+  // The King's turn: a real raise_knight call through the MCP server and the guild routes,
+  // which starts a Knight whose answer comes back to the King.
+  const chat = page.getByTestId('chat');
+  await expect(chat.getByRole('heading', { name: 'King' })).toBeVisible();
+  await expect(chat.getByTestId('msg-tool').first()).toContainText('raise_knight');
+  await expect(chat.getByTestId('msg-assistant').last()).toHaveText(
+    'I raised Squire. It reports: You said: say hello',
+    {
+      timeout: 20_000,
+    },
+  );
+
+  // A second order goes to the same Knight, which keeps its session.
+  await chat.getByTestId('composer').fill('order Squire: report your progress');
+  await chat.getByTestId('composer').press('Enter');
+  await expect(chat.getByTestId('msg-assistant').last()).toHaveText(
+    'Squire reports: You said: report your progress',
+    {
+      timeout: 20_000,
+    },
+  );
+  await page.screenshot({ path: 'e2e-screenshots/15-king-chat.png', animations: 'disabled' });
+  await chat.getByRole('button', { name: 'Close chat' }).click();
+
+  // On the map the King leads the roster, crowned, and Squire serves him.
+  await expect(page.locator('.roster .hero-head strong').first()).toHaveText('King');
+  await expect(page.locator('.roster')).toContainText('Squire');
+  await page.locator('.roster').getByRole('button', { name: 'Open King' }).click();
+  await expect(page.getByTestId('hero-rank')).toContainText('King');
+  await page.getByTestId('back').click();
+  await page.screenshot({ path: 'e2e-screenshots/16-king-map.png', animations: 'disabled' });
+
+  // With a King crowned, the button opens his chat straight away.
+  await page.getByTestId('talk-to-king').click();
+  await expect(page.getByTestId('chat').getByRole('heading', { name: 'King' })).toBeVisible();
+});
