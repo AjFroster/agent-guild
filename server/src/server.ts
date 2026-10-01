@@ -68,6 +68,8 @@ export interface GuildServer {
   publish: (events: GuildEvent[]) => void;
   /** Send a named message to every open tab, and to tabs that open later. */
   announce: (event: string, data: unknown) => void;
+  /** Every event kept so far, for replaying the guild's state on the server. */
+  events: () => readonly GuildEvent[];
 }
 
 export function createServer(opts: ServerOptions): GuildServer {
@@ -144,7 +146,7 @@ export function createServer(opts: ServerOptions): GuildServer {
     for (const client of clients) client.raw.write(frame);
   };
 
-  return { app, publish, announce };
+  return { app, publish, announce, events: () => history };
 }
 
 /**

@@ -265,6 +265,14 @@ export class TranscriptWatcher {
       .map((t) => ({ session: t.session, cwd: t.cwd! }));
   }
 
+  /** When a main session's transcript last changed (epoch ms), or null if unknown. */
+  lastWrite(session: string): number | null {
+    for (const t of this.tracked.values()) {
+      if (t.session === session && !t.isSubagent) return t.lastWriteMs;
+    }
+    return null;
+  }
+
   /** Folders sessions have run in, most recently active first: suggestions for a new chat. */
   projects(): string[] {
     const seen = new Map<string, number>();
