@@ -46,6 +46,10 @@ export interface ChildLike {
   on(event: 'exit', cb: (code: number | null) => void): this;
 }
 
+/** What a chat's subscribers hear: an item added or changed, one removed, or new info. */
+export type ChatChange =
+  { type: 'item'; item: ChatItem } | { type: 'remove'; id: string } | { type: 'info'; info: ChatInfo };
+
 export type SpawnFn = (
   cmd: string,
   args: string[],
@@ -79,7 +83,7 @@ interface Chat {
   /** True until the first process has created the session on disk. */
   fresh: boolean;
   idleTimer: NodeJS.Timeout | null;
-  listeners: Set<(item: ChatItem | null, info: ChatInfo) => void>;
+  listeners: Set<(change: ChatChange) => void>;
   allowedTools: string[];
   appendSystemPrompt: string | null;
 }
@@ -191,7 +195,7 @@ export class ChatManager {
     return true;
   }
 
-  subscribe(id: string, fn: (item: ChatItem | null, info: ChatInfo) => void): (() => void) | null {
+  subscribe(id: string, fn: (change: ChatChange) => void): (() => void) | null {
     const chat = this.chats.get(id);
     if (!chat) return null;
     chat.listeners.add(fn);
@@ -274,6 +278,10 @@ export class ChatManager {
       for (const item of chat.state.items) {
         if (!before.includes(item)) this.emit(chat, item);
       }
+      const kept = new Set(chat.state.items.map((x) => x.id));
+      for (const item of before) {
+        if (!kept.has(item.id)) this.notify(chat, { type: 'remove', id: item.id });
+      }
       this.touch(chat);
       this.emitInfo(chat);
     });
@@ -333,11 +341,15 @@ export class ChatManager {
   }
 
   private emit(chat: Chat, item: ChatItem): void {
-    for (const l of chat.listeners) l(item, { ...chat.info });
+    this.notify(chat, { type: 'item', item });
+  }
+
+  private notify(chat: Chat, change: ChatChange): void {
+    for (const l of chat.listeners) l(change);
   }
 
   private emitInfo(chat: Chat): void {
-    for (const l of chat.listeners) l(null, { ...chat.info });
+    this.notify(chat, { type: 'info', info: { ...chat.info } });
     this.emitList();
   }
 

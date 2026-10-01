@@ -100,7 +100,7 @@ describe('ChatManager streaming and lifecycle', () => {
     const m = manager();
     const info = await m.start({ cwd: project, message: 'Hi' });
     const seen: string[] = [];
-    m.subscribe(info.id, (item) => item && seen.push(item.kind));
+    m.subscribe(info.id, (c) => c.type === 'item' && seen.push(c.item.kind));
     const child = children[0]!;
     child.emitLine({ type: 'system', subtype: 'init', model: 'claude-opus-5-5' });
     child.emitLine({ type: 'assistant', message: { id: 'm1', content: [{ type: 'text', text: 'Hello' }] } });
@@ -153,5 +153,21 @@ describe('ChatManager streaming and lifecycle', () => {
     });
     await m.start({ cwd: project, message: 'a' });
     await expect(m.start({ cwd: project, message: 'b' })).rejects.toMatchObject({ status: 429 });
+  });
+
+  it('tells subscribers when an item is dropped, such as a duplicated login reply', async () => {
+    const m = manager();
+    const info = await m.start({ cwd: project, message: 'Hi' });
+    const removed: string[] = [];
+    m.subscribe(info.id, (c) => c.type === 'remove' && removed.push(c.id));
+    const child = children[0]!;
+    child.emitLine({
+      type: 'assistant',
+      message: { id: 'login', content: [{ type: 'text', text: 'Not logged in · Please run /login' }] },
+    });
+    child.emitLine({ type: 'result', subtype: 'success', result: 'Not logged in · Please run /login' });
+    await tick();
+    expect(removed).toEqual(['login']);
+    expect(m.get(info.id)!.info.loginRequired).toBe(true);
   });
 });

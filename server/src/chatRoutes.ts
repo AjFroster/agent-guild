@@ -136,9 +136,10 @@ export async function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOp
       connection: 'keep-alive',
     });
     res.write(`event: snapshot\ndata: ${JSON.stringify(chat)}\n\n`);
-    const unsubscribe = chats.subscribe(id, (item, info) => {
-      if (item) res.write(`event: item\ndata: ${JSON.stringify(item)}\n\n`);
-      else res.write(`event: info\ndata: ${JSON.stringify(info)}\n\n`);
+    const unsubscribe = chats.subscribe(id, (change) => {
+      const data =
+        change.type === 'item' ? change.item : change.type === 'info' ? change.info : { id: change.id };
+      res.write(`event: ${change.type}\ndata: ${JSON.stringify(data)}\n\n`);
     });
     const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
     req.raw.on('close', () => {

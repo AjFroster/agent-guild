@@ -96,7 +96,15 @@ describe('applyStreamLine', () => {
   });
 
   it('turns "Not logged in" into a clear instruction instead of a reply', () => {
-    const s = fold([{ type: 'result', subtype: 'success', result: 'Not logged in · Please run /login' }]);
+    const s = fold([
+      {
+        type: 'assistant',
+        message: { id: 'm', content: [{ type: 'text', text: 'Not logged in · Please run /login' }] },
+      },
+      { type: 'result', subtype: 'success', result: 'Not logged in · Please run /login' },
+    ]);
+    expect(s.items.filter((i) => i.kind === 'assistant')).toEqual([]);
+    expect(s.items).toHaveLength(1);
     expect(s.loginRequired).toBe(true);
     expect(s.items.at(-1)).toMatchObject({ kind: 'notice', tone: 'error' });
   });
