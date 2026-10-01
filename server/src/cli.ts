@@ -23,6 +23,7 @@ import { installedSkills } from './skills.ts';
 import { loadToken } from './token.ts';
 import { TranscriptWatcher } from './watcher.ts';
 import { writeMcpConfig } from './mcpConfig.ts';
+import { type Run, type Utility, RunLog, failedRuns, registerRunRoutes } from './runs.ts';
 
 /**
  * `npm start`: serve the guild, follow ~/.claude/projects, and run chats and the Town
@@ -127,6 +128,19 @@ const court = new Court({
 kingId = () => court.kingId;
 commanded = (id) => court.commanded.has(id);
 
+// Each utility's runs: when, how long, and whether they worked.
+const runLog = new RunLog(join(dataDir, 'runs.json'));
+const announceRuns = () =>
+  void runLog.runs().then((runs) => {
+    const last = runs.find((r) => !r.ok);
+    announce('runs', {
+      failed: failedRuns(runs),
+      last: last ? { utility: last.utility, detail: last.detail } : null,
+    });
+  });
+const logRun = (utility: Utility) => (run: Omit<Run, 'utility'>) =>
+  void runLog.add({ utility, ...run }).then(announceRuns);
+
 // The librarians: the Scout and the Reviewer, once a day when the user turns them on.
 const library = new Library({
   dir: dataDir,
@@ -136,6 +150,7 @@ const library = new Library({
   onChange: () => announceSkills(),
   onLibrarian: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'librarian' }]),
   onError: (message) => void archive.addNote('Library', message).then(announceSkills),
+  onRun: logRun('library'),
 });
 // The Forge: equipment made to order by the Blacksmith, reviewed by the Library's Reviewer.
 const forgeStore = new ForgeStore(join(dataDir, 'forge.json'));
@@ -151,6 +166,7 @@ const forge = new Forge({
   onReviewer: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'librarian' }]),
   onChange: announceForge,
   onError: (message) => void archive.addNote('Forge', message).then(announceSkills),
+  onRun: logRun('forge'),
 });
 isLibrarian = (id) => library.config.sessions.includes(id) || forge.isReviewer(id);
 isSmith = (id) => forge.isSmith(id);
@@ -210,6 +226,7 @@ const server = createServer({
             knightExtras,
           });
           if (ports) await registerPortalRoutes(scope, { isToken, ports });
+          await registerRunRoutes(scope, { isToken, log: runLog });
           await registerForgeRoutes(scope, {
             isToken,
             store: forgeStore,
@@ -288,6 +305,7 @@ if (controlOn) {
   announce('king', { id: court.kingId });
   announceSkills();
   announceForge();
+  announceRuns();
   // Orders taken before a restart are picked up again.
   void forge.kick();
 }

@@ -14,6 +14,11 @@ export interface Announcements {
   skills: { waiting: number; version: number };
   /** Forged pieces waiting on the user, and a counter that ticks when the Forge changes. */
   forge: { waiting: number; version: number };
+  /**
+   * How many of the utilities' runs have failed, the latest failure, and a counter that
+   * ticks when a run ends.
+   */
+  runs: { failed: number; last: { utility: 'library' | 'forge'; detail: string } | null; version: number };
   /** Services listening on local ports, kept current by the Portal Keeper. */
   portals: PortalStatus | null;
   chats: ChatInfo[];
@@ -36,6 +41,7 @@ export function useLiveEvents(token: string): {
     king: null,
     skills: { waiting: 0, version: 0 },
     forge: { waiting: 0, version: 0 },
+    runs: { failed: 0, last: null, version: 0 },
     portals: null,
     chats: [],
     crierVersion: 0,
@@ -76,6 +82,12 @@ export function useLiveEvents(token: string): {
     );
     source.addEventListener('chats', (e) =>
       setAnnouncements((a) => ({ ...a, chats: json(e) as ChatInfo[] })),
+    );
+    source.addEventListener('runs', (e) =>
+      setAnnouncements((a) => ({
+        ...a,
+        runs: { ...(json(e) as Omit<Announcements['runs'], 'version'>), version: a.runs.version + 1 },
+      })),
     );
     // The Town Crier's details are fetched on demand; this only says they changed.
     source.addEventListener('crier', () =>

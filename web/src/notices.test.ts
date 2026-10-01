@@ -96,6 +96,18 @@ describe('diffWaiting', () => {
     ]);
   });
 
+  it('raises a notice, leading to its page, when a utility fails a run', () => {
+    const runs = (failed: number, version: number) => ({
+      ...w(0, 1, 0, 1),
+      runs: { failed, last: failed ? { utility: 'forge' as const, detail: 'no piece' } : null, version },
+    });
+    expect(diffWaiting(runs(0, 0), runs(1, 1))).toEqual([]); // announced on connecting
+    expect(diffWaiting(runs(0, 1), runs(1, 2)).map((n) => [n.kind, n.page, n.text])).toEqual([
+      ['run_failed', 'forge', 'The Forge failed a run: no piece'],
+    ]);
+    expect(diffWaiting(runs(1, 2), runs(1, 3))).toEqual([]); // a run that worked
+  });
+
   it('stays quiet when a decision is made', () => {
     expect(diffWaiting(w(2, 2, 1, 2), w(1, 3, 0, 3))).toEqual([]);
   });

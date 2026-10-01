@@ -969,6 +969,16 @@ kbd {
   color: #ff9a8f;
 }
 
+.ts-card .verdict-good {
+  background: rgba(46, 125, 50, 0.18);
+  color: #1f5e22;
+}
+
+.ts-card .verdict-bad {
+  background: rgba(217, 58, 58, 0.18);
+  color: #8e1b12;
+}
+
 .risks {
   margin: 4px 0;
   padding-left: 18px;

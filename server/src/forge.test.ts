@@ -169,7 +169,11 @@ function forgeWith(act: (role: string, store: ForgeStore) => Promise<void>) {
       return c as unknown as ChildLike;
     },
   });
-  const seen = { smiths: [] as string[], reviewers: [] as string[] };
+  const seen = {
+    smiths: [] as string[],
+    reviewers: [] as string[],
+    runs: [] as { ok: boolean; detail: string }[],
+  };
   const forge = new Forge({
     dir: join(home, '.agent-guild'),
     chats,
@@ -178,6 +182,7 @@ function forgeWith(act: (role: string, store: ForgeStore) => Promise<void>) {
     token: 'secret-token-0123456789',
     onSmith: (id) => seen.smiths.push(id),
     onReviewer: (id) => seen.reviewers.push(id),
+    onRun: ({ ok, detail }) => seen.runs.push({ ok, detail }),
   });
   return { forge, store, children, chats, seen };
 }
@@ -204,7 +209,7 @@ describe('Forge', () => {
     const [smith, reviewer] = chats.list();
     expect(smith).toMatchObject({ name: 'Blacksmith', cwd: project, mode: 'default' });
     expect(reviewer).toMatchObject({ name: 'Reviewer' });
-    expect(seen).toEqual({ smiths: [smith!.id], reviewers: [reviewer!.id] });
+    expect(seen).toMatchObject({ smiths: [smith!.id], reviewers: [reviewer!.id] });
     expect(forge.isSmith(smith!.id) && forge.isReviewer(reviewer!.id)).toBe(true);
     // The Blacksmith can read the project but not change it.
     const tools = children[0]!.args[children[0]!.args.indexOf('--allowedTools') + 1]!;
@@ -214,11 +219,13 @@ describe('Forge', () => {
   });
 
   it('marks an order failed when the Blacksmith hangs nothing on the rack', async () => {
-    const { forge, store, chats } = forgeWith(async () => {});
+    const { forge, store, chats, seen } = forgeWith(async () => {});
     await store.addOrder({ project, kind: 'command', need: 'A command to ship the shop.' });
     await forge.kick();
     const order = (await store.read()).orders[0]!;
     expect(order.status).toBe('failed');
+    // The run log says so, for the Forge's page and a notice.
+    expect(seen.runs).toEqual([{ ok: false, detail: expect.stringContaining('without hanging a piece') }]);
     expect(order.error).toContain('without hanging a piece');
     expect(chats.list()).toHaveLength(1); // no review of nothing
   });

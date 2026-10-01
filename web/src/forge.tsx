@@ -20,6 +20,7 @@ import {
 } from './forgeScene.ts';
 import { ago } from './panels.tsx';
 import { BuildingPage } from './BuildingPage.tsx';
+import { UtilityHealth } from './health.tsx';
 
 /**
  * The Forge page, reached by clicking the Forge on the map (docs/FORGE.md). On top, the
@@ -47,6 +48,8 @@ export interface ForgeControl {
   /** Ticks when the Forge changes. */
   version: number;
   onTalk: (id: string) => void;
+  /** Ticks when a utility's run ends. */
+  runsVersion?: number;
 }
 
 const folderName = (path: string) => path.split('/').filter(Boolean).at(-1) ?? path;
@@ -151,6 +154,13 @@ export function ForgePage({
           </p>
         </li>
       </ul>
+      <UtilityHealth
+        utility="forge"
+        state={state}
+        now={now}
+        api={control?.api}
+        version={control?.runsVersion}
+      />
       {control && <Commission api={control.api} onDone={load} />}
       {control && <Orders api={control.api} status={status} error={error} now={now} onChanged={load} />}
     </BuildingPage>

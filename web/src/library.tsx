@@ -22,6 +22,7 @@ import {
 import { ago } from './panels.tsx';
 import { type SkillSort, nextSort, skillRows, sortSkills } from './skillList.ts';
 import { BuildingPage } from './BuildingPage.tsx';
+import { UtilityHealth } from './health.tsx';
 
 /**
  * The Library page, reached by clicking the Library on the map. On top, the Library's
@@ -50,6 +51,8 @@ export interface LibraryControl {
   version: number;
   onTalk: (id: string) => void;
   onOpenSkills: () => void;
+  /** Ticks when a utility's run ends. */
+  runsVersion?: number;
 }
 
 /** What the scene needs from the Archive. */
@@ -141,6 +144,13 @@ export function LibraryPage({
           <Desk key={d.hero?.id ?? d.name} {...d} now={now} onTalk={control?.onTalk} />
         ))}
       </ul>
+      <UtilityHealth
+        utility="library"
+        state={state}
+        now={now}
+        api={control?.api}
+        version={control?.runsVersion}
+      />
       {control && <LibraryCards control={control} status={status} error={error} now={now} onChanged={load} />}
       <div className="ts-card" data-testid="library-readers">
         <h3 className="ts-ribbon ts-ribbon-blue">Reading at the door</h3>

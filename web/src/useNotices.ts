@@ -16,6 +16,7 @@ const LIFETIME: Record<NoticeKind, number | null> = {
   left: 6_000,
   skill_ready: null,
   piece_ready: null,
+  run_failed: null,
 };
 
 /**

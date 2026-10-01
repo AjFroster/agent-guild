@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fixtures, readDemoRequest } from './demo.ts';
 import { type Api, type ChatInfo, type PortalStatus, api } from './api.ts';
 import { ChatDrawer, CrierCard, CrownDialog, NewChatDialog, ReportDrawer } from './chat.tsx';
-import { type LiveStatus, useLiveEvents } from './live.ts';
+import { type Announcements, type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
 import { waitingCount } from './decisions.ts';
@@ -87,6 +87,8 @@ interface Control {
   forge: { waiting: number; version: number };
   /** Services on local ports, from the Portal Keeper. */
   portals: PortalStatus | null;
+  /** The utilities' runs: how many failed, and a counter that ticks when one ends. */
+  runs: Announcements['runs'];
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -146,6 +148,7 @@ function Live({ token }: { token: string }) {
               skills: announcements.skills,
               forge: announcements.forge,
               portals: announcements.portals,
+              runs: announcements.runs,
             }
           : undefined
       }
@@ -195,8 +198,8 @@ function Guild({
   const [showHint, dismissHint] = useHint();
   // Notices are about things happening now, so only live mode raises them.
   const waitingAnnounced = useMemo(
-    () => (control ? { skills: control.skills, forge: control.forge } : undefined),
-    [control?.skills, control?.forge], // eslint-disable-line react-hooks/exhaustive-deps
+    () => (control ? { skills: control.skills, forge: control.forge, runs: control.runs } : undefined),
+    [control?.skills, control?.forge, control?.runs], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const { toasts, dismiss } = useNotices(state, connected, settings, waitingAnnounced);
   const inboxCount = control ? waitingCount(state, control.skills.waiting, control.forge.waiting) : 0;
@@ -283,6 +286,7 @@ function Guild({
               api: control.api,
               version: control.forge.version,
               onTalk: (id) => openDrawer({ kind: 'chat', id }),
+              runsVersion: control.runs.version,
             }
           }
         />
@@ -297,6 +301,7 @@ function Guild({
             control && {
               api: control.api,
               version: control.skills.version,
+              runsVersion: control.runs.version,
               onTalk: (id) => openDrawer({ kind: 'chat', id }),
               onOpenSkills: () => {
                 openTab('skills');
@@ -325,8 +330,9 @@ function Guild({
           </div>
           <Toasts
             toasts={toasts}
-            onOpen={(s) => {
-              if (s) select(s);
+            onOpen={(t) => {
+              if (t.heroId) select({ kind: 'hero', id: t.heroId });
+              else if (t.page) openPage(t.page);
               else openTab('inbox');
             }}
             onDismiss={dismiss}

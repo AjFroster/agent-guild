@@ -553,3 +553,32 @@ test('everything waiting on the user is in one inbox, and each decision is made 
   await inbox.getByTestId('answer-sess-inbox').click();
   await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'inbox-demo' })).toBeVisible();
 });
+
+test('each utility shows its cost and last run, and a failed run cannot be missed', async ({
+  page,
+  request,
+}) => {
+  await openGuild(page);
+  // Earlier tests ran the librarians and the Forge: both pages say how that went.
+  await page.getByTestId('open-library').click();
+  await expect(page.getByTestId('library-last-run')).toHaveAttribute('data-ok', 'true');
+  await expect(page.getByTestId('library-last-run')).toContainText('The Scout and the Reviewer finished.');
+  await expect(page.getByTestId('library-cost')).toContainText('tokens this week');
+  await page.getByTestId('library-back').click();
+
+  // An order the Blacksmith cannot forge: the run fails, and a toast leads to the Forge.
+  const bakery = join(LIVE_HOME, 'bakery');
+  await mkdir(bakery, { recursive: true });
+  await request.post(`${LIVE}/api/forge/orders`, {
+    headers: { authorization: `Bearer ${LIVE_TOKEN}` },
+    data: { project: bakery, kind: 'command', need: 'Something impossible to forge.' },
+  });
+  const toast = page.getByTestId('toasts').getByRole('button', { name: /The Forge failed a run/ });
+  await expect(toast).toBeVisible({ timeout: 20_000 });
+  await toast.click();
+  const lastRun = page.getByTestId('forge-last-run');
+  await expect(lastRun).toHaveAttribute('data-ok', 'false');
+  await expect(lastRun).toContainText('without hanging a piece');
+  await page.getByTestId('forge-health').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'e2e-screenshots/29-forge-health.png', animations: 'disabled' });
+});

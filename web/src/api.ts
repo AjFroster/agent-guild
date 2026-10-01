@@ -163,6 +163,15 @@ export interface ForgeStatus {
   waiting: number;
 }
 
+/** One run of a utility: when, how long, and whether it worked. */
+export interface UtilityRun {
+  utility: 'library' | 'forge';
+  startedAt: number;
+  endedAt: number;
+  ok: boolean;
+  detail: string;
+}
+
 export function api(token: string) {
   const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     const res = await fetch(path, {
@@ -195,6 +204,7 @@ export function api(token: string) {
     updateLibrary: (patch: Partial<LibrarySchedule>) => call<SkillsStatus>('PUT', '/api/library', patch),
     runLibrary: () => call<{ ok: true }>('POST', '/api/library/run'),
     forge: () => call<ForgeStatus>('GET', '/api/forge'),
+    runs: () => call<{ runs: UtilityRun[]; failed: number }>('GET', '/api/runs'),
     portals: () => call<PortalStatus>('GET', '/api/portals'),
     portalSettings: (patch: { probe: boolean }) => call<PortalStatus>('PUT', '/api/portals', patch),
     updatePortal: (port: number, patch: { name?: string; hidden?: boolean; pinned?: boolean }) =>

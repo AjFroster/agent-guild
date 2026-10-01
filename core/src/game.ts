@@ -451,6 +451,28 @@ export function guildTokens(state: GuildState): Tokens {
   return Object.values(state.heroes).reduce((sum, h) => addTokens(sum, h.tokens), noTokens());
 }
 
+/** Who spent the tokens: the Knights (and the King), or one of the guild's utilities. */
+export type Spender = 'knights' | 'library' | 'forge';
+
+/**
+ * Tokens by who spent them: each session, and its sub-agents, counts for the utility its
+ * root session works for (librarians for the Library, smiths for the Forge), else for the
+ * Knights. Only sessions started at or after `since` (epoch seconds) count: helpers start
+ * a session per run, so this is "the runs since then".
+ */
+export function tokensByUtility(state: GuildState, since = -Infinity): Record<Spender, number> {
+  const out: Record<Spender, number> = { knights: 0, library: 0, forge: 0 };
+  for (const hero of Object.values(state.heroes)) {
+    if (hero.startedAt < since) continue;
+    let root = hero;
+    for (let i = 0; i < 10 && root.parentId && state.heroes[root.parentId]; i++)
+      root = state.heroes[root.parentId]!;
+    const who: Spender = root.librarian ? 'library' : root.smith ? 'forge' : 'knights';
+    out[who] += totalTokens(hero.tokens);
+  }
+  return out;
+}
+
 /** How deep a hero sits in its party tree: 0 for a leader. */
 export function depthOf(state: GuildState, hero: Hero): number {
   let depth = 0;

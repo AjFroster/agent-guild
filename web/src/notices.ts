@@ -12,7 +12,8 @@ import type { GuildState, Hero } from '@agent-guild/core';
  * "Needs you" is raised for anyone, since a waiting sub-agent blocks its leader too.
  */
 
-export type NoticeKind = 'needs_you' | 'finished' | 'arrived' | 'left' | 'skill_ready' | 'piece_ready';
+export type NoticeKind =
+  'needs_you' | 'finished' | 'arrived' | 'left' | 'skill_ready' | 'piece_ready' | 'run_failed';
 
 export interface Notice {
   /** Stable for one occurrence, so the same change never toasts twice. */
@@ -20,6 +21,8 @@ export interface Notice {
   kind: NoticeKind;
   /** The hero it is about; null for a decision in the inbox (a skill or a piece). */
   heroId: string | null;
+  /** For a failed run: the building whose page shows it. */
+  page?: 'library' | 'forge';
   text: string;
 }
 
@@ -82,7 +85,10 @@ export function diffNotices(prev: GuildState | null, next: GuildState): Notice[]
 export interface Waiting {
   skills: { waiting: number; version: number };
   forge: { waiting: number; version: number };
+  runs?: { failed: number; last: { utility: 'library' | 'forge'; detail: string } | null; version: number };
 }
+
+const UTILITY_NAME = { library: 'The librarians', forge: 'The Forge' } as const;
 
 /**
  * A reviewed skill or a forged piece newly waiting on the user. The server announces its
@@ -110,6 +116,18 @@ export function diffWaiting(prev: Waiting | null, next: Waiting): Notice[] {
       kind: 'piece_ready',
       heroId: null,
       text: n === 1 ? 'A forged piece is ready to install' : `${n} forged pieces are ready to install`,
+    });
+  }
+  // A run that failed: never only a note somewhere.
+  const before = prev.runs;
+  const after = next.runs;
+  if (before && after?.last && before.version > 0 && after.failed > before.failed) {
+    notices.push({
+      key: `run_failed:${after.version}`,
+      kind: 'run_failed',
+      heroId: null,
+      page: after.last.utility,
+      text: `${UTILITY_NAME[after.last.utility]} failed a run: ${after.last.detail}`,
     });
   }
   return notices;

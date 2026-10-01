@@ -176,7 +176,10 @@ async function answer(raw) {
       const { installed } = parse(await kingTool('list_installed_skills', {}));
       await kingTool('list_archive', {});
       const have = installed.find((sk) => order.need.includes(sk.name));
-      if (have) {
+      if (order.need.includes('impossible')) {
+        // Lets a test make a run fail: the Blacksmith hangs nothing on the rack.
+        reply = 'That cannot be forged.';
+      } else if (have) {
         await kingTool('already_exists', {
           id: order.id,
           name: have.name,

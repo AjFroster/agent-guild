@@ -4,6 +4,29 @@ Branch `refactor/sharpen-workflows`. No new buildings, no new wizards: make the 
 utilities we have (the King, the Library, the Forge, the Tower) work as one tool, prove
 them on the real `claude`, and fix the base before the next utilities copy it again.
 
+## Status
+
+All five phases are built on this branch, one commit each (A, B, C in two, D in two, E),
+every one green: 225 unit tests and 41 browser tests.
+
+- **A.** `npm run rehearse` passes its free preflight on the real CLI (every flag and
+  permission mode accepted, all six MCP roles answer). The live run passes every step on
+  the stand-in; **its first real run is yours** (`npm run rehearse -- --live`): it spends
+  usage, so no test or CI ever runs it.
+- **B.** The **Needs you** tab, its badge, and toasts for a newly reviewed skill or forged
+  piece. `decisions()` lives in `web/src/decisions.ts` rather than `core`, since skills and
+  orders are web types.
+- **C.** Project skills in every list; the Blacksmith asks the Library first ("Already in
+  the Library"); helpers in their own pool, closed after each turn; ravens, not orders.
+  The no-eviction rule is unit-tested in `chats.test.ts` (Knights' pool full, helpers still
+  start, the Knight keeps its process).
+- **D.** `routes.ts`, `mcpConfig.ts`, `jsonStore.ts`, `BuildingPage.tsx`, `highlight` and
+  `plate` in the kit, and "Adding a utility" in `docs/BUILDING-PAGES.md`. Existing tests
+  unchanged. The duplication is gone; the line count fell less than hoped, because the
+  shared parts are documented and tested.
+- **E.** A run log per utility (`runs.ts`), a "Cost and health" card on the Library and
+  Forge pages, the guild's token total split by utility, and a toast when a run fails.
+
 ## Why now
 
 We built four utilities quickly, each by copying the last. That was the right call to find

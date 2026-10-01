@@ -360,6 +360,8 @@ export interface ForgeOptions {
   onReviewer?: (id: string) => void;
   onChange?: () => void;
   onError?: (message: string) => void;
+  /** An order's run ended, well or not: for the run log on the Forge's page. */
+  onRun?: (run: { startedAt: number; endedAt: number; ok: boolean; detail: string }) => void;
 }
 
 interface ForgeConfig {
@@ -432,6 +434,7 @@ export class Forge {
   private async forge(order: Order): Promise<void> {
     const { store, chats } = this.opts;
     this.current = order.id;
+    const startedAt = Date.now() / 1000;
     try {
       await store.update(order.id, (o) => {
         o.status = 'forging';
@@ -475,6 +478,18 @@ export class Forge {
       this.opts.onError?.(`The Forge could not finish an order: ${message}`);
     } finally {
       this.current = null;
+      const done = await store.get(order.id).catch(() => null);
+      const ok = done?.status === 'reviewed' || done?.status === 'exists';
+      this.opts.onRun?.({
+        startedAt,
+        endedAt: Date.now() / 1000,
+        ok,
+        detail: ok
+          ? done?.status === 'exists'
+            ? `"${done.existing?.name}" already in the Library: nothing forged.`
+            : `Forged "${done?.piece?.name}"; the Library says ${done?.review?.verdict}.`
+          : `The order failed: ${done?.error ?? 'the Reviewer gave no verdict'}`,
+      });
       this.opts.onChange?.();
     }
   }

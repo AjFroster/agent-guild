@@ -109,6 +109,8 @@ export interface LibraryOptions {
   onLibrarian?: (id: string) => void;
   /** A run failed: said where the user will see it (the Archive's notes). */
   onError?: (message: string) => void;
+  /** A run ended, well or not: for the run log on the Library's page. */
+  onRun?: (run: { startedAt: number; endedAt: number; ok: boolean; detail: string }) => void;
 }
 
 export class Library {
@@ -189,13 +191,26 @@ export class Library {
     // Recorded first, so a failing run is not retried every minute.
     this.config = { ...this.config, lastRunDate: date };
     await this.save();
+    const startedAt = this.now().getTime() / 1000;
+    const ran = (ok: boolean, detail: string) =>
+      this.opts.onRun?.({ startedAt, endedAt: this.now().getTime() / 1000, ok, detail });
     try {
       await mkdir(this.folder, { recursive: true });
       const scout = await this.librarian('scout', 'Scout', scoutPrompt(this.config, date), SCOUT_TOOLS);
-      await this.opts.chats.waitForTurn(scout, TURN_LIMIT_MS);
+      const found = await this.opts.chats.waitForTurn(scout, TURN_LIMIT_MS);
       const reviewer = await this.librarian('reviewer', 'Reviewer', reviewerPrompt(date), REVIEWER_TOOLS);
-      await this.opts.chats.waitForTurn(reviewer, TURN_LIMIT_MS);
+      const reviewed = await this.opts.chats.waitForTurn(reviewer, TURN_LIMIT_MS);
+      const failed = [found, reviewed].find((t) => !t.done || !t.ok);
+      ran(
+        !failed,
+        failed
+          ? failed.done
+            ? `A librarian's turn ended in an error: ${failed.reply.slice(0, 200) || 'no reply'}`
+            : 'A librarian ran out of time.'
+          : 'The Scout and the Reviewer finished.',
+      );
     } catch (err) {
+      ran(false, (err as Error).message);
       this.opts.onError?.(`The librarians could not finish today's run: ${(err as Error).message}`);
       throw err;
     } finally {
