@@ -316,6 +316,7 @@ test('the librarians find and review a skill, and the user installs it from the 
 
 test('a Knight asks the Forge for a skill; the Blacksmith forges it, the Library reviews it, the user installs it', async ({
   page,
+  request,
 }) => {
   // A Knight working in its own project (fictional), started from the browser like any session.
   const bakery = join(LIVE_HOME, 'bakery');
@@ -375,6 +376,31 @@ test('a Knight asks the Forge for a skill; the Blacksmith forges it, the Library
     { timeout: 20_000 },
   );
   await page.screenshot({ path: 'e2e-screenshots/25-knight-told.png', animations: 'disabled' });
+
+  // 5. The Library sees it: in "Your skills", as the bakery's own, and in the King's archive.
+  await chat.getByRole('button', { name: 'Close chat' }).click();
+  await page.getByTestId('back').click();
+  await page.getByTestId('open-library').click();
+  await expect(page.getByTestId('your-skill-release-notes')).toContainText('Project: bakery');
+  await page.getByTestId('library-back').click();
+  await page.getByTestId('talk-to-king').click();
+  await chat.getByTestId('composer').fill('consult the archive');
+  await chat.getByTestId('composer').press('Enter');
+  await expect(chat.getByTestId('msg-assistant').last()).toContainText('release-notes', { timeout: 20_000 });
+  await chat.getByRole('button', { name: 'Close chat' }).click();
+
+  // 6. Asked again, the Forge asks the Library first and forges no duplicate.
+  const again = await request.post(`${LIVE}/api/forge/orders`, {
+    headers: { authorization: `Bearer ${LIVE_TOKEN}` },
+    data: { project: bakery, kind: 'skill', need: 'Notes for a release, the way release-notes does them.' },
+  });
+  const { id: againId } = (await again.json()) as { id: string };
+  await page.getByTestId('open-forge').click();
+  await expect(page.getByTestId(`existing-${againId}`)).toContainText(
+    'Already in the Library: release-notes (project)',
+    { timeout: 20_000 },
+  );
+  await page.getByTestId('forge-back').click();
 });
 
 /** Start a small service in `cwd` (a separate process, as a dev server would be) and return its port. */

@@ -315,7 +315,7 @@ function LibraryCards({
   );
 }
 
-const SOURCE_LABEL = { personal: 'Yours', synced: 'Synced', plugin: 'Plugin' } as const;
+const SOURCE_LABEL = { personal: 'Yours', synced: 'Synced', plugin: 'Plugin', project: 'Project' } as const;
 
 /** Every skill the user has, sortable by stars (known for skills installed from the Archive) or name. */
 function YourSkills({ status }: { status: SkillsStatus }) {
@@ -357,7 +357,7 @@ function YourSkills({ status }: { status: SkillsStatus }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={`${r.source}:${r.name}`} data-testid={`your-skill-${r.name}`}>
+                <tr key={`${r.source}:${r.project ?? ''}:${r.name}`} data-testid={`your-skill-${r.name}`}>
                   <td>
                     <strong>{r.name}</strong>
                     {r.description && <div className="muted small">{r.description}</div>}
@@ -369,7 +369,7 @@ function YourSkills({ status }: { status: SkillsStatus }) {
                         {r.repo}
                       </a>
                     ) : (
-                      SOURCE_LABEL[r.source]
+                      `${SOURCE_LABEL[r.source]}${r.project ? `: ${r.project}` : ''}`
                     )}
                   </td>
                 </tr>

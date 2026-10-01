@@ -173,6 +173,15 @@ const archive = new Archive(join(dataDir, 'archive.json'));
 const announceSkills = () =>
   void archive.read().then(({ entries }) => announce('skills', { waiting: waitingForUser(entries).length }));
 
+// Every installed skill: the user's, plugins', and those in the projects Knights work in
+// (where the Forge installs), so the Library, the King and "Your skills" all see them.
+const allSkills = async () =>
+  installedSkills(skillsDir, pluginsDir, [
+    ...chats.list().map((c) => c.cwd),
+    ...watcher.sessionFolders().map((f) => f.cwd),
+    ...(await forgeStore.read()).orders.map((o) => o.project),
+  ]);
+
 // The Portal Keeper: services listening on local ports, by the Knight whose folder they run in.
 const ports =
   process.env.AGENT_GUILD_PORTALS === '0'
@@ -233,7 +242,7 @@ const server = createServer({
             archive: async () => {
               const { entries, notes } = await archive.read();
               return {
-                installed: (await installedSkills(skillsDir, pluginsDir)).map((s) => ({
+                installed: (await allSkills()).map((s) => ({
                   name: s.name,
                   description: s.description,
                 })),
@@ -250,7 +259,7 @@ const server = createServer({
           await registerLibraryRoutes(scope, {
             isToken,
             archive,
-            installed: () => installedSkills(skillsDir, pluginsDir),
+            installed: () => allSkills(),
             onChange: announceSkills,
             library,
             install: (entry) =>

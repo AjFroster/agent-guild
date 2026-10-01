@@ -223,6 +223,35 @@ describe('Forge', () => {
     expect(chats.list()).toHaveLength(1); // no review of nothing
   });
 
+  it('forges nothing, and asks no review, when the Library already has it', async () => {
+    const { forge, store, chats } = forgeWith(async (role, store) => {
+      const order = (await store.read()).orders[0]!;
+      await expect(
+        store.alreadyExists({ id: order.id, name: 'release-notes', where: '', reason: '' }),
+      ).rejects.toThrow('why it fits');
+      await store.alreadyExists({
+        id: order.id,
+        name: 'release-notes',
+        where: 'project',
+        reason: 'It writes release notes from git history.',
+      });
+    });
+    await store.addOrder({ project, kind: 'skill', need: 'Write release notes like we do.' });
+    await forge.kick();
+    const order = (await store.read()).orders[0]!;
+    expect(order.status).toBe('exists');
+    expect(order.existing).toEqual({
+      name: 'release-notes',
+      where: 'project',
+      reason: 'It writes release notes from git history.',
+    });
+    expect(order.piece).toBeNull();
+    expect(chats.list()).toHaveLength(1); // the Blacksmith only
+    await expect(
+      store.alreadyExists({ id: order.id, name: 'x', where: 'archive', reason: 'Again.' }),
+    ).rejects.toThrow('not on the anvil');
+  });
+
   it('fails an order left on the anvil when the guild stopped', async () => {
     const { forge, store } = forgeWith(async () => {});
     const order = await store.addOrder({ project, kind: 'skill', need: 'Something long enough.' });

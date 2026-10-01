@@ -133,6 +133,19 @@ export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRoute
     );
   };
 
+  /** Nothing was forged: the Knight is told what it already has. */
+  const tellKnightExisting = (order: Order) => {
+    const knight = order.knightId ? chats.list().find((c) => c.id === order.knightId) : undefined;
+    if (!knight || knight.busy || !order.existing) return;
+    const { name, where, reason } = order.existing;
+    chats.send(
+      knight.id,
+      where === 'archive'
+        ? `The Forge: nothing was forged. The Library already has "${name}" (${reason}); it waits for the user to install it.`
+        : `The Forge: nothing was forged. You already have the skill "${name}" (${where}): ${reason}`,
+    );
+  };
+
   // ------------------------------------------------------------------ a Knight asks
 
   /** The Knight is told apart by its folder: the guild chat running there. */
@@ -230,6 +243,15 @@ export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRoute
     guarded(async (req) => {
       const order = await store.submitPiece(body(req) as never);
       return changed({ id: order.id, status: order.status, name: order.piece?.name });
+    }),
+  );
+
+  app.post(
+    '/api/forge/existing',
+    guarded(async (req) => {
+      const order = await store.alreadyExists(body(req) as never);
+      tellKnightExisting(order);
+      return changed({ id: order.id, status: order.status });
     }),
   );
 

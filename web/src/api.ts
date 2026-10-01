@@ -68,8 +68,10 @@ export interface ArchiveEntry {
 export interface InstalledSkill {
   name: string;
   description: string;
-  source: 'personal' | 'synced' | 'plugin';
+  source: 'personal' | 'synced' | 'plugin' | 'project';
   path: string;
+  /** For a project's own skill: the project's folder name. */
+  project?: string;
 }
 
 export interface LibrarySchedule {
@@ -103,7 +105,7 @@ export class ApiError extends Error {
 
 export type PieceKind = 'skill' | 'command';
 export type OrderStatus =
-  'requested' | 'forging' | 'forged' | 'reviewed' | 'installed' | 'dismissed' | 'failed';
+  'requested' | 'forging' | 'forged' | 'reviewed' | 'installed' | 'dismissed' | 'failed' | 'exists';
 
 export interface ForgeOrder {
   id: string;
@@ -128,6 +130,8 @@ export interface ForgeOrder {
   createdAt: number;
   installedAt: number | null;
   error: string | null;
+  /** The Blacksmith found something that already does this, so nothing was forged. */
+  existing?: { name: string; where: string; reason: string } | null;
 }
 
 /** A service listening on a local port: a portal at the Tower. */

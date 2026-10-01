@@ -36,6 +36,7 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   installed: 'Installed',
   dismissed: 'Dismissed',
   failed: 'Failed',
+  exists: 'Already in the Library',
 };
 
 const VERDICT_LABEL = { ready: 'Ready to install', 'needs-work': 'Needs work', risky: 'Risky' } as const;
@@ -348,7 +349,11 @@ function Orders({
           data-status={o.status}
         >
           <header className="forge-order-head">
-            <strong>{o.piece?.name ?? (o.status === 'failed' ? 'Nothing forged' : 'Not forged yet')}</strong>
+            <strong>
+              {o.piece?.name ??
+                o.existing?.name ??
+                (o.status === 'failed' ? 'Nothing forged' : 'Not forged yet')}
+            </strong>
             <span className={`order-status status-${o.status}`}>{STATUS_LABEL[o.status]}</span>
           </header>
           <p className="muted small">
@@ -370,6 +375,15 @@ function Orders({
             </div>
           )}
           {o.error && <p className="error small">{o.error}</p>}
+          {o.existing && (
+            <p className="small" data-testid={`existing-${o.id}`}>
+              <strong>Already in the Library:</strong> {o.existing.name} ({o.existing.where}).{' '}
+              {o.existing.reason}{' '}
+              {o.existing.where === 'archive'
+                ? 'It waits for you under Needs you: install that instead.'
+                : 'Nothing was forged.'}
+            </p>
+          )}
           {o.piece && (
             <details className="forge-files">
               <summary>

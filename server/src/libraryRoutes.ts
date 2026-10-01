@@ -140,6 +140,7 @@ export async function registerLibraryRoutes(app: FastifyInstance, opts: LibraryR
         known: entries.map((e) => ({
           id: e.id,
           name: e.name,
+          description: e.description,
           repo: e.repo,
           path: e.path,
           commit: e.commit,

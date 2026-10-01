@@ -163,8 +163,12 @@ export function SkillsPanel({ api, version, now }: { api: Api; version: number; 
         </summary>
         <ul className="plain small">
           {status.installed.map((s) => (
-            <li key={`${s.source}:${s.path}`}>
-              <strong>{s.name}</strong> <span className="muted">· {s.source}</span>
+            <li key={`${s.source}:${s.project ?? ''}:${s.path}`}>
+              <strong>{s.name}</strong>{' '}
+              <span className="muted">
+                · {s.source}
+                {s.project ? `: ${s.project}` : ''}
+              </span>
               {s.description && <div className="muted">{s.description}</div>}
             </li>
           ))}

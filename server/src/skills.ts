@@ -1,5 +1,5 @@
 import { readFile, readdir } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { basename, join, relative, sep } from 'node:path';
 
 /**
  * The skills already installed, so the librarians can tell a new skill that fills a gap
@@ -10,10 +10,15 @@ import { join, relative, sep } from 'node:path';
 export interface InstalledSkill {
   name: string;
   description: string;
-  /** "personal" (the user's skills folder), "synced" (from claude.ai) or "plugin". */
-  source: 'personal' | 'synced' | 'plugin';
+  /**
+   * "personal" (the user's skills folder), "synced" (from claude.ai), "plugin", or
+   * "project" (a project's own `.claude/skills`, where the Forge installs).
+   */
+  source: 'personal' | 'synced' | 'plugin' | 'project';
   /** Folder of the skill, relative to the folder it was found under. */
   path: string;
+  /** For a project's skill: the project's folder name (never its full path). */
+  project?: string;
 }
 
 /**
@@ -68,11 +73,15 @@ async function findSkillFiles(root: string, depth: number): Promise<string[]> {
 }
 
 /**
- * The installed skills: the user's own and synced ones in `skillsDir`, and those that
- * plugins bring in `pluginsDir`. A skill with no name in its frontmatter is named after
- * its folder.
+ * The installed skills: the user's own and synced ones in `skillsDir`, those that plugins
+ * bring in `pluginsDir`, and each project's own in `<project>/.claude/skills`. A skill with
+ * no name in its frontmatter is named after its folder.
  */
-export async function installedSkills(skillsDir: string, pluginsDir?: string): Promise<InstalledSkill[]> {
+export async function installedSkills(
+  skillsDir: string,
+  pluginsDir?: string,
+  projects: readonly string[] = [],
+): Promise<InstalledSkill[]> {
   const read = async (root: string, depth: number, source: (rel: string) => InstalledSkill['source']) => {
     const skills: InstalledSkill[] = [];
     for (const file of await findSkillFiles(root, depth)) {
@@ -97,5 +106,15 @@ export async function installedSkills(skillsDir: string, pluginsDir?: string): P
   return [
     ...(await read(skillsDir, 3, (rel) => (rel.split(sep)[0] === 'synced' ? 'synced' : 'personal'))),
     ...(pluginsDir ? await read(pluginsDir, 6, () => 'plugin') : []),
+    ...(
+      await Promise.all(
+        [...new Set(projects)].map(async (dir) =>
+          (await read(join(dir, '.claude', 'skills'), 2, () => 'project')).map((s) => ({
+            ...s,
+            project: basename(dir),
+          })),
+        ),
+      )
+    ).flat(),
   ];
 }

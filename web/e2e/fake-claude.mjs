@@ -172,34 +172,48 @@ async function answer(raw) {
       }
     } else if (text.includes('You are the Blacksmith')) {
       const order = parse(await kingTool('read_order', {}));
-      // A command is one <name>.md; a skill is SKILL.md plus anything else it needs.
-      const name = order.kind === 'command' ? 'hello' : 'release-notes';
-      const result = parse(
-        await kingTool('submit_piece', {
+      // First the Library: a skill the user has, named in the order, is used instead.
+      const { installed } = parse(await kingTool('list_installed_skills', {}));
+      await kingTool('list_archive', {});
+      const have = installed.find((sk) => order.need.includes(sk.name));
+      if (have) {
+        await kingTool('already_exists', {
           id: order.id,
-          name,
-          description:
-            order.kind === 'command'
-              ? 'Say hello and what this project is.'
-              : 'Write release notes the way this project does.',
-          files:
-            order.kind === 'command'
-              ? [
-                  {
-                    path: `${name}.md`,
-                    content: 'Say hello, then say what this project is in one sentence.\n',
-                  },
-                ]
-              : [
-                  {
-                    path: 'SKILL.md',
-                    content: `---\nname: ${name}\ndescription: Write release notes the way this project does.\n---\n\n# Release notes\n\n1. Run scripts/changes.sh <last tag>.\n2. Group the changes under Added, Fixed and Changed.\n`,
-                  },
-                  { path: 'scripts/changes.sh', content: '#!/bin/sh\ngit log --oneline "$1"..HEAD\n' },
-                ],
-        }),
-      );
-      reply = result.refused ? `Refused: ${result.refused}` : `Forged ${name}.`;
+          name: have.name,
+          where: have.source,
+          reason: `${have.name} already does this.`,
+        });
+        reply = `Already in the Library: ${have.name}.`;
+      } else {
+        // A command is one <name>.md; a skill is SKILL.md plus anything else it needs.
+        const name = order.kind === 'command' ? 'hello' : 'release-notes';
+        const result = parse(
+          await kingTool('submit_piece', {
+            id: order.id,
+            name,
+            description:
+              order.kind === 'command'
+                ? 'Say hello and what this project is.'
+                : 'Write release notes the way this project does.',
+            files:
+              order.kind === 'command'
+                ? [
+                    {
+                      path: `${name}.md`,
+                      content: 'Say hello, then say what this project is in one sentence.\n',
+                    },
+                  ]
+                : [
+                    {
+                      path: 'SKILL.md',
+                      content: `---\nname: ${name}\ndescription: Write release notes the way this project does.\n---\n\n# Release notes\n\n1. Run scripts/changes.sh <last tag>.\n2. Group the changes under Added, Fixed and Changed.\n`,
+                    },
+                    { path: 'scripts/changes.sh', content: '#!/bin/sh\ngit log --oneline "$1"..HEAD\n' },
+                  ],
+          }),
+        );
+        reply = result.refused ? `Refused: ${result.refused}` : `Forged ${name}.`;
+      }
     } else if (text.includes('The Forge has a piece waiting for review')) {
       const { pieces } = parse(await kingTool('list_forged', {}));
       for (const p of pieces) {

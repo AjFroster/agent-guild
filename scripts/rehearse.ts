@@ -75,7 +75,7 @@ const ROLES: Record<string, string[]> = {
   scout: ['list_installed_skills', 'list_archive', 'add_candidate', 'write_note'],
   reviewer: ['list_installed_skills', 'list_candidates', 'record_review', 'write_note'],
   knight: ['request_equipment', 'check_equipment'],
-  smith: ['read_order', 'submit_piece'],
+  smith: ['read_order', 'list_installed_skills', 'list_archive', 'already_exists', 'submit_piece'],
   'forge-reviewer': ['list_forged', 'review_piece'],
 };
 

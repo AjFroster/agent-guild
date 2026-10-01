@@ -4,7 +4,9 @@ Knights fight the development; the Forge's smiths make and mend their equipment.
 smiths, each its own Claude Code session with its own MCP tools (like the librarians):
 
 - **The Blacksmith (the Smithy)** forges equipment for one project: a skill ("how we
-  release this app"), a slash command, a hook, or a better `CLAUDE.md`. It reads that
+  release this app"), a slash command, a hook, or a better `CLAUDE.md`. It first asks the
+  Library: when a skill the user has (their own, a plugin's, or a project's) or one in the
+  Archive already does the job, it says so and forges nothing. Otherwise it reads that
   project's code and history, drafts the piece, and hangs it on the weapon rack. The
   Library's Reviewer checks it like any skill, and nothing reaches the project until the
   user approves.
