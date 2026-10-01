@@ -75,6 +75,43 @@ a {
   border: 1px solid var(--line);
 }
 
+.village-wrap {
+  position: relative;
+}
+
+/* "Talk" beside a Knight on the map: a real button over the canvas. */
+.talk-pill {
+  position: absolute;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 2px solid #2b2000;
+  background: var(--accent);
+  color: #2b2000;
+  font:
+    700 12px system-ui,
+    sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.talk-pill.talk-urgent {
+  background: #d93a3a;
+  border-color: #4a0b0b;
+  color: #fff;
+}
+
+.talk-pill:hover,
+.talk-pill:focus-visible {
+  filter: brightness(1.1);
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.working-on {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+
 .panel {
   align-self: start;
   /* Scroll inside the panel, level with the map, instead of stretching the page. */

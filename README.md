@@ -103,6 +103,9 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 - **Loose ends** in the guild panel lists sessions whose folder has commits on no remote
   or uncommitted files, including sessions that have left the guild. A hero with loose
   ends says so in the roster and on its panel. Folders are checked once a minute.
+- **What a Knight is working on** (its quest in progress) shows under its name on the map
+  and in its panel. A **Talk** button sits beside the Knight you select, and beside any
+  Knight waiting on you (in red): one tap opens its chat.
 - **Click a building** to see who is there now, which tools send heroes there, and the
   latest activity inside.
 - Everything on the map can also be opened from the side panel with the keyboard.

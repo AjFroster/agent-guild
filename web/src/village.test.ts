@@ -6,6 +6,7 @@ import {
   BUILDINGS,
   ROWS,
   bubbleFor,
+  shorten,
   THRONE,
   VILLAGE_HEIGHT,
   hslToRgb,
@@ -200,5 +201,13 @@ describe('bubbleFor', () => {
     expect(bubbleFor(state.heroes.q!)).toBe('alert');
     expect(bubbleFor(state.heroes.r!)).toBe('sleep');
     expect(bubbleFor(state.heroes.w!)).toBeNull();
+  });
+});
+
+describe('shorten', () => {
+  it('keeps short text, and cuts long text at a word with an ellipsis', () => {
+    expect(shorten('Add tests', 28)).toBe('Add tests');
+    expect(shorten('Build the standings page with filters by season', 28)).toBe('Build the standings page…');
+    expect(shorten('Supercalifragilisticexpialidocious', 10)).toBe('Supercali…');
   });
 });

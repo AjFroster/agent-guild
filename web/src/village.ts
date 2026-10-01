@@ -1,5 +1,5 @@
 import type { GuildState, Hero, Location, Rank } from '@agent-guild/core';
-import { rankOf, roster } from '@agent-guild/core';
+import { currentQuest, rankOf, roster } from '@agent-guild/core';
 
 /**
  * Canvas drawing for the village, using the Tiny Swords pack (Pixel Frog, CC0) and
@@ -554,14 +554,34 @@ function drawUnit(
   if (mark) bubble(ctx, x + 30 * k, y - 30 * k, mark, k, nowMs);
 
   const fg = hero.status === 'needs_you' ? '#ffcc33' : '#f1efe6';
-  if (rank === 'king')
-    label(ctx, `${hero.name}  Lv ${hero.level}`, x, y + 8, 'rgba(60, 44, 0, 0.9)', '#ffd75e', 12);
-  else if (rank === 'knight')
-    label(ctx, `${hero.name}  Lv ${hero.level}`, x, y + 6, 'rgba(20, 26, 18, 0.85)', fg, 11);
-  // A party of six name tags would bury the map, so a follower shows its tag only when
-  // pointed at; the roster lists every one.
-  else if (focused || hero.status === 'needs_you')
+  if (rank === 'king' || rank === 'knight') {
+    const king = rank === 'king';
+    label(
+      ctx,
+      `${hero.name}  Lv ${hero.level}`,
+      x,
+      y + (king ? 8 : 6),
+      king ? 'rgba(60, 44, 0, 0.9)' : 'rgba(20, 26, 18, 0.85)',
+      king ? '#ffd75e' : fg,
+      king ? 12 : 11,
+    );
+    // What a leader is working on, under its name, so the Knight for a job is easy to find.
+    const quest = currentQuest(hero);
+    if (quest)
+      label(ctx, shorten(quest, 28), x, y + (king ? 28 : 25), 'rgba(20, 26, 18, 0.62)', '#e4dfcc', 10);
+  } else if (focused || hero.status === 'needs_you') {
+    // A party of six name tags would bury the map, so a follower shows its tag only when
+    // pointed at or waiting on the user; the roster lists every one.
     label(ctx, hero.name, x, y + 2, 'rgba(20, 26, 18, 0.85)', fg, 10);
+  }
+}
+
+/** Cut text to `max` characters at a word where possible, with an ellipsis. */
+export function shorten(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).trimEnd()}…`;
 }
 
 /** A disc of team colour on the ground, so a party reads as one at a glance. */
