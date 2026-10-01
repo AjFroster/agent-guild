@@ -34,7 +34,7 @@ and the server only listens on 127.0.0.1.
 ### Keep it running (Windows + WSL)
 
 ```bash
-scripts/autostart-wsl.sh install   # systemd user service on port 4760 + a Windows logon task
+scripts/autostart-wsl.sh install   # systemd user service on port 4760 + a Windows Startup keep-alive
 scripts/autostart-wsl.sh link      # print the link again
 scripts/autostart-wsl.sh uninstall
 ```
