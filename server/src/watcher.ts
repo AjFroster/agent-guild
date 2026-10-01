@@ -39,6 +39,9 @@ interface Tracked {
   lastT: number;
   /** Last model/branch sent, so a meta event goes out only when one changes. */
   lastMeta: string;
+  /** The folder the session runs in. Kept on the server for chats; never broadcast. */
+  cwd: string | null;
+  file: string;
 }
 
 const MAX_READ = 8 * 1024 * 1024;
@@ -149,6 +152,11 @@ export class TranscriptWatcher {
     }
     if (parsed.length === 0) return;
 
+    if (!tracked.cwd) {
+      const cwd = parsed.find((l) => typeof l.cwd === 'string')?.cwd;
+      if (typeof cwd === 'string') tracked.cwd = cwd;
+    }
+
     const events: GuildEvent[] = [];
     if (!tracked.started || tracked.ended) {
       const first = parsed.find((l) => lineTime(l) !== null);
@@ -188,6 +196,8 @@ export class TranscriptWatcher {
       name: null,
       lastT: 0,
       lastMeta: '',
+      cwd: null,
+      file,
     };
     this.tracked.set(file, tracked);
     return tracked;
@@ -215,8 +225,31 @@ export class TranscriptWatcher {
       };
     }
     const cwd = lines.find((l) => typeof l.cwd === 'string')?.cwd;
-    tracked.name ??= this.uniqueName(sessionName(cwd, 'Session'));
+    // A session given a name (`claude --name`, or one started from the guild) uses it.
+    const title = lines.find(
+      (l) => l.type === 'custom-title' && typeof l.customTitle === 'string',
+    )?.customTitle;
+    tracked.name ??= this.uniqueName(
+      typeof title === 'string' && title.trim() ? title.trim().slice(0, 40) : sessionName(cwd, 'Session'),
+    );
     return { t, session: tracked.session, type: 'session_start', name: tracked.name };
+  }
+
+  /** Where a main session runs and where its transcript is, if the guild has seen it. */
+  sessionOf(session: string): { cwd: string | null; file: string; name: string | null } | null {
+    for (const t of this.tracked.values()) {
+      if (t.session === session && !t.isSubagent) return { cwd: t.cwd, file: t.file, name: t.name };
+    }
+    return null;
+  }
+
+  /** Folders sessions have run in, most recently active first: suggestions for a new chat. */
+  projects(): string[] {
+    const seen = new Map<string, number>();
+    for (const t of this.tracked.values()) {
+      if (t.cwd && !t.isSubagent) seen.set(t.cwd, Math.max(seen.get(t.cwd) ?? 0, t.lastWriteMs));
+    }
+    return [...seen.entries()].sort((a, b) => b[1] - a[1]).map(([cwd]) => cwd);
   }
 
   /** Two sessions in the same project get "project" and "project 2". */
