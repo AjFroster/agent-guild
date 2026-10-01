@@ -101,7 +101,7 @@ uninstall() {
     schtasks.exe /Delete /F /TN "$TASK" >/dev/null 2>&1 || true
   fi
   printf 'Removed the service and the Windows task. Lingering was left on (loginctl disable-linger %s to undo).\n' "$USER"
-  printf 'The keep-alive WSL process stops at the next Windows sign-out or `wsl --shutdown`.\n'
+  printf 'The keep-alive WSL process stops at the next Windows sign-out or "wsl --shutdown".\n'
 }
 
 case "${1:-}" in
