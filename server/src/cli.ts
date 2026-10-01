@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -9,6 +8,7 @@ import { registerChatRoutes } from './chatRoutes.ts';
 import { ChatManager } from './chats.ts';
 import { TownCrier } from './crier.ts';
 import { createServer } from './server.ts';
+import { loadToken } from './token.ts';
 import { TranscriptWatcher } from './watcher.ts';
 
 /**
@@ -17,7 +17,7 @@ import { TranscriptWatcher } from './watcher.ts';
  *
  * Environment:
  *   AGENT_GUILD_PORT          default 4747
- *   AGENT_GUILD_TOKEN         default: a fresh random token each run
+ *   AGENT_GUILD_TOKEN         default: kept in <data dir>/token, so the link stays the same
  *   CLAUDE_PROJECTS_DIR       default ~/.claude/projects
  *   AGENT_GUILD_MAX_AGE_HOURS sessions older than this are not loaded at startup (default 3, 0 = all)
  *   AGENT_GUILD_IDLE_MINUTES  a silent session leaves the guild after this (default 20, 0 = never)
@@ -28,12 +28,12 @@ import { TranscriptWatcher } from './watcher.ts';
  */
 
 const port = Number(process.env.AGENT_GUILD_PORT ?? 4747);
-const token = process.env.AGENT_GUILD_TOKEN ?? randomBytes(24).toString('hex');
 const root = process.env.CLAUDE_PROJECTS_DIR ?? join(homedir(), '.claude', 'projects');
 const maxAgeHours = Number(process.env.AGENT_GUILD_MAX_AGE_HOURS ?? 3);
 const idleMinutes = Number(process.env.AGENT_GUILD_IDLE_MINUTES ?? 20);
 const dataDir = process.env.AGENT_GUILD_DATA_DIR ?? join(homedir(), '.agent-guild');
 const controlOn = process.env.AGENT_GUILD_NO_CONTROL !== '1';
+const token = process.env.AGENT_GUILD_TOKEN ?? (await loadToken(join(dataDir, 'token')));
 const webDir = resolve(import.meta.dirname, '../../web/dist');
 
 // Created before the server so the routes can use them; they announce through it once it
