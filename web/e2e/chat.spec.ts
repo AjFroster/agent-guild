@@ -1,3 +1,4 @@
+import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -374,4 +375,88 @@ test('a Knight asks the Forge for a skill; the Blacksmith forges it, the Library
     { timeout: 20_000 },
   );
   await page.screenshot({ path: 'e2e-screenshots/25-knight-told.png', animations: 'disabled' });
+});
+
+/** Start a small service in `cwd` (a separate process, as a dev server would be) and return its port. */
+async function service(
+  cwd: string,
+  kind: 'web' | 'tcp',
+  title = '',
+): Promise<{ port: number; child: ChildProcess }> {
+  const code =
+    kind === 'web'
+      ? `require('http').createServer((q, r) => { r.setHeader('content-type', 'text/html'); r.end('<title>${title}</title><h1>${title}</h1>'); }).listen(0, '127.0.0.1', function () { process.stdout.write(this.address().port + String.fromCharCode(10)); });`
+      : `require('net').createServer((s) => s.on('error', () => {})).listen(0, '127.0.0.1', function () { process.stdout.write(this.address().port + String.fromCharCode(10)); });`;
+  const child = spawn(process.execPath, ['-e', code], { cwd, stdio: ['ignore', 'pipe', 'inherit'] });
+  // process.stdout.write, not console.log: the runner sets FORCE_COLOR, which colours numbers.
+  let out = '';
+  const port = await new Promise<number>((resolve) =>
+    child.stdout!.on('data', (d) => {
+      out += String(d);
+      const line = out.split('\n').find((l) => /^\d+$/.test(l.trim()));
+      if (line) resolve(Number(line.trim()));
+    }),
+  );
+  return { port, child };
+}
+
+test('the Portal Keeper opens a portal for each service on a local port', async ({ page, context }) => {
+  // A dev server in Builder's project (the first test started Builder there), and a
+  // database-like TCP service elsewhere.
+  const web = await service(PROJECT, 'web', 'Bakery storefront');
+  const db = await service(LIVE_HOME, 'tcp');
+  try {
+    await openGuild(page);
+    // On the map: a portal button beside Builder, and a count on the Tower's door.
+    const pill = page.locator('[data-testid^="portal-pill-"]', { hasText: `:${web.port}` });
+    await expect(pill).toBeVisible({ timeout: 15_000 });
+    await expect(pill).toHaveAttribute('href', `http://localhost:${web.port}/`);
+    await page.screenshot({ path: 'e2e-screenshots/26-portal-on-the-map.png', animations: 'disabled' });
+
+    // The Tower page: one purple portal (a Knight's website), one stone arch (not a website).
+    await page.getByTestId('open-tower').click();
+    const tower = page.getByTestId('tower-page');
+    const site = tower.getByTestId(`portal-${web.port}`);
+    await expect(site).toHaveAttribute('data-look', 'purple');
+    await expect(site).toContainText('Builder');
+    await expect(site.getByTestId(`rename-portal-${web.port}`)).toHaveAttribute(
+      'placeholder',
+      'Bakery storefront',
+    );
+    const arch = tower.getByTestId(`portal-${db.port}`);
+    await expect(arch).toHaveAttribute('data-look', 'closed');
+    await expect(arch.getByTestId(`open-portal-${db.port}`)).toHaveCount(0);
+    const scene = page.locator('[data-testid="tower-scene"][data-ready="true"]');
+    await expect(scene).toHaveAttribute('aria-label', /portals? open/);
+    await page.screenshot({
+      path: 'e2e-screenshots/27-tower-portals.png',
+      animations: 'disabled',
+      fullPage: true,
+    });
+
+    // Through the portal: the service itself, in a new tab.
+    const [opened] = await Promise.all([
+      context.waitForEvent('page'),
+      site.getByTestId(`open-portal-${web.port}`).click(),
+    ]);
+    await expect(opened.locator('h1')).toHaveText('Bakery storefront');
+    await opened.close();
+
+    // Rename one, hide the other; both are remembered.
+    await site.getByTestId(`rename-portal-${web.port}`).fill('Storefront');
+    await site.getByTestId(`rename-portal-${web.port}`).blur();
+    await arch.getByTestId(`hide-portal-${db.port}`).click();
+    await expect(arch).toHaveCount(0);
+    await expect(tower.getByTestId(`unhide-portal-${db.port}`)).toBeVisible();
+    await page.reload();
+    await expect(page.getByTestId(`rename-portal-${web.port}`)).toHaveValue('Storefront');
+    await expect(page.getByTestId(`portal-${db.port}`)).toHaveCount(0);
+
+    // When the service stops, its portal closes.
+    web.child.kill();
+    await expect(page.getByTestId(`portal-${web.port}`)).toHaveCount(0, { timeout: 10_000 });
+  } finally {
+    web.child.kill();
+    db.child.kill();
+  }
 });

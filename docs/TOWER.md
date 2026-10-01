@@ -73,6 +73,10 @@ at the bell; and in front, the Portal Keeper's plaza, one portal per port on a r
 Below: the portals as a list (name, port, process, project, title, open/rename/hide), the
 scroll rack, and each wizard's desk.
 
+## Status
+
+Done: phase 1, the portals (and the Tower page with its scene). Next: the Seer.
+
 ## Phases
 
 1. **Portals**: `ports.ts` (Linux/WSL and macOS, unit-tested on fixtures of `/proc` and

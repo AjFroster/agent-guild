@@ -1,6 +1,9 @@
 import { type GuildState, type Hero, rankOf } from '@agent-guild/core';
 import { useEffect, useRef, useState } from 'react';
 
+import type { PortalInfo } from './api.ts';
+import { portalLook, portalUrl } from './towerScene.ts';
+
 import {
   BUILDINGS,
   type Selection,
@@ -44,6 +47,8 @@ interface Props {
   libraryWaiting?: number | undefined;
   /** Forged pieces waiting on the user, counted on the Forge's door. */
   forgeWaiting?: number | undefined;
+  /** Services on local ports: counted on the Tower's door, and a button beside their Knight. */
+  portals?: PortalInfo[] | undefined;
 }
 
 export function VillageCanvas({
@@ -57,7 +62,9 @@ export function VillageCanvas({
   clock,
   libraryWaiting,
   forgeWaiting,
+  portals,
 }: Props) {
+  const towerPortals = portals?.length;
   const canvas = useRef<HTMLCanvasElement>(null);
   const [sprites, setSprites] = useState<Sprites | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +72,14 @@ export function VillageCanvas({
 
   // The animation loop reads these through refs so it never restarts on a state change.
   const stateRef = useRef(state);
-  const viewRef = useRef<VillageView>({ selected, hovered, clock, libraryWaiting, forgeWaiting });
+  const viewRef = useRef<VillageView>({
+    selected,
+    hovered,
+    clock,
+    libraryWaiting,
+    forgeWaiting,
+    towerPortals,
+  });
   /** Heroes walking to a new building, keyed by hero id (live mode only). */
   const walkers = useRef(new Map<string, Walker>());
   /** Where each hero was last drawn, so a walk starts from there. */
@@ -82,9 +96,10 @@ export function VillageCanvas({
       clock: animate ? wallClock() : clock,
       libraryWaiting,
       forgeWaiting,
+      towerPortals,
     };
     redraw.current();
-  }, [state, selected, hovered, clock, animate, libraryWaiting, forgeWaiting]);
+  }, [state, selected, hovered, clock, animate, libraryWaiting, forgeWaiting, towerPortals]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +189,12 @@ export function VillageCanvas({
   if (error) return <p role="alert">The village art did not load: {error}</p>;
 
   // Live mode passes no clock here, so a Knight's button waits for it at its post.
-  const positions = onTalk ? heroPositions(state, clock) : null;
+  const positions = onTalk || portals?.length ? heroPositions(state, clock) : null;
+  // A Knight whose service is up gets a portal button: one click opens it.
+  const portalOf = new Map<string, number>();
+  for (const p of portals ?? [])
+    if (p.knight && portalLook(p) !== 'closed' && !portalOf.has(p.knight.id))
+      portalOf.set(p.knight.id, p.port);
   const talkable = onTalk
     ? heroes.filter(
         (h) =>
@@ -226,6 +246,29 @@ export function VillageCanvas({
           >
             Talk
           </button>
+        );
+      })}
+      {[...portalOf].map(([id, port]) => {
+        const at = positions?.get(id);
+        const hero = state.heroes[id];
+        if (!at || !hero) return null;
+        return (
+          <a
+            key={id}
+            className="portal-pill"
+            href={portalUrl(port)}
+            target="_blank"
+            rel="noopener noreferrer"
+            // To the Knight's left, so it never sits on its Talk button.
+            style={{
+              left: `${((at.x - 92) / VILLAGE_WIDTH) * 100}%`,
+              top: `${((at.y - 16) / VILLAGE_HEIGHT) * 100}%`,
+            }}
+            aria-label={`Open ${hero.name}'s service on port ${port}`}
+            data-testid={`portal-pill-${id}`}
+          >
+            ◈ :{port}
+          </a>
         );
       })}
     </div>
