@@ -69,6 +69,12 @@
     "name": "Lancelot"
   },
   {
+    "t": 2.8,
+    "session": "s-gal",
+    "type": "session_start",
+    "name": "Galahad"
+  },
+  {
     "t": 3,
     "session": "s-perc-1",
     "type": "subagent_start",
@@ -98,6 +104,20 @@
     "t": 4,
     "session": "s-perc",
     "type": "commanded"
+  },
+  {
+    "t": 4.2,
+    "session": "s-gal-1",
+    "type": "subagent_start",
+    "parent": "s-gal",
+    "name": "Herald"
+  },
+  {
+    "t": 4.4,
+    "session": "s-gal-2",
+    "type": "subagent_start",
+    "parent": "s-gal",
+    "name": "Page"
   },
   {
     "t": 4.5,
@@ -197,6 +217,27 @@
     "session": "s-lan",
     "type": "tool",
     "tool": "Read"
+  },
+  {
+    "t": 12.5,
+    "session": "s-gal",
+    "type": "tool",
+    "tool": "Edit"
+  },
+  {
+    "t": 12.8,
+    "session": "s-gal",
+    "type": "stop"
+  },
+  {
+    "t": 12.9,
+    "session": "s-gal-1",
+    "type": "stop"
+  },
+  {
+    "t": 12.9,
+    "session": "s-gal-2",
+    "type": "stop"
   },
   {
     "t": 13,

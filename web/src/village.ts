@@ -239,7 +239,7 @@ const FORMATION: readonly [number, number][] = [
 ];
 
 /** The King's place: his throne at the castle gate. */
-export const THRONE = { x: 640, y: 600 };
+export const THRONE = { x: 640, y: 625 };
 
 /**
  * How leaders line up at each building: three abreast, wide enough apart for a party to
@@ -258,20 +258,20 @@ export const ROWS: Record<Location, { x: number; perRow: number; spacing: number
  * building their latest tool sent them to; followers stand in formation behind their
  * leader wherever it goes, so a party moves as one.
  */
-export function heroPositions(state: GuildState): Map<string, { x: number; y: number }> {
+export function heroPositions(state: GuildState): Map<string, Place> {
   const heroes = roster(state);
   const present = new Set(heroes.map((h) => h.id));
   const leads = (h: Hero) => h.parentId === null || !present.has(h.parentId);
 
-  const positions = new Map<string, { x: number; y: number }>();
+  const positions = new Map<string, Place>();
   const byBuilding = new Map<Location, Hero[]>();
+  const sleepers: Hero[] = [];
   for (const hero of heroes.filter(leads)) {
-    // The King keeps his throne beside the castle: he commands, he does not walk to work.
-    if (hero.crowned) {
-      positions.set(hero.id, THRONE);
-      continue;
-    }
-    byBuilding.set(hero.location, [...(byBuilding.get(hero.location) ?? []), hero]);
+    // The King keeps his throne at the castle gate: he commands, he does not walk to work.
+    if (hero.crowned) positions.set(hero.id, { ...THRONE, pose: 'stand' });
+    // A Knight resting between turns goes to bed in the Barracks.
+    else if (hero.status === 'idle') sleepers.push(hero);
+    else byBuilding.set(hero.location, [...(byBuilding.get(hero.location) ?? []), hero]);
   }
   for (const [location, group] of byBuilding) {
     const b = BUILDINGS[location];
@@ -287,9 +287,11 @@ export function heroPositions(state: GuildState): Map<string, { x: number; y: nu
       positions.set(hero.id, {
         x: row.x + (col - (inRow - 1) / 2) * row.spacing,
         y: firstY + r * gap,
+        pose: 'stand',
       });
     });
   }
+  bedPlaces(sleepers.length).forEach((bed, i) => positions.set(sleepers[i]!.id, { ...bed, pose: 'sleep' }));
 
   // Roster order is depth-first, so a follower's leader is always placed before it.
   const placedUnder = new Map<string, number>();
@@ -299,12 +301,52 @@ export function heroPositions(state: GuildState): Map<string, { x: number; y: nu
     const at = positions.get(parent.id)!;
     const n = placedUnder.get(parent.id) ?? 0;
     placedUnder.set(parent.id, n + 1);
+    const k = leads(parent) ? 1 : 0.65;
+    if (at.pose === 'sleep') {
+      // A sleeping party lies either side of its leader's bed.
+      const [dx, dy] = SLEEP_SLOTS[n % SLEEP_SLOTS.length]!;
+      positions.set(hero.id, { x: at.x + dx * k, y: at.y + dy * k, pose: 'sleep' });
+      continue;
+    }
     const [dx, dy] = FORMATION[n % FORMATION.length]!;
     const wrap = Math.floor(n / FORMATION.length) * 22;
-    const k = leads(parent) ? 1 : 0.65;
-    positions.set(hero.id, { x: at.x + dx * k, y: at.y + (dy - wrap) * k });
+    positions.set(hero.id, { x: at.x + dx * k, y: at.y + (dy - wrap) * k, pose: 'stand' });
   }
   return positions;
+}
+
+/** Where a hero is, and whether it stands or lies asleep. */
+export interface Place {
+  x: number;
+  y: number;
+  pose: 'stand' | 'sleep';
+}
+
+/** The Barracks: a fenced camp in the bottom-left corner where resting Knights sleep. */
+export const BARRACKS = { left: 40, top: 440, right: 400, bottom: 708, fireX: 220, fireY: 482 };
+const BED_COLUMNS = [105, 220, 335];
+const BED_FIRST_ROW = 552;
+
+/** Followers' spots around a sleeping leader: either side of the bed, clear of its name. */
+const SLEEP_SLOTS: readonly [number, number][] = [
+  [-50, 2],
+  [50, 2],
+  [-50, -18],
+  [50, -18],
+];
+
+/**
+ * Beds for `n` sleepers: three to a row below the campfire, rows closing up to fit the
+ * camp however many Knights are resting.
+ */
+export function bedPlaces(n: number): { x: number; y: number }[] {
+  const rows = Math.ceil(n / BED_COLUMNS.length);
+  const room = BARRACKS.bottom - 40 - BED_FIRST_ROW;
+  const gap = rows > 1 ? Math.min(70, room / (rows - 1)) : 0;
+  return Array.from({ length: n }, (_, i) => ({
+    x: BED_COLUMNS[i % BED_COLUMNS.length]!,
+    y: BED_FIRST_ROW + Math.floor(i / BED_COLUMNS.length) * gap,
+  }));
 }
 
 /**
@@ -386,6 +428,8 @@ export interface Placed {
   y: number;
   moving: boolean;
   left: boolean;
+  /** Lying asleep: only once a hero has arrived at its bed. */
+  asleep: boolean;
 }
 
 /** Where every hero is drawn right now: at its slot, or part way along a walk. */
@@ -398,8 +442,10 @@ export function placeHeroes(
   return roster(state).map((hero) => {
     const target = targets.get(hero.id)!;
     const walker = walkers.get(hero.id);
-    const pos = walker ? walkerPosition(walker, nowMs) : { ...target, moving: false, left: false };
-    return { hero, ...pos };
+    const pos = walker
+      ? walkerPosition(walker, nowMs)
+      : { x: target.x, y: target.y, moving: false, left: false };
+    return { hero, ...pos, asleep: target.pose === 'sleep' && !pos.moving };
   });
 }
 
@@ -423,9 +469,11 @@ export function hitTest(
   const placed = placeHeroes(state, walkers, nowMs).sort((a, b) => b.y - a.y);
   for (const p of placed) {
     const k = RANK_SCALE[rankOf(p.hero)];
-    if (Math.abs(px - p.x) <= 26 * k && py >= p.y - 62 * k && py <= p.y + 20 * k) {
-      return { kind: 'hero', id: p.hero.id };
-    }
+    // A sleeper lies across its bed: wide and low.
+    const hit = p.asleep
+      ? Math.abs(px - p.x) <= 34 * k && py >= p.y - 18 * k && py <= p.y + 26 * k
+      : Math.abs(px - p.x) <= 26 * k && py >= p.y - 62 * k && py <= p.y + 20 * k;
+    if (hit) return { kind: 'hero', id: p.hero.id };
   }
   for (const [id, b] of Object.entries(BUILDINGS) as [Location, Building][]) {
     const box = buildingBox(b);
@@ -456,6 +504,8 @@ export function drawVillage(
       ctx.drawImage(sprites.grass, TILE, TILE, TILE, TILE, x, y, TILE, TILE);
     }
   }
+
+  drawBarracks(ctx, nowMs);
 
   // Trees and buildings drawn back to front by their base, so nearer things overlap.
   const scenery: { y: number; draw: () => void }[] = [
@@ -511,11 +561,153 @@ export function drawVillage(
     const team = teams.get(p.hero.id)!;
     const picked = sameSelection(view.selected, sel);
     const hovered = sameSelection(view.hovered, sel);
+    if (p.asleep) {
+      // Leaders get a bedroll with a blanket in their colour; their party sleeps beside it.
+      if (rankOf(p.hero) === 'knight') bedroll(ctx, p.x, p.y, TEAM_CSS[team]);
+      else teamDisc(ctx, p.x, p.y + 6 * k, k, TEAM_CSS[team]);
+      if (picked || hovered)
+        ring(ctx, p.x, p.y + 4, k * 1.3, picked ? '#ffcc33' : 'rgba(241, 239, 230, 0.85)');
+      drawSleeper(ctx, sprites, p.hero, team, p.x, p.y, nowMs, picked || hovered);
+      continue;
+    }
     teamDisc(ctx, p.x, p.y, k, TEAM_CSS[team]);
     if (picked) ring(ctx, p.x, p.y, k, '#ffcc33');
     else if (hovered) ring(ctx, p.x, p.y, k, 'rgba(241, 239, 230, 0.85)');
     drawUnit(ctx, sprites, p.hero, team, p.x, p.y, nowMs, p.moving, p.left, picked || hovered);
   }
+}
+
+/** A hero asleep: its sprite laid on its side, head to the left, with "zzz" over it. */
+function drawSleeper(
+  ctx: CanvasRenderingContext2D,
+  sprites: Sprites,
+  hero: Hero,
+  team: Team,
+  x: number,
+  y: number,
+  nowMs: number,
+  focused: boolean,
+): void {
+  const rank = rankOf(hero);
+  const k = RANK_SCALE[rank];
+  // Drawn smaller lying down than standing, so a Knight fits on its bedroll.
+  const size = UNIT_SIZE * k * 0.78;
+  const sheet = sprites.units[`${rank === 'worker' ? 'Pawn' : 'Warrior'}_${team}`]!;
+  ctx.save();
+  ctx.translate(x - 6 * k, y + 2 * k);
+  ctx.rotate(-Math.PI / 2);
+  // Idle frame 0, its body centred on the bed: the frame's middle sits a little above
+  // the feet line, so it is offset to lie flat rather than float.
+  ctx.drawImage(sheet, 0, 0, FRAME, FRAME, -size * 0.55, -size / 2, size, size);
+  ctx.restore();
+  if (rank === 'knight' || hero.status === 'needs_you') {
+    const mark = bubbleFor(hero);
+    if (mark) bubble(ctx, x - 22 * k, y - 16 * k, mark, k, nowMs);
+  }
+  if (rank === 'knight') {
+    label(ctx, `${hero.name}  Lv ${hero.level}`, x, y + 16, 'rgba(20, 26, 18, 0.85)', '#f1efe6', 11);
+  } else if (focused) {
+    label(ctx, hero.name, x, y + 10, 'rgba(20, 26, 18, 0.85)', '#f1efe6', 10);
+  }
+}
+
+/** A bedroll: a straw mat, a pillow at the head and a blanket in the sleeper's colour. */
+function bedroll(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
+  const w = 76;
+  const h = 26;
+  ctx.save();
+  ctx.fillStyle = '#b8935a';
+  ctx.strokeStyle = '#5c4223';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2, y - h / 2, w, h, 6);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#efe6cf';
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2 + 4, y - h / 2 + 4, 16, h - 8, 4);
+  ctx.fill();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.9;
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2 + 26, y - h / 2 + 2, w - 30, h - 4, 4);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * The Barracks camp: trodden ground, a fence with a gate towards the castle, and a
+ * campfire whose flames flicker in live mode (and hold still in demo mode).
+ */
+function drawBarracks(ctx: CanvasRenderingContext2D, nowMs: number): void {
+  const { left, top, right, bottom, fireX, fireY } = BARRACKS;
+  ctx.save();
+  ctx.fillStyle = 'rgba(146, 108, 64, 0.5)';
+  ctx.beginPath();
+  ctx.roundRect(left, top, right - left, bottom - top, 18);
+  ctx.fill();
+
+  // Fence: posts and two rails, open at the gate on the top edge.
+  const gate = [300, 360];
+  ctx.strokeStyle = '#6b4a2b';
+  ctx.fillStyle = '#7d5833';
+  ctx.lineWidth = 3;
+  const rail = (x1: number, y1: number, x2: number, y2: number) => {
+    for (const dy of [-10, -4]) {
+      ctx.beginPath();
+      ctx.moveTo(x1, y1 + dy);
+      ctx.lineTo(x2, y2 + dy);
+      ctx.stroke();
+    }
+  };
+  rail(left, top, gate[0]!, top);
+  rail(gate[1]!, top, right, top);
+  rail(left, bottom, right, bottom);
+  ctx.lineWidth = 3;
+  for (const x of [left, right]) {
+    ctx.beginPath();
+    ctx.moveTo(x, top - 10);
+    ctx.lineTo(x, bottom - 4);
+    ctx.stroke();
+  }
+  const post = (x: number, y: number) => ctx.fillRect(x - 3, y - 16, 6, 18);
+  for (let x = left; x <= right; x += 40) {
+    if (x < gate[0]! || x > gate[1]!) post(x, top);
+    post(x, bottom);
+  }
+  for (let y = top + 40; y < bottom; y += 40) {
+    post(left, y);
+    post(right, y);
+  }
+
+  // The campfire: crossed logs, a ring of stones and flickering flames.
+  ctx.fillStyle = '#8a8a80';
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(fireX + Math.cos(a) * 16, fireY + Math.sin(a) * 7, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.strokeStyle = '#5c3a1c';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(fireX - 12, fireY + 4);
+  ctx.lineTo(fireX + 12, fireY - 4);
+  ctx.moveTo(fireX - 12, fireY - 4);
+  ctx.lineTo(fireX + 12, fireY + 4);
+  ctx.stroke();
+  const flicker = (phase: number) => 1 + Math.sin(nowMs / 90 + phase) * 0.15;
+  const flame = (color: string, w: number, h: number, phase: number) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.ellipse(fireX, fireY - (h * flicker(phase)) / 2, w, (h * flicker(phase)) / 2, 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  flame('rgba(226, 88, 34, 0.9)', 10, 26, 0);
+  flame('rgba(255, 170, 51, 0.95)', 7, 18, 1.7);
+  flame('rgba(255, 236, 140, 0.95)', 4, 10, 3.1);
+  ctx.restore();
+  label(ctx, 'Barracks', left + 62, top + 8, 'rgba(20, 26, 18, 0.72)', '#f1efe6', 13);
 }
 
 function drawUnit(

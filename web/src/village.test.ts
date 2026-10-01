@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import { ago } from './panels.tsx';
 import {
+  BARRACKS,
   BUILDINGS,
   ROWS,
+  bedPlaces,
   bubbleFor,
   shorten,
   THRONE,
@@ -18,10 +20,14 @@ import {
   walkerPosition,
 } from './village.ts';
 
+// Everyone busy at the guildhall (TodoWrite keeps a hero there), so nobody is in bed.
 const party = replay([
   { t: 0, session: 'a', type: 'session_start', name: 'A' },
   { t: 1, session: 'a1', type: 'subagent_start', parent: 'a', name: 'A1' },
   { t: 2, session: 'b', type: 'session_start', name: 'B' },
+  { t: 3, session: 'a', type: 'tool', tool: 'TodoWrite' },
+  { t: 3, session: 'a1', type: 'tool', tool: 'TodoWrite' },
+  { t: 3, session: 'b', type: 'tool', tool: 'TodoWrite' },
 ]);
 
 describe('heroTeams', () => {
@@ -65,7 +71,7 @@ describe('heroPositions', () => {
       { t: 0, session: 'k', type: 'crown' },
       { t: 1, session: 'k', type: 'tool', tool: 'Read' },
     ]);
-    expect(heroPositions(state).get('k')).toEqual(THRONE);
+    expect(heroPositions(state).get('k')).toEqual({ ...THRONE, pose: 'stand' });
   });
 
   it('keeps a crowd of resting Knights on the map', () => {
@@ -78,6 +84,34 @@ describe('heroPositions', () => {
       })),
     );
     for (const p of heroPositions(crowd).values()) expect(p.y).toBeLessThanOrEqual(VILLAGE_HEIGHT - 16);
+  });
+
+  it('puts a resting Knight to bed in the Barracks, its party asleep at the foot', () => {
+    const state = replay([
+      { t: 0, session: 'a', type: 'session_start', name: 'A' },
+      { t: 1, session: 'a1', type: 'subagent_start', parent: 'a', name: 'A1' },
+      { t: 2, session: 'a', type: 'stop' },
+    ]);
+    const positions = heroPositions(state);
+    const a = positions.get('a')!;
+    const a1 = positions.get('a1')!;
+    expect(a.pose).toBe('sleep');
+    expect(a1.pose).toBe('sleep');
+    for (const p of [a, a1]) {
+      expect(p.x).toBeGreaterThan(BARRACKS.left);
+      expect(p.x).toBeLessThan(BARRACKS.right);
+      expect(p.y).toBeGreaterThan(BARRACKS.top);
+      expect(p.y).toBeLessThan(BARRACKS.bottom);
+    }
+    expect(a1.y).toBeGreaterThan(a.y);
+  });
+
+  it('gives every sleeper its own bed, inside the camp, however many there are', () => {
+    for (const n of [1, 3, 9, 15]) {
+      const beds = bedPlaces(n);
+      expect(new Set(beds.map((b) => `${b.x},${b.y}`)).size).toBe(n);
+      for (const b of beds) expect(b.y).toBeLessThan(BARRACKS.bottom - 20);
+    }
   });
 
   it('stands a follower behind its leader, wherever the leader is', () => {
@@ -169,6 +203,16 @@ describe('hitTest', () => {
     const at = heroPositions(party).get('a1')!;
     expect(hitTest(party, new Map(), 0, at.x, at.y - 20)).toEqual({ kind: 'hero', id: 'a1' });
     expect(hitTest(party, new Map(), 0, at.x, at.y - 55)).not.toEqual({ kind: 'hero', id: 'a1' });
+  });
+
+  it('finds a sleeper lying across its bed', () => {
+    const asleep = replay([
+      { t: 0, session: 's', type: 'session_start', name: 'S' },
+      { t: 1, session: 's', type: 'stop' },
+    ]);
+    const bed = heroPositions(asleep).get('s')!;
+    expect(hitTest(asleep, new Map(), 0, bed.x + 25, bed.y)).toEqual({ kind: 'hero', id: 's' });
+    expect(hitTest(asleep, new Map(), 0, bed.x, bed.y - 50)).toBeNull();
   });
 
   it('follows a hero part way along a walk', () => {
