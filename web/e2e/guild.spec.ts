@@ -159,6 +159,21 @@ test('the Forge: a Knight asks for equipment, and the Blacksmith works inside', 
   expect(errors).toEqual([]);
 });
 
+test('the Tower: its grounds and wizards, and the Portal Keeper', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=party&t=20');
+  await page.getByTestId('open-tower').click();
+  const tower = page.getByTestId('tower-page');
+  await expect(page.locator('[data-testid="tower-scene"][data-ready="true"]')).toHaveCount(1);
+  // Demo mode cannot look at ports: the page says so instead of showing none.
+  await expect(tower).toContainText('The Portal Keeper looks for services when the guild runs live.');
+  await expect(tower.getByTestId('desk-Seer')).toContainText('Coming soon');
+  await page.screenshot({ path: `${SHOTS}/19-tower-page.png`, animations: 'disabled', fullPage: true });
+  await tower.getByTestId('tower-back').click();
+  await expect(page.getByTestId('village')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('a kingdom: the King, Knights in their colours, and parties following them', async ({ page }) => {
   const errors = watchForErrors(page);
   await page.goto('/?demo=kingdom&t=20');

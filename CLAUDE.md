@@ -44,6 +44,11 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   `forgeRoutes.ts` holds its routes. Every Knight the guild starts gets the `knight` MCP role
   (`request_equipment`), told apart by its folder. `web/src/forge.tsx` and `forgeScene.ts`
   are its page.
+- The Tower (docs/TOWER.md): `server/src/ports.ts` is the Portal Keeper: it finds what the
+  user's own processes listen on (Linux/WSL `/proc`, macOS `lsof`), read-only, checks once
+  with a GET whether each is a website, and sends the page the port, program, folder name
+  and Knight only; `portalRoutes.ts` holds its routes. `web/src/tower.tsx` and
+  `towerScene.ts` are its page.
 - Building pages: `web/src/scene.ts` is the shared kit (art list `ART`, `put`, `terrain`,
   `nine`, `ribbon`), `SceneCanvas.tsx` draws any scene and hit-tests clicks. A scene module
   keeps a pure model and pick function (unit-tested) beside its draw function. Art comes

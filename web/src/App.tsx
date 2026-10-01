@@ -2,12 +2,13 @@ import { type GuildEvent, type GuildState, replay, roster } from '@agent-guild/c
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
-import { type Api, type ChatInfo, api } from './api.ts';
+import { type Api, type ChatInfo, type PortalStatus, api } from './api.ts';
 import { ChatDrawer, CrierCard, CrownDialog, NewChatDialog, ReportDrawer } from './chat.tsx';
 import { type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
 import { ForgePage } from './forge.tsx';
+import { TowerPage } from './tower.tsx';
 import { LibraryPage } from './library.tsx';
 import { resolveSelection, useDrawer, usePage, usePanelTab, useSelection } from './selection.ts';
 import { SkillsPanel } from './skills.tsx';
@@ -82,6 +83,8 @@ interface Control {
   skills: { waiting: number; version: number };
   /** Forged pieces waiting on the user, and a counter that ticks when the Forge changes. */
   forge: { waiting: number; version: number };
+  /** Services on local ports, from the Portal Keeper. */
+  portals: PortalStatus | null;
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -140,6 +143,7 @@ function Live({ token }: { token: string }) {
               kingId: announcements.king?.id ?? null,
               skills: announcements.skills,
               forge: announcements.forge,
+              portals: announcements.portals,
             }
           : undefined
       }
@@ -171,7 +175,7 @@ function Guild({
   // has a page of its own, where the librarians are.
   const select = useCallback(
     (s: Selection | null) => {
-      if (s?.kind === 'building' && (s.id === 'library' || s.id === 'forge')) {
+      if (s?.kind === 'building' && (s.id === 'library' || s.id === 'forge' || s.id === 'tower')) {
         openPage(s.id);
         return;
       }
@@ -253,7 +257,14 @@ function Guild({
           <SettingsButton settings={settings} onChange={updateSettings} />
         </span>
       </header>
-      {page === 'forge' ? (
+      {page === 'tower' ? (
+        <TowerPage
+          now={now}
+          animate={live !== undefined}
+          onBack={() => openPage('village')}
+          control={control && { api: control.api, portals: control.portals }}
+        />
+      ) : page === 'forge' ? (
         <ForgePage
           state={state}
           now={now}
@@ -301,6 +312,7 @@ function Guild({
               clock={live === undefined ? now : undefined}
               libraryWaiting={control?.skills.waiting}
               forgeWaiting={control?.forge.waiting}
+              portals={control?.portals?.portals}
             />
             {showHint && <Hint onDismiss={dismissHint} />}
           </div>

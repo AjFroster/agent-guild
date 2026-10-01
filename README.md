@@ -42,6 +42,7 @@ the token in the browser and takes it out of the address bar, so after the first
 | `AGENT_GUILD_NO_CONTROL`    | off                  | `1` turns chats and the Town Crier off: watch-only             |
 | `AGENT_GUILD_GIT`           | on                   | `0` stops checking session folders for unpushed work           |
 | `CLAUDE_SKILLS_DIR`         | `~/.claude/skills`   | installed skills; approved skills are installed here           |
+| `AGENT_GUILD_PORTALS`       | on                   | `0` stops looking for services on local ports                  |
 
 ### Keep it running (Windows + WSL)
 
@@ -138,6 +139,14 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
   Blacksmith hammers at the anvil while it works, and each piece waiting for you hangs on
   the rack: a sword for a skill, an axe for a command. The Armorer, who will mend broken
   builds, comes next.
+- **The Tower and its portals.** The Portal Keeper finds every service your own programs
+  are listening on (a dev server, an API, a database) and stands a portal for each on the
+  Tower page: purple if it runs in a Knight's project, green if it is a website (with its
+  page title), a plain stone arch if it is not. Click a portal to open it. Rename, pin or
+  hide them; a Knight whose dev server is up gets a portal button beside it on the map, and
+  the Tower's door counts them. It costs no usage: the guild looks itself (and checks each
+  new port once with one request to 127.0.0.1, which you can turn off). The Tower's other
+  wizards (Seer, Archmage, Enchanter, Lookout) come next.
 - **What a Knight is working on** (its quest in progress) shows under its name on the map
   and in its panel. A **Talk** button sits beside the Knight you select, and beside any
   Knight waiting on you (in red): one tap opens its chat.

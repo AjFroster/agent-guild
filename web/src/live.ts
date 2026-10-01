@@ -1,7 +1,7 @@
 import { EventStream, type GuildEvent } from '@agent-guild/core';
 import { useEffect, useState } from 'react';
 
-import type { ChatInfo } from './api.ts';
+import type { ChatInfo, PortalStatus } from './api.ts';
 
 export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'unauthorized';
 
@@ -14,6 +14,8 @@ export interface Announcements {
   skills: { waiting: number; version: number };
   /** Forged pieces waiting on the user, and a counter that ticks when the Forge changes. */
   forge: { waiting: number; version: number };
+  /** Services listening on local ports, kept current by the Portal Keeper. */
+  portals: PortalStatus | null;
   chats: ChatInfo[];
   crierVersion: number;
 }
@@ -34,6 +36,7 @@ export function useLiveEvents(token: string): {
     king: null,
     skills: { waiting: 0, version: 0 },
     forge: { waiting: 0, version: 0 },
+    portals: null,
     chats: [],
     crierVersion: 0,
   });
@@ -67,6 +70,9 @@ export function useLiveEvents(token: string): {
         ...a,
         forge: { waiting: (json(e) as { waiting: number }).waiting, version: a.forge.version + 1 },
       })),
+    );
+    source.addEventListener('portals', (e) =>
+      setAnnouncements((a) => ({ ...a, portals: json(e) as PortalStatus })),
     );
     source.addEventListener('chats', (e) =>
       setAnnouncements((a) => ({ ...a, chats: json(e) as ChatInfo[] })),

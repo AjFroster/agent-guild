@@ -62,6 +62,27 @@ export const ART = {
   orePile: 'props/ore_pile.png',
   ingots: 'props/ingots.png',
   toolStump: 'props/tool_stump.png',
+  tower: 'tiny-swords/buildings/Tower.png',
+  pawnBlue: 'tiny-swords/units/Pawn_Blue.png',
+  portalBlue: 'props/portal_blue.png',
+  portalPurple: 'props/portal_purple.png',
+  portalGreen: 'props/portal_green.png',
+  portalClosed: 'props/portal_closed.png',
+  runeCircle: 'props/rune_circle.png',
+  telescope: 'props/telescope.png',
+  scryingPool: 'props/scrying_pool.png',
+  scrollRack: 'props/scroll_rack.png',
+  floatingBooks: 'props/floating_books.png',
+  crystal: 'props/crystal.png',
+  starDesk: 'props/star_desk.png',
+  lens: 'props/lens.png',
+  alarmBell: 'props/alarm_bell.png',
+  hatSeer: 'props/hat_seer.png',
+  hatArchmage: 'props/hat_archmage.png',
+  hatEnchanter: 'props/hat_enchanter.png',
+  hatLookout: 'props/hat_lookout.png',
+  hatPortal: 'props/hat_portal.png',
+  staff: 'props/staff.png',
 } as const;
 
 export type ArtName = keyof typeof ART;
@@ -78,6 +99,12 @@ export const FRAMES = {
   trough: 4,
   grindstone: 4,
   sparks: 4,
+  portal: 6,
+  runeCircle: 4,
+  scryingPool: 4,
+  floatingBooks: 4,
+  crystal: 4,
+  alarmBell: 4,
 } as const;
 
 let artPromise: Promise<Art> | null = null;
