@@ -190,9 +190,12 @@ export function applyStreamLine(state: ChatState, line: unknown, now: number): C
       const text = str(line.result);
       const ok = line.is_error !== true && line.subtype === 'success';
       const loginRequired = LOGIN.test(text);
-      const items = state.items.map((x) =>
+      let items = state.items.map((x) =>
         x.kind === 'assistant' && x.streaming ? { ...x, streaming: false } : x,
       );
+      // The CLI also sends "Not logged in" as an assistant reply; the notice below says
+      // it better, so the reply is dropped rather than shown twice.
+      if (loginRequired) items = items.filter((x) => !(x.kind === 'assistant' && LOGIN.test(x.text)));
       const summary: ChatItem = loginRequired
         ? {
             kind: 'notice',

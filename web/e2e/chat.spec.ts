@@ -68,8 +68,11 @@ test('a missing Claude login is explained, not shown as a reply', async ({ page 
   await form.getByTestId('new-cwd').fill(PROJECT);
   await form.getByTestId('new-message').fill('LOGIN please');
   await form.getByTestId('new-start').click();
-  await expect(page.getByTestId('login-required')).toBeVisible();
-  await expect(page.getByTestId('chat').getByTestId('msg-notice')).toContainText('/login');
+  const chat = page.getByTestId('chat');
+  await expect(chat.getByTestId('msg-notice')).toContainText('/login');
+  // Said once, not echoed as Claude's reply as well.
+  await expect(chat.getByTestId('msg-assistant')).toHaveCount(0);
+  await expect(chat.getByText(/not logged in/i)).toHaveCount(1);
 });
 
 test('the new-session form refuses a folder outside home', async ({ page }) => {

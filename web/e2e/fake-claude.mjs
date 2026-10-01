@@ -57,6 +57,11 @@ createInterface({ input: process.stdin }).on('line', (raw) => {
   }
 
   if (text.includes('LOGIN')) {
+    // The real CLI sends this as an assistant reply and then as the result.
+    out({
+      type: 'assistant',
+      message: { id: 'login', content: [{ type: 'text', text: 'Not logged in · Please run /login' }] },
+    });
     out({ type: 'result', subtype: 'success', is_error: false, result: 'Not logged in · Please run /login' });
     return;
   }

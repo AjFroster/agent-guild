@@ -55,6 +55,10 @@ function useChatStream(api: Api, id: string) {
         return { ...s, items };
       });
     });
+    source.addEventListener('remove', (e) => {
+      const { id: gone } = JSON.parse((e as MessageEvent<string>).data) as { id: string };
+      setSnapshot((s) => (s ? { ...s, items: s.items.filter((x) => x.id !== gone) } : s));
+    });
     source.addEventListener('info', (e) => {
       const info = JSON.parse((e as MessageEvent<string>).data) as ChatInfo;
       setSnapshot((s) => (s ? { ...s, info } : s));
@@ -131,13 +135,6 @@ export function ChatDrawer({ api, id, onClose }: { api: Api; id: string; onClose
           </button>
         </span>
       </header>
-
-      {info?.loginRequired && (
-        <p className="login-banner" role="alert" data-testid="login-required">
-          Claude Code is not logged in on this machine. Open a WSL terminal, run <code>claude</code>, type{' '}
-          <code>/login</code>, then send your message again.
-        </p>
-      )}
 
       {error ? (
         <p role="alert" className="drawer-body">
@@ -227,7 +224,11 @@ function Message({ item }: { item: ChatItem }) {
       );
     case 'notice':
       return (
-        <li className={`msg msg-notice ${item.tone}`} data-testid="msg-notice">
+        <li
+          className={`msg msg-notice ${item.tone}`}
+          data-testid="msg-notice"
+          role={item.tone === 'error' ? 'alert' : undefined}
+        >
           <Markdown text={item.text} />
         </li>
       );
