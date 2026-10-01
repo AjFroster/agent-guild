@@ -1,14 +1,21 @@
 import { type Page, expect, test } from '@playwright/test';
 
 /**
- * Clicking around the village. Positions come from the layout in src/village.ts: at
- * party t=20 Ada is alone at the Forge (building foot at 440,200, heroes stand 88px
- * below it), so her body is at about (440, 258) on the canvas.
+ * Clicking around the village. Positions are map coordinates from the layout in
+ * src/village.ts (1120 x 720): at party t=20 Ada is alone at the Forge (building foot at
+ * 420,210, leaders stand 88px below it), so her body is at about (420, 270). The canvas
+ * is drawn scaled to its column, so clicks go through `at`, which converts.
  */
-const ADA = { x: 440, y: 258 };
-const LIBRARY = { x: 130, y: 120 };
-const FORGE = { x: 440, y: 120 };
-const GRASS = { x: 300, y: 250 };
+const ADA = { x: 420, y: 270 };
+const LIBRARY = { x: 140, y: 130 };
+const FORGE = { x: 420, y: 130 };
+const GRASS = { x: 830, y: 380 };
+
+/** A map point as a click position on the canvas as drawn on the page. */
+async function at(page: Page, point: { x: number; y: number }) {
+  const box = (await page.getByTestId('village').boundingBox())!;
+  return { x: (point.x / 1120) * box.width, y: (point.y / 720) * box.height };
+}
 
 async function ready(page: Page) {
   await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
@@ -19,7 +26,7 @@ const village = (page: Page) => page.getByTestId('village');
 test('clicking a hero on the map opens their sessions panel', async ({ page }) => {
   await page.goto('/?demo=party&t=20');
   await ready(page);
-  await village(page).click({ position: ADA });
+  await village(page).click({ position: await at(page, ADA) });
 
   const panel = page.getByTestId('panel-hero');
   await expect(panel.getByRole('heading', { name: 'Ada' })).toBeVisible();
@@ -45,13 +52,13 @@ test('clicking a building shows who is there and what happened there', async ({ 
   await page.goto('/?demo=party&t=20');
   await ready(page);
 
-  await village(page).click({ position: LIBRARY });
+  await village(page).click({ position: await at(page, LIBRARY) });
   const panel = page.getByTestId('panel-building');
   await expect(panel.getByRole('heading', { name: 'Library' })).toBeVisible();
   await expect(panel.getByTestId('nobody-here')).toBeVisible();
   await expect(panel).toContainText('Tools: Read, Grep, Glob, LS');
 
-  await village(page).click({ position: FORGE });
+  await village(page).click({ position: await at(page, FORGE) });
   await expect(panel.getByRole('heading', { name: 'Forge' })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Ada' }).first()).toBeVisible();
   await page.screenshot({ path: 'e2e-screenshots/8-building-panel.png', animations: 'disabled' });
@@ -65,7 +72,7 @@ test('clicking open grass or pressing Escape closes the panel', async ({ page })
   await page.goto('/?demo=party&t=20&select=building:forge');
   await ready(page);
   await expect(page.getByTestId('panel-building')).toBeVisible();
-  await village(page).click({ position: GRASS });
+  await village(page).click({ position: await at(page, GRASS) });
   await expect(page.getByTestId('panel-building')).toHaveCount(0);
 
   await page.goto('/?demo=party&t=20&select=hero:s-grace');
