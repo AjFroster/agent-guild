@@ -45,6 +45,8 @@ export const GuildEvent = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('ordered') }),
   /** This session is one of the guild's librarians, who keep the Archive of skills. */
   z.object({ ...base, type: z.literal('librarian') }),
+  /** This session is one of the guild's smiths, who forge and mend the Knights' equipment. */
+  z.object({ ...base, type: z.literal('smith') }),
   /** The King has given this Knight an order: it now serves the crown. */
   z.object({ ...base, type: z.literal('commanded') }),
   /** Claude Code is waiting on the user: a permission prompt or an idle notification. */

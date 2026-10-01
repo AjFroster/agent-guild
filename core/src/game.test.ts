@@ -14,6 +14,10 @@ import {
   librarianDoing,
   librarianState,
   librariansIn,
+  locationForTool as whereFor,
+  roleName,
+  smithDoing,
+  smithsIn,
   emptyGuild,
   guildTokens,
   levelFor,
@@ -419,5 +423,42 @@ describe('the librarians', () => {
     expect(librarianDoing(searching.heroes.r!)).toBe('Searching the web');
     const gone = applyEvent(state, { t: 4, session: 's', type: 'session_end' });
     expect(librariansIn(gone).map((h) => h.id)).toEqual(['r', 'q']);
+  });
+});
+
+describe('the smiths', () => {
+  it('are their own rank, work inside the Forge, and are never summoned to the throne', () => {
+    const state = replay([
+      { t: 0, session: 'b', type: 'session_start', name: 'Blacksmith' },
+      { t: 0, session: 'b', type: 'smith' },
+      { t: 1, session: 'b', type: 'tool', tool: 'mcp__guild__submit_piece' },
+      { t: 2, session: 'b', type: 'ordered' },
+      { t: 0, session: 'k', type: 'session_start', name: 'Percival' },
+    ]);
+    const smith = state.heroes.b!;
+    expect(rankOf(smith)).toBe('smith');
+    expect(smithsIn(state).map((h) => h.id)).toEqual(['b']);
+    expect(smithDoing(smith)).toBe('Hanging the piece on the rack');
+    expect(inAudience(smith, 3)).toBe(false);
+  });
+
+  it('sends a Knight asking for equipment to the Forge', () => {
+    expect(whereFor('mcp__guild__request_equipment')).toBe('forge');
+    expect(whereFor('mcp__guild__list_knights')).toBe('guildhall');
+  });
+});
+
+describe('workers of the same role', () => {
+  it('count once: the newest session of a role is the one shown', () => {
+    const state = replay([
+      { t: 0, session: 'r1', type: 'session_start', name: 'Reviewer' },
+      { t: 0, session: 'r1', type: 'librarian' },
+      { t: 5, session: 'r2', type: 'session_start', name: 'Reviewer 2' },
+      { t: 5, session: 'r2', type: 'librarian' },
+      { t: 6, session: 's', type: 'session_start', name: 'Scout' },
+      { t: 6, session: 's', type: 'librarian' },
+    ]);
+    expect(roleName('Reviewer 2')).toBe('Reviewer');
+    expect(librariansIn(state).map((h) => h.id)).toEqual(['r2', 's']);
   });
 });

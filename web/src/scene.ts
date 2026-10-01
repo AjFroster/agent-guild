@@ -44,13 +44,41 @@ export const ART = {
   scrolls: 'props/scrolls.png',
   lectern: 'props/lectern.png',
   orb: 'props/orb.png',
+  forge: 'tiny-swords/buildings/Forge.png',
+  pawnRed: 'tiny-swords/units/Pawn_Red.png',
+  hearth: 'props/hearth.png',
+  anvil: 'props/anvil.png',
+  bellows: 'props/bellows.png',
+  trough: 'props/trough.png',
+  grindstone: 'props/grindstone.png',
+  sparks: 'props/sparks.png',
+  weaponRack: 'props/weapon_rack.png',
+  sword: 'props/sword.png',
+  axe: 'props/axe.png',
+  spear: 'props/spear.png',
+  shield: 'props/shield.png',
+  brokenSword: 'props/broken_sword.png',
+  repairBench: 'props/repair_bench.png',
+  orePile: 'props/ore_pile.png',
+  ingots: 'props/ingots.png',
+  toolStump: 'props/tool_stump.png',
 } as const;
 
 export type ArtName = keyof typeof ART;
 export type Art = Record<ArtName, HTMLImageElement>;
 
 /** Animated art: horizontal strips of equal frames. */
-export const FRAMES = { fire: 7, lectern: 4, orb: 6 } as const;
+export const FRAMES = {
+  fire: 7,
+  lectern: 4,
+  orb: 6,
+  anvil: 5,
+  hearth: 4,
+  bellows: 4,
+  trough: 4,
+  grindstone: 4,
+  sparks: 4,
+} as const;
 
 let artPromise: Promise<Art> | null = null;
 

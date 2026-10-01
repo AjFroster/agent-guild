@@ -23,6 +23,8 @@ export interface ChatRouteOptions {
   projects: () => string[];
   /** Options a special session (the King) keeps when it is opened again. */
   extrasFor?: (id: string) => SessionExtras | undefined;
+  /** What every Knight the guild starts gets: the Forge's tools. */
+  knightExtras?: () => Pick<SessionExtras, 'mcpConfig' | 'allowedTools'>;
 }
 
 export type SessionOf = ChatRouteOptions['sessionOf'];
@@ -97,6 +99,7 @@ export async function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOp
     }
     try {
       const info = await chats.start({
+        ...opts.knightExtras?.(),
         cwd: String(body.cwd ?? ''),
         message: String(body.message ?? ''),
         ...(body.name !== undefined ? { name: String(body.name) } : {}),

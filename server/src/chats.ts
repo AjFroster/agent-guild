@@ -450,7 +450,8 @@ export class ChatManager {
     }
   }
 
-  private async checkFolder(raw: unknown): Promise<string> {
+  /** An existing folder inside the home directory, resolved through symlinks; refuses anything else. */
+  async checkFolder(raw: unknown): Promise<string> {
     if (typeof raw !== 'string' || !raw.trim()) throw new ChatError(400, 'Choose a folder to start in.');
     let real: string;
     try {

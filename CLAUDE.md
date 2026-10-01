@@ -38,6 +38,12 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
 - `web/e2e/fake-claude.mjs` stands in for the CLI in browser tests, and plays a scripted
   King over the real MCP server when given `--mcp-config`. Never call the real
   `claude` from tests: CI has no login, and it would spend the user's usage.
+- The Forge (docs/FORGE.md): `server/src/forge.ts` keeps the orders, runs the Blacksmith (a
+  read-only session in the asking Knight's project) and then the Library's Reviewer, and
+  installs a reviewed piece into the project's `.claude/` on the user's click only;
+  `forgeRoutes.ts` holds its routes. Every Knight the guild starts gets the `knight` MCP role
+  (`request_equipment`), told apart by its folder. `web/src/forge.tsx` and `forgeScene.ts`
+  are its page.
 - Building pages: `web/src/scene.ts` is the shared kit (art list `ART`, `put`, `terrain`,
   `nine`, `ribbon`), `SceneCanvas.tsx` draws any scene and hit-tests clicks. A scene module
   keeps a pure model and pick function (unit-tested) beside its draw function. Art comes

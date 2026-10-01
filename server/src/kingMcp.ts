@@ -121,6 +121,24 @@ export const TOOLS: Tool[] = [
     run: async (_, call) => text(await call('GET', '/api/king/archive')),
   },
   {
+    name: 'commission_equipment',
+    description:
+      "Ask the Forge to make equipment for a Knight's project: a skill or a slash command it is missing. The Blacksmith forges it, the Library reviews it, and the user decides whether to install it; the Knight is told when it is in place.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        knight: knightArg,
+        kind: { type: 'string', enum: ['skill', 'command'] },
+        need: {
+          type: 'string',
+          description: 'What the piece must do, for that project, in a sentence or two.',
+        },
+      },
+      required: ['knight', 'kind', 'need'],
+    },
+    run: async (args, call) => text(await call('POST', '/api/forge/commission', args)),
+  },
+  {
     name: 'halt_knight',
     description: "Stop a Knight's current turn. Its session is kept and can be given new orders.",
     inputSchema: { type: 'object', properties: { knight: knightArg }, required: ['knight'] },
@@ -230,7 +248,110 @@ export const REVIEWER_TOOLS: Tool[] = [
   writeNote,
 ];
 
-const TOOLSETS: Record<string, Tool[]> = { king: TOOLS, scout: SCOUT_TOOLS, reviewer: REVIEWER_TOOLS };
+const kindArg = {
+  type: 'string',
+  enum: ['skill', 'command'],
+  description: 'skill: know-how for a task, used when it fits. command: a slash command you run on purpose.',
+};
+
+/** A Knight: may ask the Forge for equipment, and see what it asked for. */
+export const KNIGHT_TOOLS: Tool[] = [
+  {
+    name: 'request_equipment',
+    description:
+      "Ask the guild's Forge for a skill or slash command this project is missing: something you keep needing and have to work out by hand each time. The Blacksmith forges it from this project, the Library reviews it, and the user decides. You are told when it is installed; carry on meanwhile.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        kind: kindArg,
+        need: { type: 'string', description: 'What it must do, in a sentence or two, and why you need it.' },
+      },
+      required: ['kind', 'need'],
+    },
+    run: async (args, call) => text(await call('POST', '/api/forge/requests', args)),
+  },
+  {
+    name: 'check_equipment',
+    description:
+      'What this project has asked the Forge for, and where each piece is: forging, reviewed, installed.',
+    inputSchema: { type: 'object', properties: {} },
+    run: async (_, call) => text(await call('GET', '/api/forge/requests')),
+  },
+];
+
+/** The Blacksmith: reads its order, hangs its piece. Cannot install. */
+export const SMITH_TOOLS: Tool[] = [
+  {
+    name: 'read_order',
+    description: 'The order on the anvil: what kind of piece, what is needed, and who asked.',
+    inputSchema: { type: 'object', properties: {} },
+    run: async (_, call) => text(await call('GET', '/api/forge/anvil')),
+  },
+  {
+    name: 'submit_piece',
+    description:
+      'Hang the finished piece on the rack for review. A skill: SKILL.md (front matter with name and description) plus any other files. A command: one file named <name>.md.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: "The order's id from read_order." },
+        name: { type: 'string', description: 'Lowercase letters, digits and hyphens.' },
+        description: { type: 'string', description: 'What it does, in one line.' },
+        files: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              path: { type: 'string', description: 'Relative path inside the piece, e.g. SKILL.md.' },
+              content: { type: 'string' },
+            },
+            required: ['path', 'content'],
+          },
+        },
+      },
+      required: ['id', 'name', 'files'],
+    },
+    run: async (args, call) => text(await call('POST', '/api/forge/pieces', args)),
+  },
+];
+
+/** The Reviewer at the Forge: tests forged pieces. Cannot forge or install. */
+export const FORGE_REVIEWER_TOOLS: Tool[] = [
+  {
+    name: 'list_forged',
+    description: 'The pieces waiting for review: what was asked, by whom, and every file.',
+    inputSchema: { type: 'object', properties: {} },
+    run: async (_, call) => text(await call('GET', '/api/forge/forged')),
+  },
+  {
+    name: 'review_piece',
+    description: 'Record your verdict on one piece. The user decides what to install.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: "The piece's order id from list_forged." },
+        verdict: {
+          type: 'string',
+          enum: ['ready', 'needs-work', 'risky'],
+          description: 'ready: install as it is. needs-work: forge again (say what). risky: anything unsafe.',
+        },
+        reason: { type: 'string', description: 'Why, in one to three sentences.' },
+        risks: { type: 'array', items: { type: 'string' }, description: 'Each risk found, with the file.' },
+      },
+      required: ['id', 'verdict', 'reason'],
+    },
+    run: async (args, call) => text(await call('POST', '/api/forge/reviews', args)),
+  },
+];
+
+const TOOLSETS: Record<string, Tool[]> = {
+  king: TOOLS,
+  scout: SCOUT_TOOLS,
+  reviewer: REVIEWER_TOOLS,
+  knight: KNIGHT_TOOLS,
+  smith: SMITH_TOOLS,
+  'forge-reviewer': FORGE_REVIEWER_TOOLS,
+};
 const ROLE_NAME: Record<string, string> = {
   king: 'King',
   scout: 'Scout Librarian',
@@ -322,13 +443,18 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   const base = guildClient(url, token);
-  // A note says who wrote it: the librarian's role, filled in here, not by the model.
-  const call: GuildCall = (method, path, body) =>
-    base(
-      method,
-      path,
-      path === '/api/library/notes' && body ? { ...(body as object), by: ROLE_NAME[role] } : body,
-    );
+  // A note says who wrote it, and a Knight's request where it works: both filled in here
+  // from this process, not by the model.
+  const here = process.cwd();
+  const call: GuildCall = (method, path, body) => {
+    if (path === '/api/library/notes' && body)
+      return base(method, path, { ...(body as object), by: ROLE_NAME[role] });
+    if (path === '/api/forge/requests')
+      return method === 'GET'
+        ? base(method, `${path}?cwd=${encodeURIComponent(here)}`)
+        : base(method, path, { ...(body as object), cwd: here });
+    return base(method, path, body);
+  };
   createInterface({ input: process.stdin }).on('line', (line) => {
     let message: Rpc;
     try {

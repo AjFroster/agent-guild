@@ -69,6 +69,8 @@ export interface CourtOptions {
   onChange?: () => void;
   /** A Knight has just been given an order. */
   onCommand?: (id: string) => void;
+  /** What every Knight the guild starts gets: the Forge's tools. */
+  knightExtras?: () => Pick<SessionExtras, 'mcpConfig' | 'allowedTools'>;
 }
 
 export interface Order {
@@ -271,6 +273,7 @@ export class Court {
     const name = String(o.name ?? '').trim();
     if (!name) throw new ChatError(400, 'Give the new Knight a name.');
     const info = await this.opts.chats.start({
+      ...this.opts.knightExtras?.(),
       cwd: String(o.folder ?? ''),
       name,
       message: order,

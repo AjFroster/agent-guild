@@ -1,5 +1,13 @@
 import type { GuildState, Hero, Location, Rank } from '@agent-guild/core';
-import { currentQuest, inAudience, librarianState, librariansIn, rankOf, roster } from '@agent-guild/core';
+import {
+  currentQuest,
+  inAudience,
+  librarianState,
+  librariansIn,
+  rankOf,
+  roster,
+  smithsIn,
+} from '@agent-guild/core';
 
 /**
  * Canvas drawing for the village, using the Tiny Swords pack (Pixel Frog, CC0) and
@@ -161,6 +169,7 @@ export const RANK_SCALE: Record<Rank, number> = {
   footsoldier: 0.76,
   worker: 0.66,
   librarian: 0.9,
+  smith: 0.9,
 };
 
 export const RANK_LABEL: Record<Rank, string> = {
@@ -169,6 +178,7 @@ export const RANK_LABEL: Record<Rank, string> = {
   footsoldier: 'Footsoldier',
   worker: 'Worker',
   librarian: 'Librarian',
+  smith: 'Smith',
 };
 
 export interface Sprites {
@@ -263,7 +273,7 @@ export function swingFrame(id: string, nowMs: number): number {
 
 /** Whether a hero is at its post hitting something: working, standing still, not the King. */
 export function isFighting(hero: Hero, moving: boolean): boolean {
-  return hero.status === 'working' && !moving && !hero.crowned && !hero.librarian;
+  return hero.status === 'working' && !moving && !hero.crowned && !hero.librarian && !hero.smith;
 }
 
 /** The King's place: his throne at the castle gate. */
@@ -309,8 +319,9 @@ export function heroPositions(state: GuildState, clock?: number): Map<string, Pl
       });
     }
     // A Knight resting between turns goes to bed in the Barracks.
-    // The librarians work inside the Library: its signs show them (drawLibrarySigns).
-    else if (hero.librarian) continue;
+    // The librarians and the smiths work inside the Library and the Forge: signs over
+    // those buildings show them (drawSigns).
+    else if (hero.librarian || hero.smith) continue;
     // A resting Knight goes to bed in the Barracks.
     else if (hero.status === 'idle') sleepers.push(hero);
     else byBuilding.set(hero.location, [...(byBuilding.get(hero.location) ?? []), hero]);
@@ -426,6 +437,11 @@ export function heroTeams(state: GuildState): Map<string, Team> {
     if (hero.librarian) {
       // The librarians wear purple robes, whatever the Knights wear.
       teams.set(hero.id, 'Purple');
+      continue;
+    }
+    if (hero.smith) {
+      // The smiths wear forge red.
+      teams.set(hero.id, 'Red');
       continue;
     }
     if (hero.crowned) {
@@ -555,10 +571,12 @@ export function hitTest(
     if (px >= box.left && px <= box.right && py >= box.top && py <= box.bottom)
       return { kind: 'building', id };
   }
-  // The librarians' signs over the roof belong to the Library.
-  const signs = LIBRARY_SIGNS;
-  if (px >= signs.left && px <= signs.right && py >= signs.top && py <= signs.bottom)
-    return { kind: 'building', id: 'library' };
+  // The signs over the Library's and the Forge's roofs belong to those buildings.
+  for (const id of SIGN_BUILDINGS) {
+    const signs = SIGNS[id];
+    if (px >= signs.left && px <= signs.right && py >= signs.top && py <= signs.bottom)
+      return { kind: 'building', id };
+  }
   return null;
 }
 
@@ -569,6 +587,8 @@ export interface VillageView {
   clock?: number | undefined;
   /** Reviewed skills waiting on the user: a badge on the Library's door. */
   libraryWaiting?: number | undefined;
+  /** Forged pieces waiting on the user: a badge on the Forge's door. */
+  forgeWaiting?: number | undefined;
 }
 
 export function drawVillage(
@@ -682,60 +702,70 @@ export function drawVillage(
     );
   }
 
-  drawLibrarySigns(ctx, librariansIn(state), nowMs, view.libraryWaiting ?? 0);
+  drawSigns(ctx, 'library', librariansIn(state), nowMs, view.libraryWaiting ?? 0);
+  drawSigns(ctx, 'forge', smithsIn(state), nowMs, view.forgeWaiting ?? 0);
 }
 
-/** Where the librarians' signs hang, above the Library's roof. */
-export const LIBRARY_SIGNS = {
-  left: 60,
-  top: 0,
-  right: 220,
-  bottom: BUILDINGS.library.y - BUILDINGS.library.height,
+/** The buildings whose workers live inside, shown as signs over the roof. */
+export const SIGN_BUILDINGS = ['library', 'forge'] as const;
+export type SignBuilding = (typeof SIGN_BUILDINGS)[number];
+
+const signArea = (id: SignBuilding) => {
+  const b = BUILDINGS[id];
+  return { left: b.x - 80, top: 0, right: b.x + 80, bottom: b.y - b.height };
 };
+
+/** Where each building's signs hang, above its roof. */
+export const SIGNS: Record<SignBuilding, { left: number; top: number; right: number; bottom: number }> = {
+  library: signArea('library'),
+  forge: signArea('forge'),
+};
+export const LIBRARY_SIGNS = SIGNS.library;
 const SIGN_SPACING = 62;
 
-/** Where each librarian's sign is drawn: centred over the Library, side by side. */
-export function librarySignXs(n: number): number[] {
+/** Where each worker's sign is drawn: centred over its building, side by side. */
+export function signXs(id: SignBuilding, n: number): number[] {
   const shown = Math.min(n, 3);
-  return Array.from({ length: shown }, (_, i) => BUILDINGS.library.x + (i - (shown - 1) / 2) * SIGN_SPACING);
+  return Array.from({ length: shown }, (_, i) => BUILDINGS[id].x + (i - (shown - 1) / 2) * SIGN_SPACING);
 }
+export const librarySignXs = (n: number) => signXs('library', n);
+
+const SIGN_STYLE: Record<SignBuilding, { work: 'work' | 'hammer'; bg: string }> = {
+  library: { work: 'work', bg: 'rgba(58, 26, 80, 0.85)' },
+  forge: { work: 'hammer', bg: 'rgba(90, 24, 20, 0.85)' },
+};
 
 /**
- * The librarians work inside the Library, so the building shows them: over its roof, one
- * sign per librarian (an open book while it works, "zzz" while it rests, a red "!" when it
- * needs you) with its name, and on the door a gold count of skills waiting for the user.
+ * The librarians and the smiths work inside their buildings, so the building shows them:
+ * over its roof, one sign per worker (an open book or a hammer while it works, "zzz" while
+ * it rests, a red "!" when it needs you) with its name, and on the door a gold count of
+ * what waits for the user (reviewed skills, forged pieces).
  */
-function drawLibrarySigns(
+function drawSigns(
   ctx: CanvasRenderingContext2D,
-  librarians: Hero[],
+  id: SignBuilding,
+  workers: Hero[],
   nowMs: number,
   waiting: number,
 ): void {
-  const xs = librarySignXs(librarians.length);
-  const roof = LIBRARY_SIGNS.bottom;
+  const xs = signXs(id, workers.length);
+  const roof = SIGNS[id].bottom;
+  const style = SIGN_STYLE[id];
   xs.forEach((x, i) => {
-    const hero = librarians[i]!;
+    const hero = workers[i]!;
     const state = librarianState(hero);
     bubble(
       ctx,
       x,
       roof + 8,
-      state === 'working' ? 'work' : state === 'needs_you' ? 'alert' : 'sleep',
+      state === 'working' ? style.work : state === 'needs_you' ? 'alert' : 'sleep',
       1.1,
       nowMs,
     );
-    label(
-      ctx,
-      hero.name,
-      x,
-      roof + 9,
-      'rgba(58, 26, 80, 0.85)',
-      state === 'needs_you' ? '#ffcc33' : '#f1efe6',
-      11,
-    );
+    label(ctx, hero.name, x, roof + 9, style.bg, state === 'needs_you' ? '#ffcc33' : '#f1efe6', 11);
   });
   if (waiting > 0) {
-    const b = BUILDINGS.library;
+    const b = BUILDINGS[id];
     const x = b.x + 30;
     const y = b.y - 40;
     ctx.save();
@@ -770,7 +800,10 @@ function drawSleeper(
   const k = RANK_SCALE[rank];
   // Drawn smaller lying down than standing, so a Knight fits on its bedroll.
   const size = UNIT_SIZE * k * 0.78;
-  const sheet = sprites.units[`${rank === 'worker' || rank === 'librarian' ? 'Pawn' : 'Warrior'}_${team}`]!;
+  const sheet =
+    sprites.units[
+      `${rank === 'worker' || rank === 'librarian' || rank === 'smith' ? 'Pawn' : 'Warrior'}_${team}`
+    ]!;
   ctx.save();
   ctx.translate(x - 6 * k, y + 2 * k);
   ctx.rotate(-Math.PI / 2);
@@ -1037,7 +1070,10 @@ function drawUnit(
   const rank = rankOf(hero);
   const k = RANK_SCALE[rank];
   const size = UNIT_SIZE * k;
-  const sheet = sprites.units[`${rank === 'worker' || rank === 'librarian' ? 'Pawn' : 'Warrior'}_${team}`]!;
+  const sheet =
+    sprites.units[
+      `${rank === 'worker' || rank === 'librarian' || rank === 'smith' ? 'Pawn' : 'Warrior'}_${team}`
+    ]!;
   // Row 0 is idle, row 1 is the walk cycle; six frames each. Resting heroes hold a
   // single pose so the busy ones stand out.
   // Rows: 0 idle, 1 walk, 2 the attack (a sword swing for warriors, a hammer for pawns).
@@ -1208,20 +1244,28 @@ export function bubble(
   ctx: CanvasRenderingContext2D,
   x: number,
   top: number,
-  kind: 'alert' | 'sleep' | 'work',
+  kind: 'alert' | 'sleep' | 'work' | 'hammer',
   k: number,
   nowMs: number,
 ): void {
   const s = Math.max(0.75, k);
-  const w = (kind === 'alert' ? 26 : kind === 'work' ? 38 : 34) * s;
+  const w = (kind === 'alert' ? 26 : kind === 'work' || kind === 'hammer' ? 38 : 34) * s;
   const h = 26 * s;
   // A sleeper's bubble bobs gently; demo mode's clock is frozen, so it holds still there.
   const bob = kind === 'sleep' ? Math.sin(nowMs / 600) * 2 : 0;
   const bx = x - w / 2;
   const by = top - h - 8 * s + bob;
   ctx.save();
-  ctx.fillStyle = kind === 'alert' ? '#d93a3a' : kind === 'work' ? '#e6d6f4' : 'rgba(236, 240, 250, 0.92)';
-  ctx.strokeStyle = kind === 'alert' ? '#4a0b0b' : kind === 'work' ? '#4b2466' : '#3a4256';
+  ctx.fillStyle =
+    kind === 'alert'
+      ? '#d93a3a'
+      : kind === 'work'
+        ? '#e6d6f4'
+        : kind === 'hammer'
+          ? '#ffe2aa'
+          : 'rgba(236, 240, 250, 0.92)';
+  ctx.strokeStyle =
+    kind === 'alert' ? '#4a0b0b' : kind === 'work' ? '#4b2466' : kind === 'hammer' ? '#783c14' : '#3a4256';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(bx, by, w, h, 7 * s);
@@ -1232,7 +1276,16 @@ export function bubble(
   ctx.stroke();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (kind === 'work') {
+  if (kind === 'hammer') {
+    // A hammer, rising and falling as the smith strikes.
+    const lift = Math.abs(Math.sin(nowMs / 160)) * 3 * s;
+    ctx.fillStyle = '#866353';
+    ctx.fillRect(x - 2 * s, by + 9 * s - lift, 4 * s, 13 * s);
+    ctx.fillStyle = '#4e546c';
+    ctx.fillRect(x - 9 * s, by + 5 * s - lift, 18 * s, 7 * s);
+    ctx.fillStyle = '#7a84a0';
+    ctx.fillRect(x - 9 * s, by + 5 * s - lift, 18 * s, 2 * s);
+  } else if (kind === 'work') {
     // An open book, its pages lifting as the librarian reads.
     book(ctx, x, by + h / 2 + 7 * s, Math.sin(nowMs / 180) * 2);
   } else if (kind === 'alert') {

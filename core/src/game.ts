@@ -9,7 +9,7 @@ export type HeroStatus = 'working' | 'idle' | 'needs_you' | 'gone';
  * Footsoldiers when they change things (edit files, run commands) and Workers while
  * they only read and search.
  */
-export type Rank = 'king' | 'knight' | 'footsoldier' | 'worker' | 'librarian';
+export type Rank = 'king' | 'knight' | 'footsoldier' | 'worker' | 'librarian' | 'smith';
 
 export interface Hero {
   id: string;
@@ -42,6 +42,8 @@ export interface Hero {
   commanded: boolean;
   /** One of the librarians, who find and review skills for the Archive. */
   librarian: boolean;
+  /** One of the smiths, who forge and mend equipment at the Forge. */
+  smith: boolean;
   /** When it was last given an order (epoch seconds), or null. */
   orderedAt: number | null;
 }
@@ -121,13 +123,15 @@ const TOOL_LOCATIONS: Record<string, Location> = {
 
 /** Unknown tools (MCP tools, Task, TodoWrite...) keep the hero at the guildhall. */
 export function locationForTool(tool: string): Location {
+  // A Knight asking for equipment walks to the Forge to ask.
+  if (tool === 'mcp__guild__request_equipment') return 'forge';
   return TOOL_LOCATIONS[tool] ?? 'guildhall';
 }
 
 /** Which tools send a hero to each building, for explaining a building to the user. */
 export function toolsFor(location: Location): string[] {
   return Object.entries(TOOL_LOCATIONS)
-    .filter(([, l]) => l === location)
+    .filter(([tool, l]) => l === location && !tool.startsWith('mcp__'))
     .map(([tool]) => tool);
 }
 
@@ -153,6 +157,7 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     crowned: false,
     commanded: false,
     librarian: false,
+    smith: false,
     orderedAt: null,
   };
 }
@@ -216,6 +221,9 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
       break;
     case 'librarian':
       hero = { ...hero, librarian: true };
+      break;
+    case 'smith':
+      hero = { ...hero, smith: true };
       break;
     case 'ordered':
       // Given an order: up, even out of bed, and off to hear it.
@@ -314,15 +322,29 @@ export function inAudience(hero: Hero, now: number): boolean {
     !hero.crowned &&
     // A librarian's work comes from the guild's schedule, not from the throne.
     !hero.librarian &&
+    !hero.smith &&
     hero.orderedAt !== null &&
     now >= hero.orderedAt &&
     now - hero.orderedAt < AUDIENCE_SECONDS
   );
 }
 
-/** The librarians in the guild now, in the order they arrived. They live inside the Library. */
+/** A worker's role from its session name: "Reviewer 2" is still the Reviewer. */
+export const roleName = (name: string) => name.replace(/ \d+$/, '');
+
+/** Only the newest worker of each role: an earlier run's session is not a second one. */
+function newestPerRole(heroes: Hero[]): Hero[] {
+  const newest = new Map<string, Hero>();
+  for (const h of heroes) {
+    const prev = newest.get(roleName(h.name));
+    if (!prev || h.startedAt >= prev.startedAt) newest.set(roleName(h.name), h);
+  }
+  return heroes.filter((h) => newest.get(roleName(h.name)) === h);
+}
+
+/** The librarians in the guild now, newest of each role, in arrival order. They live inside the Library. */
 export function librariansIn(state: GuildState): Hero[] {
-  return roster(state).filter((h) => h.librarian);
+  return newestPerRole(roster(state).filter((h) => h.librarian));
 }
 
 /** What a librarian is doing, shown as its icon on the Library and on the Library page. */
@@ -343,7 +365,30 @@ const LIBRARIAN_TOOLS: Record<string, string> = {
   add_candidate: 'Filing a skill in the Archive',
   record_review: 'Writing a review',
   write_note: 'Writing a note',
+  list_forged: 'Fetching pieces from the Forge',
+  review_piece: 'Testing a forged piece',
 };
+
+const SMITH_TOOLS: Record<string, string> = {
+  Read: 'Reading the project',
+  Grep: 'Searching the code',
+  Glob: 'Looking through the files',
+  Bash: 'Reading the history',
+  read_order: 'Reading the order',
+  submit_piece: 'Hanging the piece on the rack',
+};
+
+/** The smiths in the guild now, in the order they arrived. They work inside the Forge. */
+export function smithsIn(state: GuildState): Hero[] {
+  return newestPerRole(roster(state).filter((h) => h.smith));
+}
+
+/** A smith's latest tool call in words, or null before its first one. */
+export function smithDoing(hero: Hero): string | null {
+  const tool = hero.recent[0]?.tool;
+  if (!tool) return null;
+  return SMITH_TOOLS[tool.replace(/^mcp__guild__/, '')] ?? `Using ${tool}`;
+}
 
 /** A librarian's latest tool call in words, or null before its first one. */
 export function librarianDoing(hero: Hero): string | null {
@@ -355,6 +400,7 @@ export function librarianDoing(hero: Hero): string | null {
 export function rankOf(hero: Hero): Rank {
   if (hero.crowned) return 'king';
   if (hero.librarian) return 'librarian';
+  if (hero.smith) return 'smith';
   if (hero.parentId === null) return 'knight';
   return hero.visits.forge + hero.visits.arena > 0 ? 'footsoldier' : 'worker';
 }
