@@ -288,6 +288,145 @@ def tool_stump():
     R(d,30,14,36,40,WM); R(d,22,6,46,16,S1); R(d,22,6,46,9,S2)                                   # hammer stuck in it
     return outlined(im)
 
+
+# ---------------------------------------------------------------- the Tower
+ARC=[(40,70,140),(70,110,200),(120,170,240),(200,230,255)]               # arcane blue: deep to bright
+PORTALS={'blue':[(30,60,130),(60,110,210),(120,180,250),(220,240,255)],
+         'purple':[(60,30,110),(110,60,180),(170,120,235),(240,220,255)],
+         'green':[(20,90,70),(40,150,100),(110,215,150),(220,255,230)]}
+
+def portal(frame=0, color='blue', open_=True):
+    """A stone arch; open, a swirl turns inside it (6 frames)."""
+    c=PORTALS[color]; im=Image.new('RGBA',(120,150)); d=ImageDraw.Draw(im)
+    cx,cy,rx,ry=60,78,34,52
+    if open_:
+        d.ellipse((cx-rx,cy-ry,cx+rx,cy+ry),fill=c[0])
+        d.ellipse((cx-rx+5,cy-ry+6,cx+rx-5,cy+ry-6),fill=c[1])
+        d.ellipse((cx-rx+12,cy-ry+16,cx+rx-12,cy+ry-16),fill=c[2])
+        for arm in range(3):                                                    # swirl arms, turning
+            pts=[]
+            for k in range(22):
+                a=frame*math.pi/9+arm*2*math.pi/3+k*0.32; r=0.12+0.8*k/22
+                pts.append((cx+math.cos(a)*rx*r, cy+math.sin(a)*ry*r))
+            d.line(pts,fill=c[3],width=4); d.line(pts[:8],fill=(255,255,255),width=2)
+        d.ellipse((cx-6,cy-8,cx+6,cy+8),fill=c[3])
+    else:
+        d.ellipse((cx-rx,cy-ry,cx+rx,cy+ry),fill=(40,44,52)); d.ellipse((cx-rx+6,cy-ry+8,cx+rx-6,cy+ry-8),fill=(58,62,72))
+    # the arch: stone blocks around the opening, two pillars, a keystone
+    for k in range(13):
+        a=math.pi+k*math.pi/12; x=cx+math.cos(a)*(rx+10); y=cy-12+math.sin(a)*(ry-4)
+        R(d,int(x)-7,int(y)-7,int(x)+7,int(y)+7,ST2); R(d,int(x)-7,int(y)-7,int(x)+7,int(y)-4,ST1)
+    for x in (cx-rx-14,cx+rx+2):
+        R(d,x,cy-14,x+12,146,ST2); R(d,x,cy-14,x+4,146,ST1); R(d,x+9,cy-14,x+12,146,ST3)
+        for y in range(cy-4,146,14): R(d,x,y,x+12,y+2,ST3)
+    R(d,cx-8,cy-ry-24,cx+8,cy-ry-8,GOLD); R(d,cx-8,cy-ry-24,cx+8,cy-ry-20,(255,236,150))
+    R(d,cx-rx-18,140,cx+rx+18,148,ST2); R(d,cx-rx-18,140,cx+rx+18,142,ST1)                   # step
+    out=outlined(im)
+    return glow(out,cx,cy,60,c[2],70+10*(frame%2)) if open_ else out
+
+def rune_circle(frame=0):
+    im=Image.new('RGBA',(160,60)); d=ImageDraw.Draw(im)
+    a=150+int(60*abs(math.sin(frame*math.pi/4)))
+    d.ellipse((6,6,154,54),outline=ARC[2]+(a,),width=3); d.ellipse((24,14,136,46),outline=ARC[3]+(a,),width=2)
+    for k in range(8):
+        t=k*math.pi/4+frame*0.2; x=80+math.cos(t)*64; y=30+math.sin(t)*20
+        R(d,int(x)-3,int(y)-2,int(x)+3,int(y)+2,ARC[3]+(a,))
+    return glow(im,80,30,50,ARC[2],40+frame*8)
+
+def telescope():
+    im=Image.new('RGBA',(110,110)); d=ImageDraw.Draw(im)
+    for x0,x1 in ((50,24),(56,56),(62,88)): d.line([(56,64),(x1,104)],fill=WM,width=5)      # tripod
+    d.polygon([(26,52),(92,18),(98,30),(32,64)],fill=GOLD); d.polygon([(26,52),(92,18),(94,22),(28,56)],fill=(255,236,150))
+    d.polygon([(30,56),(62,40),(64,48),(34,64)],fill=GOLDD)                                  # band
+    R(d,90,14,102,34,S1); R(d,18,50,30,66,S1)                                               # lens ends
+    return outlined(im)
+
+def scrying_pool(frame=0):
+    im=Image.new('RGBA',(130,80)); d=ImageDraw.Draw(im)
+    d.ellipse((6,20,124,74),fill=ST3); d.ellipse((6,14,124,66),fill=ST2); d.ellipse((10,16,120,60),fill=ST1)
+    d.ellipse((18,22,112,56),fill=ARC[1])
+    for k in range(3):                                                                      # ripples
+        r=8+((frame*6+k*14)%40)
+        d.ellipse((65-r,39-r*0.38,65+r,39+r*0.38),outline=ARC[3],width=2)
+    out=outlined(im)
+    return glow(out,65,38,40,ARC[2],70)
+
+def scroll_rack():
+    rng=random.Random(4); im=Image.new('RGBA',(130,150)); d=ImageDraw.Draw(im)
+    R(d,6,6,124,146,WM); R(d,6,6,124,12,WL); R(d,6,6,12,146,WL)
+    for row in range(4):
+        for col in range(4):
+            x=14+col*27; y=16+row*31
+            R(d,x,y,x+24,y+28,WD)
+            if rng.random()<0.8:                                                            # a rolled scroll, end on
+                d.ellipse((x+3,y+5,x+21,y+23),fill=(244,236,210)); d.ellipse((x+8,y+10,x+16,y+18),fill=(214,200,170))
+                if rng.random()<0.4: R(d,x+10,y+3,x+14,y+25,(192,69,58))
+    return outlined(im)
+
+def floating_books(frame=0):
+    im=Image.new('RGBA',(120,110)); d=ImageDraw.Draw(im)
+    for k,(x,y,c) in enumerate(((20,40,BOOKS[0][0]),(56,20,BOOKS[2][0]),(86,46,BOOKS[1][0]))):
+        bob=int(4*math.sin(frame*math.pi/2+k*1.7)); y+=bob
+        d.polygon([(x,y+10),(x+16,y+4),(x+32,y+10),(x+16,y+16)],fill=(244,236,210))          # open pages
+        d.line([(x+16,y+4),(x+16,y+16)],fill=(150,130,110))
+        d.polygon([(x,y+10),(x+16,y+16),(x+16,y+20),(x,y+14)],fill=c); d.polygon([(x+32,y+10),(x+16,y+16),(x+16,y+20),(x+32,y+14)],fill=c)
+    out=outlined(im,2)
+    for k,(x,y) in enumerate(((36,78),(72,64),(102,84))):                                   # their shadows on the floor
+        s=Image.new('RGBA',out.size); ImageDraw.Draw(s).ellipse((x-12,y+16,x+12,y+22),fill=(10,16,30,60)); s.alpha_composite(out); out=s
+    return glow(out,60,40,46,ARC[2],50)
+
+def crystal(frame=0):
+    im=Image.new('RGBA',(80,130)); d=ImageDraw.Draw(im)
+    R(d,22,100,58,112,ST2); R(d,22,100,58,103,ST1); R(d,28,80,52,100,ST2); R(d,28,80,32,100,ST1); R(d,48,80,52,100,ST3); R(d,24,76,56,82,ST1)
+    lift=int(4*math.sin(frame*math.pi/2))
+    pts=[(40,14-lift),(56,40-lift),(40,68-lift),(24,40-lift)]
+    d.polygon(pts,fill=ARC[1]); d.polygon([(40,14-lift),(56,40-lift),(40,40-lift)],fill=ARC[2]); d.polygon([(40,14-lift),(40,40-lift),(24,40-lift)],fill=ARC[3])
+    out=outlined(im)
+    return glow(out,40,40-lift,40,ARC[2],90+frame*10)
+
+def star_desk():
+    im=Image.new('RGBA',(150,90)); d=ImageDraw.Draw(im)
+    R(d,8,34,142,46,WL); R(d,8,34,142,37,WH); R(d,14,46,24,86,WM); R(d,126,46,136,86,WM)
+    d.polygon([(24,34),(30,14),(120,14),(126,34)],fill=(40,50,96))                          # the star chart, unrolled
+    rng=random.Random(2)
+    for _ in range(14): x=rng.randint(36,114); y=rng.randint(17,31); R(d,x,y,x+2,y+2,(255,244,190))
+    d.line([(50,20),(70,26),(92,18),(108,28)],fill=(200,220,255),width=1)
+    R(d,116,22,130,34,(244,236,210)); R(d,114,26,132,30,GOLD)                                # rolled chart
+    return outlined(im)
+
+def lens():
+    im=Image.new('RGBA',(90,120)); d=ImageDraw.Draw(im)
+    R(d,40,60,48,112,WM); R(d,40,60,42,112,WL); R(d,24,108,66,116,WM); R(d,24,108,66,110,WL)
+    d.ellipse((12,6,76,70),fill=GOLD); d.ellipse((18,12,70,64),fill=(170,215,240)); d.ellipse((24,18,46,36),fill=(235,248,255))
+    return outlined(im)
+
+def alarm_bell(swing=0.0):
+    im=Image.new('RGBA',(90,130)); d=ImageDraw.Draw(im)
+    R(d,10,10,18,126,WM); R(d,72,10,80,126,WM); R(d,6,8,84,18,WL); R(d,6,8,84,11,WH)          # frame
+    a=swing*0.4; cx,top=45,20
+    pts=[(cx-6,top),(cx+6,top),(cx+20,top+40),(cx-20,top+40)]
+    rot=lambda x,y:(cx+(x-cx)*math.cos(a)-(y-top)*math.sin(a), top+(x-cx)*math.sin(a)+(y-top)*math.cos(a))
+    d.polygon([rot(*p) for p in pts],fill=GOLD); d.polygon([rot(cx-6,top),rot(cx-1,top),rot(cx-10,top+40),rot(cx-20,top+40)],fill=(255,236,150))
+    x,y=rot(cx,top+46); d.ellipse((x-5,y-5,x+5,y+5),fill=GOLDD)
+    return outlined(im)
+
+def wizard_hat(main=(52,82,170), band=GOLD, stars=True, tall=1.0):
+    """A pointed hat to sit on a Pawn's head (the Pawn's head is about 64px wide at 1x)."""
+    im=Image.new('RGBA',(90,int(90*tall)+10)); d=ImageDraw.Draw(im); h=int(80*tall)
+    d.ellipse((4,h-12,86,h+6),fill=tuple(max(0,v-30) for v in main))                       # brim
+    d.polygon([(18,h-4),(72,h-4),(56,h-int(46*tall)),(64,6),(40,h-int(40*tall))],fill=main)
+    d.polygon([(40,h-int(40*tall)),(56,h-int(46*tall)),(64,6)],fill=tuple(min(255,v+40) for v in main))
+    R(d,20,h-12,70,h-4,band)
+    if stars:
+        for x,y in ((34,h-26),(50,h-40)): R(d,x,y,x+4,y+4,(255,244,190)); R(d,x-2,y+1,x+6,y+3,(255,244,190))
+    return outlined(im,2)
+
+def staff():
+    im=Image.new('RGBA',(30,140)); d=ImageDraw.Draw(im)
+    R(d,13,26,18,138,WM); R(d,13,26,14,138,WL); d.ellipse((6,4,24,24),fill=ARC[2]); d.ellipse((10,8,16,14),fill=ARC[3])
+    R(d,10,22,21,28,GOLD)
+    out=outlined(im,2); return glow(out,15,14,14,ARC[2],80)
+
 def strip(frames):
     w,h=frames[0].size; out=Image.new('RGBA',(w*len(frames),h))
     for k,f in enumerate(frames): out.alpha_composite(f,(k*w,0))
@@ -322,6 +461,30 @@ PROPS={
     'ore_pile': ore_pile(),
     'ingots': ingots(),
     'tool_stump': tool_stump(),
+    # The Tower. Animated strips: portals (6: the swirl turning), the closed portal (still),
+    # rune circle (4: pulsing), scrying pool (4: ripples), floating books (4: bobbing),
+    # crystal (4: rising and glowing), alarm bell (4: swinging).
+    'portal_blue': strip([portal(k,'blue') for k in range(6)]),
+    'portal_purple': strip([portal(k,'purple') for k in range(6)]),
+    'portal_green': strip([portal(k,'green') for k in range(6)]),
+    'portal_closed': portal(0,'blue',open_=False),
+    'rune_circle': strip([rune_circle(k) for k in range(4)]),
+    'telescope': telescope(),
+    'scrying_pool': strip([scrying_pool(k) for k in range(4)]),
+    'scroll_rack': scroll_rack(),
+    'floating_books': strip([floating_books(k) for k in range(4)]),
+    'crystal': strip([crystal(k) for k in range(4)]),
+    'star_desk': star_desk(),
+    'lens': lens(),
+    'alarm_bell': strip([alarm_bell(v) for v in (0,1,0,-1)]),
+    # Hats that make a blue Pawn a wizard: the Seer, the Archmage, the Enchanter, the Lookout
+    # and the Portal Keeper.
+    'hat_seer': wizard_hat((52,82,170)),
+    'hat_archmage': wizard_hat((70,40,120),GOLD,True,1.3),
+    'hat_enchanter': wizard_hat((30,120,120),(240,240,255),False),
+    'hat_lookout': wizard_hat((90,96,110),S3,False,0.8),
+    'hat_portal': wizard_hat((110,60,180),(120,180,250),True),
+    'staff': staff(),
 }
 if __name__=='__main__':
     os.makedirs(OUT_DIR,exist_ok=True)
