@@ -58,12 +58,18 @@ let publishEvents: (events: GuildEvent[]) => void = () => {};
 let guildEvents: () => readonly GuildEvent[] = () => [];
 // Filled in once the court exists: the King's session gets a crown as it walks in.
 let kingId: () => string | null = () => null;
+let commanded: (id: string) => boolean = () => false;
+/**
+ * The King's session gets its crown as it walks in, and a Knight he has commanded its
+ * mark, including one he raised whose session had not started yet when he gave the order.
+ */
 const crowned = (events: GuildEvent[]): GuildEvent[] =>
-  events.flatMap((e) =>
-    e.type === 'session_start' && e.session === kingId()
-      ? [e, { t: e.t, session: e.session, type: 'crown' }]
-      : [e],
-  );
+  events.flatMap((e): GuildEvent[] => {
+    if (e.type !== 'session_start') return [e];
+    if (e.session === kingId()) return [e, { t: e.t, session: e.session, type: 'crown' }];
+    if (commanded(e.session)) return [e, { t: e.t, session: e.session, type: 'commanded' }];
+    return [e];
+  });
 const watcher = new TranscriptWatcher({
   root,
   maxAgeMs: maxAgeHours * 3_600_000,
@@ -85,9 +91,11 @@ const court = new Court({
   open,
   guildUrl: `http://127.0.0.1:${port}`,
   token,
-  onChange: () => announce('king', { id: court.kingId, commanded: [...court.commanded] }),
+  onChange: () => announce('king', { id: court.kingId }),
+  onCommand: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'commanded' }]),
 });
 kingId = () => court.kingId;
+commanded = (id) => court.commanded.has(id);
 
 // Unpushed commits and uncommitted files in the folders sessions ran in: counts only.
 const git =
@@ -128,7 +136,7 @@ git?.start();
 if (controlOn) {
   await crier.load();
   crier.start();
-  announce('king', { id: court.kingId, commanded: [] });
+  announce('king', { id: court.kingId });
 }
 
 console.log(`Agent Guild is watching ${root}`);

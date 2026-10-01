@@ -827,3 +827,8 @@ kbd {
   gap: 6px;
   align-items: center;
 }
+
+.king-button {
+  background: linear-gradient(#ffd75e, #e0a91c);
+  color: #2b2000;
+}

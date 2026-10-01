@@ -129,6 +129,28 @@ describe('ChatManager streaming and lifecycle', () => {
     expect(m.get(info.id)!.info.busy).toBe(false);
   });
 
+  it('stays busy through a second turn until its result, and waitForTurn returns its reply', async () => {
+    const m = manager();
+    const info = await m.start({ cwd: project, message: 'Hi' });
+    const child = children[0]!;
+    child.emitLine({ type: 'system', subtype: 'init' });
+    child.emitLine({ type: 'result', subtype: 'success', result: 'first' });
+    await tick();
+
+    m.send(info.id, 'Again');
+    const waiting = m.waitForTurn(info.id, 5_000);
+    // The second turn's first line carries no busy signal of its own; it must not end the turn.
+    child.emitLine({ type: 'stream_event', event: { type: 'message_start', message: { id: 'm2' } } });
+    await tick();
+    expect(m.get(info.id)!.info.busy).toBe(true);
+    child.emitLine({
+      type: 'assistant',
+      message: { id: 'm2', content: [{ type: 'text', text: 'Second answer' }] },
+    });
+    child.emitLine({ type: 'result', subtype: 'success', result: 'Second answer' });
+    expect(await waiting).toEqual({ done: true, ok: true, reply: 'Second answer' });
+  });
+
   it('resumes the same session with a new process after the first one exits', async () => {
     const m = manager();
     const info = await m.start({ cwd: project, message: 'One' });

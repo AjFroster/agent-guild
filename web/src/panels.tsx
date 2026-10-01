@@ -153,7 +153,9 @@ export function GuildPanel({
                 <span className="hero-head">
                   <TeamDot state={state} hero={hero} />
                   <strong>{hero.name}</strong>
-                  {rankOf(hero) !== 'knight' && <span className="rank">{RANK_LABEL[rankOf(hero)]}</span>}
+                  {rankOf(hero) !== 'knight' && hero.name !== RANK_LABEL[rankOf(hero)] && (
+                    <span className="rank">{RANK_LABEL[rankOf(hero)]}</span>
+                  )}
                   <span className="level">Lv {hero.level}</span>
                   <span className={`status status-${hero.status}`}>{STATUS_LABEL[hero.status]}</span>
                 </span>

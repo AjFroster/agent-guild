@@ -240,6 +240,10 @@ export class ChatManager {
 
     const now = Date.now() / 1000;
     this.push(chat, { kind: 'user', id: `u-${randomUUID()}`, t: now, text: message });
+    // Busy until this turn's result. Set on the parsed state too: the output's first lines
+    // (message_start) carry no busy signal, and copying the last turn's "done" from them
+    // would end this turn before it began.
+    chat.state = { ...chat.state, busy: true };
     chat.info.busy = true;
     chat.child!.stdin.write(
       JSON.stringify({

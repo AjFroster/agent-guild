@@ -34,7 +34,7 @@ MCP tool.
 | Cloud (claude.ai/code) sessions as heroes                   | none                  | open: internal API only, see below                 |
 | Multiple `~/.claude*` directories                           | AQ                    | next                                               |
 | Consent-gated hooks installer; exact permission-wait signal | PA                    | planned                                            |
-| Agent teams (lead + teammates)                              | PA                    | planned                                            |
+| Agent teams (lead + teammates)                              | PA                    | done: the King commands Knights                    |
 | Village editor, saved layouts, project districts            | PA, AQ                | planned                                            |
 | Codex sessions                                              | AQ                    | planned                                            |
 | Start, chat with, stop and resume sessions from the UI      | PA (VS Code), PA #347 | done (as chat)                                     |

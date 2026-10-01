@@ -333,6 +333,12 @@ describe('ranks', () => {
     expect(rankOf(ran.heroes.scout!)).toBe('footsoldier');
   });
 
+  it('marks a Knight the King has given orders to', () => {
+    const next = applyEvent(state, { t: 8, session: 'knight', type: 'commanded' });
+    expect(next.heroes.knight!.commanded).toBe(true);
+    expect(state.heroes.knight!.commanded).toBe(false);
+  });
+
   it('puts the King at the head of the roster', () => {
     expect(roster(state).map((h) => h.id)).toEqual(['king', 'knight', 'scout', 'smith']);
   });

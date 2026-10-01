@@ -237,6 +237,72 @@ function Message({ item }: { item: ChatItem }) {
 
 // ----------------------------------------------------------------------------- new chat
 
+/** Crowning the King: the user's first words to the orchestrator. */
+export function CrownDialog({
+  api,
+  onCrowned,
+  onCancel,
+}: {
+  api: Api;
+  onCrowned: (id: string) => void;
+  onCancel: () => void;
+}) {
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      onCrowned((await api.speakToKing(message)).id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not crown the King.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <aside className="drawer" aria-label="Crown the King" data-testid="crown">
+      <header className="drawer-head">
+        <h2>♛ Crown the King</h2>
+        <button type="button" className="chip" onClick={onCancel}>
+          Cancel
+        </button>
+      </header>
+      <form className="drawer-body form" onSubmit={(e) => void submit(e)}>
+        <p className="muted small">
+          The King is a Claude Code session that works for you by commanding Knights: the sessions in the
+          guild. It sees what each Knight is doing, gives them orders, raises new ones when no Knight covers
+          the work, and reports back. It never edits files or runs commands itself; each Knight works under
+          its own permissions.
+        </p>
+        <label>
+          Your first words to the King
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={6}
+            required
+            placeholder="What should the kingdom get done?"
+            data-testid="crown-message"
+          />
+        </label>
+        {error && (
+          <p className="error small" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" className="send" disabled={busy} data-testid="crown-start">
+          {busy ? 'Crowning…' : 'Crown the King'}
+        </button>
+      </form>
+    </aside>
+  );
+}
+
 export function NewChatDialog({
   api,
   projects,

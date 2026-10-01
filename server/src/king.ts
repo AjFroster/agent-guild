@@ -66,6 +66,8 @@ export interface CourtOptions {
   token: string;
   now?: () => number;
   onChange?: () => void;
+  /** A Knight has just been given an order. */
+  onCommand?: (id: string) => void;
 }
 
 export interface Order {
@@ -195,14 +197,24 @@ export class Court {
     };
   }
 
-  /** A Knight by session id or by name (any case). */
-  resolve(knight: string): Hero {
+  /**
+   * A Knight by session id or by name (any case). A Knight the guild has just started may
+   * not have reached the event stream yet (transcripts are polled), so the guild's own
+   * chats count too: the King can raise a Knight and order it straight away.
+   */
+  resolve(knight: string): { id: string; name: string } {
+    const wanted = knight.trim().toLowerCase();
     const state = this.opts.state();
-    const candidates = Object.values(state.heroes).filter((h) => h.parentId === null);
-    const byId = candidates.find((h) => h.id === knight);
-    const found = byId
-      ? [byId]
-      : candidates.filter((h) => h.name.toLowerCase() === knight.trim().toLowerCase());
+    const known = new Map<string, { id: string; name: string; crowned: boolean }>();
+    for (const h of Object.values(state.heroes)) {
+      if (h.parentId === null) known.set(h.id, { id: h.id, name: h.name, crowned: h.crowned });
+    }
+    for (const c of this.opts.chats.list()) {
+      if (!known.has(c.id)) known.set(c.id, { id: c.id, name: c.name, crowned: false });
+    }
+    const candidates = [...known.values()];
+    const byId = known.get(knight.trim());
+    const found = byId ? [byId] : candidates.filter((h) => h.name.toLowerCase() === wanted);
     if (found.length === 0)
       throw new ChatError(404, `No Knight called "${knight}". Call list_knights to see them.`);
     if (found.length > 1) {
@@ -214,7 +226,7 @@ export class Court {
     const hero = found[0]!;
     if (hero.crowned || hero.id === this.kingId)
       throw new ChatError(400, 'The King cannot give orders to himself.');
-    return hero;
+    return { id: hero.id, name: hero.name };
   }
 
   async read(knight: string, last: number) {
@@ -274,6 +286,7 @@ export class Court {
 
   private async report(id: string, name: string, waitSeconds: unknown) {
     this.commanded.add(id);
+    this.opts.onCommand?.(id);
     this.opts.onChange?.();
     const wait = Number(waitSeconds ?? DEFAULT_WAIT_S);
     const seconds = Number.isFinite(wait) ? Math.max(0, Math.min(MAX_WAIT_S, wait)) : DEFAULT_WAIT_S;

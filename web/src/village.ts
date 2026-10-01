@@ -50,7 +50,7 @@ const TREES: readonly [number, number][] = [
   [300, 330],
   [860, 330],
   [30, 330],
-  [330, 555],
+  [180, 625],
   [790, 555],
 ];
 
@@ -234,6 +234,22 @@ const FORMATION: readonly [number, number][] = [
   [44, -60],
 ];
 
+/** The King's place: on open grass between the tower and the castle. */
+export const THRONE = { x: 310, y: 560 };
+
+/**
+ * How leaders line up at each building: three abreast, wide enough apart for a party to
+ * stand behind each. The guildhall, where resting Knights gather, takes four a row to
+ * the right of the throne.
+ */
+export const ROWS: Record<Location, { x: number; perRow: number; spacing: number }> = {
+  library: { x: BUILDINGS.library.x, perRow: 3, spacing: 124 },
+  forge: { x: BUILDINGS.forge.x, perRow: 3, spacing: 124 },
+  arena: { x: BUILDINGS.arena.x, perRow: 3, spacing: 124 },
+  tower: { x: BUILDINGS.tower.x, perRow: 3, spacing: 124 },
+  guildhall: { x: 640, perRow: 4, spacing: 100 },
+};
+
 /**
  * Where each hero stands. Leaders (the King and Knights) form a row in front of the
  * building their latest tool sent them to; followers stand in formation behind their
@@ -244,22 +260,30 @@ export function heroPositions(state: GuildState): Map<string, { x: number; y: nu
   const present = new Set(heroes.map((h) => h.id));
   const leads = (h: Hero) => h.parentId === null || !present.has(h.parentId);
 
+  const positions = new Map<string, { x: number; y: number }>();
   const byBuilding = new Map<Location, Hero[]>();
   for (const hero of heroes.filter(leads)) {
+    // The King keeps his throne beside the castle: he commands, he does not walk to work.
+    if (hero.crowned) {
+      positions.set(hero.id, THRONE);
+      continue;
+    }
     byBuilding.set(hero.location, [...(byBuilding.get(hero.location) ?? []), hero]);
   }
-  const positions = new Map<string, { x: number; y: number }>();
   for (const [location, group] of byBuilding) {
     const b = BUILDINGS[location];
-    // Three abreast, wide enough apart for a party to stand behind each.
-    const perRow = 3;
+    const row = ROWS[location];
+    const rows = Math.ceil(group.length / row.perRow);
+    const firstY = b.y + 88;
+    // Rows squeeze together rather than run off the bottom of the map.
+    const gap = rows > 1 ? Math.min(64, (VILLAGE_HEIGHT - 16 - firstY) / (rows - 1)) : 0;
     group.forEach((hero, i) => {
-      const row = Math.floor(i / perRow);
-      const inRow = Math.min(perRow, group.length - row * perRow);
-      const col = i % perRow;
+      const r = Math.floor(i / row.perRow);
+      const inRow = Math.min(row.perRow, group.length - r * row.perRow);
+      const col = i % row.perRow;
       positions.set(hero.id, {
-        x: b.x + (col - (inRow - 1) / 2) * 124,
-        y: b.y + 88 + row * 64,
+        x: row.x + (col - (inRow - 1) / 2) * row.spacing,
+        y: firstY + r * gap,
       });
     });
   }
@@ -456,6 +480,27 @@ export function drawVillage(
 
   const teams = heroTeams(state);
   const placed = placeHeroes(state, walkers, nowMs);
+
+  // The chain of command: gold lines from the King to each Knight he has given orders,
+  // flowing towards the Knight while the guild is live.
+  const king = placed.find((p) => p.hero.crowned);
+  if (king) {
+    ctx.save();
+    ctx.strokeStyle = '#ffcc33';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = 'rgba(40, 28, 0, 0.8)';
+    ctx.shadowBlur = 3;
+    ctx.setLineDash([12, 8]);
+    ctx.lineDashOffset = -nowMs / 40;
+    for (const p of placed) {
+      if (!p.hero.commanded || p.hero.parentId !== null || p.hero.crowned) continue;
+      ctx.beginPath();
+      ctx.moveTo(king.x, king.y - 20);
+      ctx.lineTo(p.x, p.y - 20);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   for (const p of placed.sort((a, b) => a.y - b.y)) {
     const sel = { kind: 'hero', id: p.hero.id } as const;
