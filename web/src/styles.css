@@ -46,7 +46,8 @@ a {
 
 .guild {
   display: grid;
-  grid-template-columns: 880px 1fr;
+  /* The map takes what the panel leaves, up to its full 1120px. */
+  grid-template-columns: minmax(0, 1120px) minmax(320px, 1fr);
   grid-template-rows: auto 1fr;
   gap: 16px 20px;
   padding: 20px;
@@ -71,6 +72,10 @@ a {
 }
 
 .village {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1120 / 720;
   border-radius: 12px;
   border: 1px solid var(--line);
 }

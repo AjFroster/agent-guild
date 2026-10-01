@@ -9,8 +9,8 @@ import { currentQuest, rankOf, roster } from '@agent-guild/core';
  * clock and no walkers, so a given URL renders the same frame every time.
  */
 
-export const VILLAGE_WIDTH = 880;
-export const VILLAGE_HEIGHT = 640;
+export const VILLAGE_WIDTH = 1120;
+export const VILLAGE_HEIGHT = 720;
 
 const ASSET = '/assets/tiny-swords';
 const FRAME = 192;
@@ -33,25 +33,29 @@ interface Building {
   height: number;
 }
 
+/**
+ * The work buildings stand in a row along the top. The castle below them is the Guildhall,
+ * home of the King's throne; the open ground to its left is left for the Barracks.
+ */
 export const BUILDINGS: Record<Location, Building> = {
-  library: { label: 'Library', file: 'Library', aspect: 210 / 420, x: 130, y: 200, height: 165 },
-  forge: { label: 'Forge', file: 'Forge', aspect: 307 / 460, x: 440, y: 200, height: 175 },
-  arena: { label: 'Arena', file: 'Arena', aspect: 320 / 429, x: 750, y: 200, height: 165 },
-  tower: { label: 'Tower', file: 'Tower', aspect: 195 / 390, x: 150, y: 435, height: 170 },
-  guildhall: { label: 'Guildhall', file: 'Castle', aspect: 400 / 270, x: 560, y: 435, height: 145 },
+  library: { label: 'Library', file: 'Library', aspect: 210 / 420, x: 140, y: 210, height: 165 },
+  forge: { label: 'Forge', file: 'Forge', aspect: 307 / 460, x: 420, y: 210, height: 175 },
+  arena: { label: 'Arena', file: 'Arena', aspect: 320 / 429, x: 700, y: 210, height: 165 },
+  tower: { label: 'Tower', file: 'Tower', aspect: 195 / 390, x: 970, y: 210, height: 170 },
+  guildhall: { label: 'Guildhall', file: 'Castle', aspect: 400 / 270, x: 640, y: 500, height: 160 },
 };
 
 /** Fixed, hand-placed trees: decoration that never moves between frames or runs. */
 const TREES: readonly [number, number][] = [
-  [30, 90],
-  [280, 70],
-  [600, 60],
-  [860, 110],
-  [300, 330],
-  [860, 330],
-  [30, 330],
-  [180, 625],
-  [790, 555],
+  [30, 100],
+  [285, 85],
+  [565, 75],
+  [845, 85],
+  [1095, 120],
+  [1095, 440],
+  [470, 440],
+  [430, 705],
+  [1095, 705],
 ];
 
 /**
@@ -234,8 +238,8 @@ const FORMATION: readonly [number, number][] = [
   [44, -60],
 ];
 
-/** The King's place: on open grass between the tower and the castle. */
-export const THRONE = { x: 310, y: 560 };
+/** The King's place: his throne at the castle gate. */
+export const THRONE = { x: 640, y: 600 };
 
 /**
  * How leaders line up at each building: three abreast, wide enough apart for a party to
@@ -246,10 +250,9 @@ export const ROWS: Record<Location, { x: number; perRow: number; spacing: number
   library: { x: BUILDINGS.library.x, perRow: 3, spacing: 124 },
   forge: { x: BUILDINGS.forge.x, perRow: 3, spacing: 124 },
   arena: { x: BUILDINGS.arena.x, perRow: 3, spacing: 124 },
-  tower: { x: BUILDINGS.tower.x, perRow: 3, spacing: 124 },
-  guildhall: { x: 640, perRow: 4, spacing: 100 },
+  tower: { x: BUILDINGS.tower.x, perRow: 2, spacing: 124 },
+  guildhall: { x: 900, perRow: 3, spacing: 110 },
 };
-
 /**
  * Where each hero stands. Leaders (the King and Knights) form a row in front of the
  * building their latest tool sent them to; followers stand in formation behind their

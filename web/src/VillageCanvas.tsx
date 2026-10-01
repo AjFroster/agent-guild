@@ -150,13 +150,13 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
     : [];
 
   return (
-    <div className="village-wrap" style={{ width: VILLAGE_WIDTH, height: VILLAGE_HEIGHT }}>
+    <div className="village-wrap">
       <canvas
         ref={canvas}
         className="village"
         width={VILLAGE_WIDTH}
         height={VILLAGE_HEIGHT}
-        style={{ width: VILLAGE_WIDTH, height: VILLAGE_HEIGHT, cursor: hovered ? 'pointer' : 'default' }}
+        style={{ cursor: hovered ? 'pointer' : 'default' }}
         role="img"
         aria-label={summary}
         data-testid="village"
@@ -180,7 +180,11 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
             key={h.id}
             type="button"
             className={`talk-pill${h.status === 'needs_you' ? ' talk-urgent' : ''}`}
-            style={{ left: at.x + 30 * k, top: at.y - 16 }}
+            // Percentages, so the button stays beside its Knight however wide the map is drawn.
+            style={{
+              left: `${((at.x + 30 * k) / VILLAGE_WIDTH) * 100}%`,
+              top: `${((at.y - 16) / VILLAGE_HEIGHT) * 100}%`,
+            }}
             onClick={() => onTalk!(h.id)}
             aria-label={`Talk to ${h.name}`}
             data-testid={`talk-${h.id}`}
