@@ -3,8 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
 import { type LiveStatus, useLiveEvents } from './live.ts';
+import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
 import { resolveSelection, useSelection } from './selection.ts';
+import { useHint, useSettings } from './settings.ts';
+import { useNotices } from './useNotices.ts';
 import { VillageCanvas } from './VillageCanvas.tsx';
 
 export function App() {
@@ -89,15 +92,30 @@ function Live({ token }: { token: string }) {
       </main>
     );
   }
-  return <Guild state={state} live={LIVE_LABEL[status]} now={now} />;
+  return <Guild state={state} live={LIVE_LABEL[status]} connected={status === 'live'} now={now} />;
 }
 
-function Guild({ state, live, now }: { state: GuildState; live?: string; now: number }) {
+function Guild({
+  state,
+  live,
+  connected = false,
+  now,
+}: {
+  state: GuildState;
+  live?: string;
+  /** Live and holding a snapshot: only then are changes news. */
+  connected?: boolean;
+  now: number;
+}) {
   const heroes = roster(state);
   const waiting = heroes.filter((h) => h.status === 'needs_you');
   const [rawSelection, select] = useSelection();
   const selection = resolveSelection(state, rawSelection);
   const hero = selection?.kind === 'hero' ? state.heroes[selection.id] : undefined;
+  const [settings, updateSettings] = useSettings();
+  const [showHint, dismissHint] = useHint();
+  // Notices are about things happening now, so only live mode raises them.
+  const { toasts, dismiss } = useNotices(state, connected, settings);
 
   return (
     <main className="guild" data-testid="guild">
@@ -125,14 +143,21 @@ function Guild({ state, live, now }: { state: GuildState; live?: string; now: nu
             {waiting.length === 1 ? 'needs' : 'need'} you
           </p>
         )}
+        <span className="topbar-end">
+          <SettingsButton settings={settings} onChange={updateSettings} />
+        </span>
       </header>
-      <VillageCanvas
-        state={state}
-        heroes={heroes}
-        animate={live !== undefined}
-        selected={selection}
-        onSelect={select}
-      />
+      <div className="map-col">
+        <VillageCanvas
+          state={state}
+          heroes={heroes}
+          animate={live !== undefined}
+          selected={selection}
+          onSelect={select}
+        />
+        {showHint && <Hint onDismiss={dismissHint} />}
+      </div>
+      <Toasts toasts={toasts} onOpen={select} onDismiss={dismiss} />
       <aside className="panel" aria-label="Guild details">
         {hero ? (
           <HeroPanel state={state} hero={hero} now={now} onSelect={select} />

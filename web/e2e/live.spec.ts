@@ -1,8 +1,15 @@
+import { appendFile, mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
 import { expect, test } from '@playwright/test';
 
-import { LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
+import { LIVE_DIR, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
 
 const LIVE = `http://127.0.0.1:${LIVE_PORT}`;
+
+// One server and one transcript folder for the file: the notice test adds a session, so
+// these run in order with it last.
+test.describe.configure({ mode: 'serial' });
 
 /**
  * The real server following e2e/transcripts: a fake project with a lead session that
@@ -34,4 +41,36 @@ test('the live guild shows sessions read from Claude Code transcripts', async ({
 test('a wrong token gets an explanation, not an empty guild', async ({ page }) => {
   await page.goto(`${LIVE}/?token=${'x'.repeat(LIVE_TOKEN.length)}`);
   await expect(page.getByRole('alert')).toContainText('did not accept this link');
+});
+
+test('a session that starts waiting on the user raises a toast that opens it', async ({ page }) => {
+  await page.goto(`${LIVE}/?token=${LIVE_TOKEN}`);
+  await expect(page.getByTestId('live-status')).toHaveText('Live');
+
+  const project = join(LIVE_DIR, '-home-example-notice-demo');
+  await mkdir(project, { recursive: true });
+  const file = join(project, 'sess-notice.jsonl');
+  const line = (s: number, content: unknown[], stop = 'tool_use') =>
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: new Date(Date.UTC(2026, 8, 30, 13, 0, s)).toISOString(),
+      cwd: '/home/example/notice-demo',
+      message: { role: 'assistant', content, stop_reason: stop },
+    }) + '\n';
+  await writeFile(file, line(0, [{ type: 'tool_use', name: 'Read', input: {} }]));
+  await expect(page.getByTestId('hero-sess-notice')).toBeVisible();
+
+  // Joining is off by default, so nothing yet; then it asks a question.
+  await expect(page.getByTestId('toasts')).toHaveCount(0);
+  await appendFile(file, line(1, [{ type: 'tool_use', name: 'AskUserQuestion', input: {} }]));
+  const toast = page.getByTestId('toasts').getByRole('button', { name: 'notice-demo needs you' });
+  await expect(toast).toBeVisible();
+  await page.screenshot({ path: 'e2e-screenshots/9-needs-you-toast.png', animations: 'disabled' });
+
+  await toast.click();
+  await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'notice-demo' })).toBeVisible();
+
+  // Finishing a turn is a notice too.
+  await appendFile(file, line(2, [{ type: 'text', text: 'done' }], 'end_turn'));
+  await expect(page.getByTestId('toasts')).toContainText('notice-demo finished a turn');
 });

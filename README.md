@@ -48,6 +48,10 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
   latest activity inside.
 - Everything on the map can also be opened from the side panel with the keyboard.
   `Esc`, or clicking open grass, goes back to the guild.
+- **Notices**: a toast and a short chime when a session needs you or finishes a turn.
+  Click the toast to open that session. **Settings** turns the sound, "finished" and
+  join/leave notices on or off, and can add desktop notifications while the tab is in the
+  background. Settings are saved in your browser.
 - A selection lives in the URL (`?select=hero:<id>` or `?select=building:forge`), so a
   reload keeps it.
 
@@ -56,6 +60,8 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 - [x] Game rules, demo replay, CI with screenshots on every PR
 - [x] Live sessions from Claude Code transcripts (read-only, 127.0.0.1, token)
 - [x] Pixel-art village; clickable heroes and buildings with detail panels
+- [x] Notices: toasts, sound, desktop notifications, settings
+- [ ] Starting and driving agents from the UI: designed (see docs/ROADMAP.md), not built
 - [ ] Permission prompts as "needs you" (needs Claude Code hooks, opt-in)
 - [ ] Visual regression baselines
 

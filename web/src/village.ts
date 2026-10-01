@@ -98,13 +98,14 @@ export function heroPositions(state: GuildState): Map<string, { x: number; y: nu
   const positions = new Map<string, { x: number; y: number }>();
   for (const [location, heroes] of byBuilding) {
     const b = BUILDINGS[location];
-    const perRow = 4;
+    // Three abreast, wide enough apart that name tags do not overlap.
+    const perRow = 3;
     heroes.forEach((hero, i) => {
       const row = Math.floor(i / perRow);
       const inRow = Math.min(perRow, heroes.length - row * perRow);
       const col = i % perRow;
       positions.set(hero.id, {
-        x: b.x + (col - (inRow - 1) / 2) * 66,
+        x: b.x + (col - (inRow - 1) / 2) * 112,
         y: b.y + 88 + row * 50,
       });
     });
