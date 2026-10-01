@@ -226,6 +226,39 @@ describe('ChatManager streaming and lifecycle', () => {
     expect(spawned.at(-1)!.args.join(' ')).toContain(`--resume ${a.id}`);
   });
 
+  it('runs helpers in their own pool, closing each when its turn ends: a Knight is never evicted', async () => {
+    const spawned: FakeChild[] = [];
+    const m = new ChatManager({
+      claude: 'claude',
+      home,
+      maxRunning: 1,
+      maxHelpers: 1,
+      spawn: (cmd, args, o) => {
+        const c = new FakeChild(cmd, args, o.cwd);
+        spawned.push(c);
+        return c as unknown as ChildLike;
+      },
+    });
+    const finish = (c: FakeChild) => c.emitLine({ type: 'result', subtype: 'success', result: 'ok' });
+    const knight = await m.start({ cwd: project, message: 'work' });
+    finish(spawned[0]!);
+    await tick();
+    // The Knights' pool is full (idle), yet a helper starts without closing the Knight.
+    const scout = await m.start({ cwd: project, message: 'scout', helper: true });
+    expect(m.get(knight.id)!.info.running).toBe(true);
+    // Mid-turn, the helpers' pool is full: another helper waits, the Knight is untouched.
+    await expect(m.start({ cwd: project, message: 'review', helper: true })).rejects.toMatchObject({
+      status: 429,
+    });
+    // The helper's turn ends: its process closes at once, freeing its slot.
+    finish(spawned[1]!);
+    await tick();
+    expect(m.get(scout.id)!.info.running).toBe(false);
+    expect(m.get(knight.id)!.info.running).toBe(true);
+    await m.start({ cwd: project, message: 'review', helper: true });
+    expect(m.get(knight.id)!.info.running).toBe(true);
+  });
+
   it('tells subscribers when an item is dropped, such as a duplicated login reply', async () => {
     const m = manager();
     const info = await m.start({ cwd: project, message: 'Hi' });

@@ -18,6 +18,8 @@ export interface ForgeRouteOptions {
   forge: Forge;
   chats: ChatManager;
   onChange: () => void;
+  /** The Forge sent a Knight a message: a raven with news, not an order (the map shows it so). */
+  onRaven?: (knightId: string) => void;
   /** A Knight by name or id, for the King's commissions: its session and folder. */
   resolveKnight?: (knight: string) => { id: string; name: string; cwd: string | null };
 }
@@ -127,6 +129,7 @@ export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRoute
       order.kind === 'skill'
         ? `Read its SKILL.md there and use it whenever it fits.`
         : `Run it as /${order.piece.name}.`;
+    opts.onRaven?.(knight.id);
     chats.send(
       knight.id,
       `The Forge: the ${order.kind} you asked for, "${order.piece.name}", was reviewed and the user installed it at ${dest}. ${how}`,
@@ -138,6 +141,7 @@ export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRoute
     const knight = order.knightId ? chats.list().find((c) => c.id === order.knightId) : undefined;
     if (!knight || knight.busy || !order.existing) return;
     const { name, where, reason } = order.existing;
+    opts.onRaven?.(knight.id);
     chats.send(
       knight.id,
       where === 'archive'

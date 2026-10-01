@@ -37,6 +37,17 @@ describe('diffNotices', () => {
     expect(kinds(before, after)).toEqual(['finished:a']);
   });
 
+  it("stays quiet about the guild's helpers coming, going and finishing", () => {
+    const helper: GuildEvent[] = [
+      { t: 3, session: 'lib', type: 'session_start', name: 'Reviewer' },
+      { t: 3, session: 'lib', type: 'librarian' },
+    ];
+    const before = at(helper.slice(1, 1));
+    const arrived = at(helper);
+    expect(kinds(before, arrived)).toEqual([]);
+    expect(kinds(arrived, at([...helper, { t: 4, session: 'lib', type: 'stop' }]))).toEqual([]);
+  });
+
   it('raises arrivals and departures of leaders only', () => {
     const before = at([]);
     const after = at([

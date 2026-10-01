@@ -5,8 +5,10 @@ import type { GuildState, Hero } from '@agent-guild/core';
  * Pure, so it can be tested without a browser; useNotices() turns the result into toasts,
  * sounds and desktop notifications.
  *
- * Only leaders (main sessions) raise "finished", "arrived" and "left". Sub-agents finish
- * constantly as part of their leader's work and would bury the notices that matter.
+ * Only leaders (main sessions) raise "finished", "arrived" and "left", and not the guild's
+ * own helpers (librarians, smiths). Sub-agents and helpers finish constantly as part of
+ * their work and would bury the notices that matter; a helper's result reaches the user as
+ * a decision (skill_ready, piece_ready) instead.
  * "Needs you" is raised for anyone, since a waiting sub-agent blocks its leader too.
  */
 
@@ -31,7 +33,7 @@ export function diffNotices(prev: GuildState | null, next: GuildState): Notice[]
   for (const id of next.order) {
     const before = prev.heroes[id];
     const after = next.heroes[id]!;
-    const leader = after.parentId === null;
+    const leader = after.parentId === null && !after.librarian && !after.smith;
 
     if (present(after) && after.status === 'needs_you' && before?.status !== 'needs_you') {
       notices.push({

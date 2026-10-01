@@ -43,6 +43,11 @@ export const GuildEvent = z.discriminatedUnion('type', [
    * it happened, never what it said.
    */
   z.object({ ...base, type: z.literal('ordered') }),
+  /**
+   * One of the guild's utilities (the Forge, say) sent this Knight a message: a raven with
+   * news, not an order from the throne. The message that follows is not an audience.
+   */
+  z.object({ ...base, type: z.literal('raven') }),
   /** This session is one of the guild's librarians, who keep the Archive of skills. */
   z.object({ ...base, type: z.literal('librarian') }),
   /** This session is one of the guild's smiths, who forge and mend the Knights' equipment. */

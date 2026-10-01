@@ -212,6 +212,7 @@ export class Library {
       message,
       allowedTools: tools,
       mcpConfig: this.mcpConfigFile(role),
+      helper: true,
     };
     const info = await this.opts.chats.start(request);
     this.config = { ...this.config, sessions: [info.id, ...this.config.sessions].slice(0, 40) };

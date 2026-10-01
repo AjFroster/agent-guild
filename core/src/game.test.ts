@@ -10,6 +10,7 @@ import {
   applyEvent,
   currentQuest,
   depthOf,
+  hasRaven,
   inAudience,
   librarianDoing,
   librarianState,
@@ -397,6 +398,32 @@ describe('orders and the Throne Room', () => {
       { t: 100, session: 'l', type: 'ordered' },
     ]).heroes.l!;
     expect(inAudience(librarian, 101)).toBe(false); // sent by the schedule, not the King
+  });
+
+  it('reads news a raven brought where it stands: no walk to the throne', () => {
+    for (const events of [
+      [
+        { t: 100, session: 'a', type: 'raven' },
+        { t: 101, session: 'a', type: 'ordered' },
+      ],
+      // The raven's own event can come in after the message it brought.
+      [
+        { t: 101, session: 'a', type: 'ordered' },
+        { t: 102, session: 'a', type: 'raven' },
+      ],
+    ] satisfies GuildEvent[][]) {
+      const hero = events.reduce(applyEvent, asleep).heroes.a!;
+      expect(hero.status).toBe('working');
+      expect(inAudience(hero, 103)).toBe(false);
+      expect(hasRaven(hero, 103)).toBe(true);
+      expect(hasRaven(hero, 115)).toBe(false);
+    }
+    // An order long after a raven is the King's again.
+    const later = [
+      { t: 100, session: 'a', type: 'raven' },
+      { t: 200, session: 'a', type: 'ordered' },
+    ] satisfies GuildEvent[];
+    expect(inAudience(later.reduce(applyEvent, asleep).heroes.a!, 201)).toBe(true);
   });
 });
 

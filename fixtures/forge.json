@@ -51,5 +51,33 @@
     "session": "s-gaw",
     "type": "tool",
     "tool": "Bash"
+  },
+  {
+    "t": 9,
+    "session": "s-lance",
+    "type": "session_start",
+    "name": "Lancelot"
+  },
+  {
+    "t": 10,
+    "session": "s-lance",
+    "type": "tool",
+    "tool": "Edit"
+  },
+  {
+    "t": 15,
+    "session": "s-lance",
+    "type": "raven"
+  },
+  {
+    "t": 15.5,
+    "session": "s-lance",
+    "type": "ordered"
+  },
+  {
+    "t": 16,
+    "session": "s-lance",
+    "type": "tool",
+    "tool": "Read"
   }
 ]

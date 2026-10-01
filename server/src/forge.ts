@@ -499,7 +499,7 @@ export class Forge {
   ): Promise<string> {
     await this.writeMcpConfig(role);
     await mkdir(req.cwd, { recursive: true });
-    const info = await this.opts.chats.start({ ...req, mcpConfig: this.mcpConfigFile(role) });
+    const info = await this.opts.chats.start({ ...req, mcpConfig: this.mcpConfigFile(role), helper: true });
     if (role === 'smith') {
       this.config.smiths = [info.id, ...this.config.smiths].slice(0, 40);
       this.opts.onSmith?.(info.id);

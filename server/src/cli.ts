@@ -229,6 +229,7 @@ const server = createServer({
             forge,
             chats,
             onChange: announceForge,
+            onRaven: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'raven' }]),
             resolveKnight: (knight) => {
               const hero = court.resolve(knight);
               const cwd =
