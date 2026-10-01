@@ -7,6 +7,8 @@ import {
   XP_PER_LEVEL,
   depthOf,
   guildTokens,
+  hasLooseEnds,
+  looseEnds,
   partyTokens,
   roster,
   toolsFor,
@@ -14,7 +16,7 @@ import {
 } from '@agent-guild/core';
 import type { ReactNode } from 'react';
 
-import { compact, duration } from './format.ts';
+import { compact, duration, gitSummary } from './format.ts';
 import { BUILDINGS, type Selection } from './village.ts';
 
 /** Side panels: the guild overview, one hero, or one building. */
@@ -135,6 +137,11 @@ export function GuildPanel({
                   <span className="level">Lv {hero.level}</span>
                   <span className={`status status-${hero.status}`}>{STATUS_LABEL[hero.status]}</span>
                 </span>
+                {hasLooseEnds(hero) && (
+                  <span className="loose" data-testid={`loose-${hero.id}`}>
+                    {gitSummary(hero.git!)}
+                  </span>
+                )}
               </button>
               <XpBar hero={hero} />
               <Quests hero={hero} />
@@ -143,6 +150,7 @@ export function GuildPanel({
         </ol>
       )}
       <GuildTotal state={state} />
+      <LooseEnds state={state} onSelect={onSelect} />
       <h2 className="section">Buildings</h2>
       <ul className="buildings">
         {LOCATIONS.map((loc) => {
@@ -165,6 +173,35 @@ export function GuildPanel({
       <p className="muted small hint">Click a hero or a building on the map for details.</p>
       {children}
     </>
+  );
+}
+
+/** Work only this machine has, including from sessions that have left the guild. */
+function LooseEnds({ state, onSelect }: { state: GuildState; onSelect: Select }) {
+  const heroes = looseEnds(state);
+  if (heroes.length === 0) return null;
+  return (
+    <section className="loose-ends" data-testid="loose-ends" aria-label="Loose ends">
+      <h2 className="section">Loose ends</h2>
+      <p className="muted small">Work that is only on this machine. Push it before you walk away.</p>
+      <ul className="plain">
+        {heroes.map((h) => (
+          <li key={h.id}>
+            {h.status === 'gone' ? <strong>{h.name}</strong> : <HeroButton hero={h} onSelect={onSelect} />}
+            {h.branch && (
+              <>
+                {' '}
+                <code className="small">{h.branch}</code>
+              </>
+            )}
+            <span className="loose-line small">
+              {gitSummary(h.git!)}
+              {h.status === 'gone' && ' · left the guild'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -241,6 +278,14 @@ export function HeroPanel({
           <>
             <dt>Model</dt>
             <dd>{hero.model}</dd>
+          </>
+        )}
+        {hero.git && hero.parentId === null && (
+          <>
+            <dt>Git</dt>
+            <dd className={hasLooseEnds(hero) ? 'loose-text' : undefined} data-testid="hero-git">
+              {gitSummary(hero.git)}
+            </dd>
           </>
         )}
         <dt>Arrived</dt>

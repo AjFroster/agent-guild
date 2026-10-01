@@ -253,6 +253,18 @@ export class TranscriptWatcher {
     return null;
   }
 
+  /**
+   * Main sessions the guild has seen, gone ones included, with the folder they ran in:
+   * the most recently written `limit` of them, for the git check.
+   */
+  sessionFolders(limit = 30): { session: string; cwd: string }[] {
+    return [...this.tracked.values()]
+      .filter((t) => t.started && !t.isSubagent && t.cwd)
+      .sort((a, b) => b.lastWriteMs - a.lastWriteMs)
+      .slice(0, limit)
+      .map((t) => ({ session: t.session, cwd: t.cwd! }));
+  }
+
   /** Folders sessions have run in, most recently active first: suggestions for a new chat. */
   projects(): string[] {
     const seen = new Map<string, number>();

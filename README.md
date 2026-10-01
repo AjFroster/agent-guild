@@ -6,7 +6,9 @@ on you.
 
 Local-first. Watching is read-only: the guild follows the transcripts Claude Code
 already writes to `~/.claude/projects/` and never changes your Claude settings, and the
-map only receives tool names, todo titles, turn ends and token counts.
+map only receives tool names, todo titles, turn ends and token counts. The server also runs
+read-only `git status` in the folders sessions ran in, and sends on two counts: commits on
+no remote, and uncommitted files.
 
 Chatting is not read-only. **New session** and **Open chat** run your own `claude` CLI
 in headless mode (`claude -p`, streaming JSON), with your login and settings, in a folder
@@ -38,6 +40,7 @@ the token in the browser and takes it out of the address bar, so after the first
 | `CLAUDE_PROJECTS_DIR`       | `~/.claude/projects` |                                                                |
 | `AGENT_GUILD_ALLOW_BYPASS`  | off                  | `1` offers "skip all permission checks" for new chats          |
 | `AGENT_GUILD_NO_CONTROL`    | off                  | `1` turns chats and the Town Crier off: watch-only             |
+| `AGENT_GUILD_GIT`           | on                   | `0` stops checking session folders for unpushed work           |
 
 ### Keep it running (Windows + WSL)
 
@@ -87,6 +90,9 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
   calls. Its **report card** sums it up: time on task, turns, tool calls, quests done,
   and tokens used (in, out, cache read and write, and with its party for a leader). The
   guild panel shows the total across every session.
+- **Loose ends** in the guild panel lists sessions whose folder has commits on no remote
+  or uncommitted files, including sessions that have left the guild. A hero with loose
+  ends says so in the roster and on its panel. Folders are checked once a minute.
 - **Click a building** to see who is there now, which tools send heroes there, and the
   latest activity inside.
 - Everything on the map can also be opened from the side panel with the keyboard.

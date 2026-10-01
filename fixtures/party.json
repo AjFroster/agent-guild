@@ -6,11 +6,29 @@
     "name": "Ada"
   },
   {
+    "t": 0.2,
+    "session": "s-hopper",
+    "type": "session_start",
+    "name": "Hopper"
+  },
+  {
+    "t": 0.4,
+    "session": "s-hopper",
+    "type": "meta",
+    "branch": "feat/season-tracker"
+  },
+  {
     "t": 0.5,
     "session": "s-ada",
     "type": "meta",
     "model": "claude-opus-5-5",
     "branch": "feat/win-probability"
+  },
+  {
+    "t": 0.6,
+    "session": "s-hopper",
+    "type": "tool",
+    "tool": "Bash"
   },
   {
     "t": 1,
@@ -47,6 +65,11 @@
     "output": 610,
     "cacheRead": 0,
     "cacheWrite": 18200
+  },
+  {
+    "t": 1.5,
+    "session": "s-hopper",
+    "type": "session_end"
   },
   {
     "t": 2,
@@ -172,6 +195,22 @@
     ]
   },
   {
+    "t": 8,
+    "session": "s-hopper",
+    "type": "git",
+    "unpushed": 3,
+    "dirty": 0,
+    "remote": true
+  },
+  {
+    "t": 8,
+    "session": "s-grace",
+    "type": "git",
+    "unpushed": 0,
+    "dirty": 0,
+    "remote": true
+  },
+  {
     "t": 9,
     "session": "s-ada",
     "type": "tool",
@@ -242,6 +281,14 @@
     "output": 1100,
     "cacheRead": 19400,
     "cacheWrite": 900
+  },
+  {
+    "t": 12,
+    "session": "s-ada",
+    "type": "git",
+    "unpushed": 2,
+    "dirty": 1,
+    "remote": true
   },
   {
     "t": 13,

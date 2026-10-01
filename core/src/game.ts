@@ -26,6 +26,8 @@ export interface Hero {
   branch: string | null;
   /** Tokens the hero's own replies used; a party member's count separately. */
   tokens: Tokens;
+  /** Its folder's git state, once the server has looked; null outside a repository. */
+  git: GitState | null;
 }
 
 export interface Tokens {
@@ -33,6 +35,15 @@ export interface Tokens {
   output: number;
   cacheRead: number;
   cacheWrite: number;
+}
+
+export interface GitState {
+  /** Commits on no remote branch: lost if this machine is. */
+  unpushed: number;
+  /** Changed or untracked files. */
+  dirty: number;
+  /** The repository has a remote at all. */
+  remote: boolean;
 }
 
 export interface Activity {
@@ -122,6 +133,7 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     model: null,
     branch: null,
     tokens: noTokens(),
+    git: null,
   };
 }
 
@@ -151,6 +163,14 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
       heroes: { ...state.heroes, [hero.id]: hero },
       order: existing ? state.order : [...state.order, hero.id],
     };
+  }
+
+  // Git state is the folder's, polled on the server's clock, and it matters most after a
+  // session has left: it updates a departed hero too, and is not activity.
+  if (event.type === 'git') {
+    if (!existing) return state;
+    const git = { unpushed: event.unpushed, dirty: event.dirty, remote: event.remote };
+    return { ...state, heroes: { ...state.heroes, [existing.id]: { ...existing, git } } };
   }
 
   if (!existing || existing.status === 'gone') return state;
@@ -236,6 +256,21 @@ export function partyTokens(state: GuildState, hero: Hero): Tokens {
   };
   visit(hero.id);
   return sum;
+}
+
+/** Work that exists only on this machine: unpushed commits or uncommitted files. */
+export function hasLooseEnds(hero: Hero): boolean {
+  return hero.git !== null && (hero.git.unpushed > 0 || hero.git.dirty > 0);
+}
+
+/**
+ * Sessions, present or gone, whose folder holds work not on any remote, most recently
+ * active first. Sub-agents share their leader's folder, so only leaders are listed.
+ */
+export function looseEnds(state: GuildState): Hero[] {
+  return Object.values(state.heroes)
+    .filter((h) => h.parentId === null && hasLooseEnds(h))
+    .sort((a, b) => b.lastActiveAt - a.lastActiveAt);
 }
 
 /** Tokens across every hero the guild has seen, present or gone. */

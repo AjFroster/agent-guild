@@ -17,3 +17,14 @@ export function duration(seconds: number): string {
   const h = Math.floor(m / 60);
   return m % 60 ? `${h} h ${m % 60} min` : `${h} h`;
 }
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "2 commits not pushed · 1 uncommitted file", or that all is safe. */
+export function gitSummary(git: { unpushed: number; dirty: number; remote: boolean }): string {
+  const parts: string[] = [];
+  if (git.unpushed > 0) parts.push(plural(git.unpushed, 'commit', 'commits') + ' not pushed');
+  if (git.dirty > 0) parts.push(plural(git.dirty, 'uncommitted file', 'uncommitted files'));
+  if (parts.length > 0) return parts.join(' · ');
+  return git.remote ? 'Everything committed and pushed' : 'Committed; no remote to push to';
+}

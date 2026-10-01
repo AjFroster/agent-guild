@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { compact, duration } from './format.ts';
+import { compact, duration, gitSummary } from './format.ts';
 
 describe('compact', () => {
   it('shortens thousands and millions', () => {
@@ -27,5 +27,17 @@ describe('duration', () => {
       '1 h',
       '3 h 5 min',
     ]);
+  });
+});
+
+describe('gitSummary', () => {
+  it('names what would be lost, or says nothing would be', () => {
+    expect(gitSummary({ unpushed: 2, dirty: 1, remote: true })).toBe(
+      '2 commits not pushed · 1 uncommitted file',
+    );
+    expect(gitSummary({ unpushed: 1, dirty: 0, remote: true })).toBe('1 commit not pushed');
+    expect(gitSummary({ unpushed: 0, dirty: 3, remote: false })).toBe('3 uncommitted files');
+    expect(gitSummary({ unpushed: 0, dirty: 0, remote: true })).toBe('Everything committed and pushed');
+    expect(gitSummary({ unpushed: 0, dirty: 0, remote: false })).toBe('Committed; no remote to push to');
   });
 });

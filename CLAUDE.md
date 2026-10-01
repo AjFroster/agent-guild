@@ -13,7 +13,9 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   real prompts, paths or usernames.
 - `server/`: Fastify on 127.0.0.1 with a per-run token. `watcher.ts` follows
   `~/.claude/projects/**.jsonl` read-only; `core/src/transcript.ts` decides what crosses
-  over (tool names, todos, turn ends, token counts) and drops everything else. Keep it that way.
+  over (tool names, todos, turn ends, token counts) and drops everything else. Keep it
+  that way. `server/src/git.ts` polls session folders read-only and sends counts only (unpushed
+  commits, uncommitted files): never file names or commit messages.
 - `web/e2e/transcripts/`: fake transcripts the live browser test runs against.
 - Chats: `server/src/chats.ts` runs `claude -p` (stream-json in and out) per active chat
   and resumes by session id; `core/src/chat.ts` turns its output and saved transcripts
