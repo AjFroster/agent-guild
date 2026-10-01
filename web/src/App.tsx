@@ -253,6 +253,7 @@ function Guild({
         <LibraryPage
           state={state}
           now={now}
+          animate={live !== undefined}
           onBack={() => openPage('village')}
           onSelectHero={(id) => select({ kind: 'hero', id })}
           control={

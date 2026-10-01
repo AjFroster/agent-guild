@@ -7,28 +7,34 @@ import {
   librariansIn,
   roster,
 } from '@agent-guild/core';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { type Api, ApiError, type SkillsStatus } from './api.ts';
+import {
+  type ArchiveView,
+  type ScenePick,
+  describeScene,
+  drawLibraryScene,
+  libraryModel,
+  libraryPick,
+  samePick,
+} from './libraryScene.ts';
 import { ago } from './panels.tsx';
+import { SceneCanvas } from './SceneCanvas.tsx';
 
 /**
- * The Library page, reached by clicking the Library on the map: the librarians at their
- * desks (what each is doing, or that it is away), today's schedule and star threshold, how
- * many skills wait for the user, and the librarians' latest notes. The Skills tab is where
- * the user decides on skills and changes the settings; this page is about the librarians.
+ * The Library page, reached by clicking the Library on the map. On top, the Library's
+ * grounds as a Tiny Swords scene (libraryScene.ts): the librarians at their stations, the
+ * Archive board, gold for installed skills. Below it, parchment cards: each librarian
+ * (what it is doing, or that it is away), their orders and star threshold, the Archive's
+ * counts and the librarians' notes. The Skills tab is where the user decides on skills and
+ * changes the settings; this page is about the librarians.
  */
 
-const ROLES = [
-  {
-    name: 'Scout',
-    about: 'Searches GitHub for new, well-starred skills and files each, pinned to a commit, in the Archive.',
-  },
-  {
-    name: 'Reviewer',
-    about: 'Reads every file of each new skill at that commit and compares it with yours.',
-  },
-] as const;
+const ABOUT: Record<string, string> = {
+  Scout: 'Searches GitHub for new, well-starred skills and files each, pinned to a commit, in the Archive.',
+  Reviewer: 'Reads every file of each new skill at that commit and compares it with yours.',
+};
 
 const STATE_LABEL: Record<LibrarianState | 'away', string> = {
   working: 'At work',
@@ -45,57 +51,100 @@ export interface LibraryControl {
   onOpenSkills: () => void;
 }
 
+/** What the scene needs from the Archive. */
+function archiveView(status: SkillsStatus): ArchiveView {
+  return {
+    waiting: status.entries
+      .filter((e) => e.status === 'reviewed')
+      .map((e) => ({ id: e.id, name: e.name, verdict: e.review?.verdict ?? null })),
+    installed: status.entries.filter((e) => e.status === 'installed').length,
+  };
+}
+
 export function LibraryPage({
   state,
   now,
+  animate,
   control,
   onBack,
   onSelectHero,
 }: {
   state: GuildState;
   now: number;
+  animate: boolean;
   control?: LibraryControl | undefined;
   onBack: () => void;
   /** Back to the village with that hero's panel open. */
   onSelectHero: (id: string) => void;
 }) {
+  const [status, setStatus] = useState<SkillsStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const api = control?.api;
+  const load = useCallback(() => {
+    api?.skills().then(
+      (s) => {
+        setStatus(s);
+        setError(null);
+      },
+      () => setError('Could not load the Archive.'),
+    );
+  }, [api]);
+  useEffect(load, [load, control?.version]);
+
+  const model = useMemo(() => libraryModel(state, status ? archiveView(status) : null), [state, status]);
   const present = librariansIn(state);
+  // The Scout and the Reviewer have desks; any other librarian gets one of its own.
+  const desks: { name: string; hero: Hero | undefined }[] = [
+    ...model.seats.map((s) => ({ name: s.role as string, hero: s.hero })),
+    ...present
+      .filter((h) => !model.seats.some((s) => s.hero?.id === h.id))
+      .map((h) => ({ name: h.name, hero: h })),
+  ];
   // Knights reading files (Read, Grep, Glob) stand at the Library's door.
   const readers = roster(state).filter(
     (h) => !h.librarian && h.location === 'library' && h.status !== 'idle',
   );
-  // The newest librarian of each role takes its desk; anyone else gets a desk of their own.
-  const seats: { name: string; about: string; hero: Hero | undefined }[] = ROLES.map((r) => ({
-    ...r,
-    hero: present.filter((h) => h.name === r.name).at(-1),
-  }));
-  for (const hero of present) {
-    if (!seats.some((s) => s.hero?.id === hero.id))
-      seats.push({ name: hero.name, about: 'A librarian.', hero });
-  }
+
+  const onPick = (p: ScenePick) => {
+    if (p.kind === 'librarian') {
+      if (control) control.onTalk(p.id);
+      else onSelectHero(p.id);
+    } else control?.onOpenSkills();
+  };
 
   return (
     <section className="library-page" data-testid="library-page" aria-label="The Library">
       <div className="library-head">
-        <button type="button" className="chip" onClick={onBack} data-testid="library-back">
+        <button type="button" className="ts-button" onClick={onBack} data-testid="library-back">
           ← Back to the village
         </button>
-        <div>
-          <h2>The Library</h2>
-          <p className="muted small">
-            The librarians keep the Archive: skills found on GitHub, reviewed, and waiting for your decision.
-          </p>
-        </div>
+        <h2 className="ts-ribbon ts-ribbon-yellow">The Library</h2>
       </div>
+      <SceneCanvas
+        model={model}
+        animate={animate}
+        draw={drawLibraryScene}
+        pick={libraryPick}
+        same={samePick}
+        onPick={onPick}
+        label={describeScene(model)}
+        testId="library-scene"
+      />
+      <p className="muted small library-hint">
+        Click a librarian to {control ? 'open its chat' : 'see its session'}
+        {control ? ', or the Archive board to review skills.' : '.'}
+      </p>
       <ul className="plain library-desks" aria-label="Librarians">
-        {seats.map((seat) => (
-          <Desk key={seat.hero?.id ?? seat.name} {...seat} now={now} onTalk={control?.onTalk} />
+        {desks.map((d) => (
+          <Desk key={d.hero?.id ?? d.name} {...d} now={now} onTalk={control?.onTalk} />
         ))}
       </ul>
-      {control && <LibraryDesk control={control} now={now} />}
-      <div className="library-card" data-testid="library-readers">
-        <h3>Reading at the Library</h3>
-        <p className="muted small">Heroes reading files (Read, Grep, Glob, LS) stand at its door.</p>
+      {control && <LibraryCards control={control} status={status} error={error} now={now} onChanged={load} />}
+      <div className="ts-card" data-testid="library-readers">
+        <h3 className="ts-ribbon ts-ribbon-blue">Reading at the door</h3>
+        <p className="muted small">
+          Heroes reading files (Read, Grep, Glob, LS) stand at the Library&apos;s door.
+        </p>
         {readers.length === 0 ? (
           <p className="muted small" data-testid="nobody-reading">
             Nobody.
@@ -119,13 +168,11 @@ export function LibraryPage({
 
 function Desk({
   name,
-  about,
   hero,
   now,
   onTalk,
 }: {
   name: string;
-  about: string;
   hero: Hero | undefined;
   now: number;
   onTalk?: ((id: string) => void) | undefined;
@@ -133,80 +180,60 @@ function Desk({
   const state = hero ? librarianState(hero) : 'away';
   const doing = hero ? librarianDoing(hero) : null;
   return (
-    <li className={`library-desk desk-${state}`} data-testid={`desk-${name}`} data-state={state}>
-      <div className="desk-portrait" aria-hidden="true">
-        <span className={`librarian-sprite${state === 'working' ? ' sprite-working' : ''}`} />
-        {state !== 'away' && <StateIcon state={state} />}
-      </div>
-      <div className="desk-body">
-        <h3>
-          {name} <span className={`desk-state state-${state}`}>{STATE_LABEL[state]}</span>
-        </h3>
-        <p className="muted small">{about}</p>
-        {hero ? (
-          <p className="small" data-testid={`desk-${name}-doing`}>
-            {state === 'working'
-              ? `${doing ?? 'Starting'}…`
-              : state === 'needs_you'
-                ? 'Waiting for your answer.'
-                : `Finished ${ago(now - hero.lastActiveAt)}${doing ? `; last: ${doing.toLowerCase()}` : ''}.`}
-          </p>
-        ) : (
-          <p className="small muted">Not in the Library now. They come in when the librarians run.</p>
-        )}
-        {hero && onTalk && (
-          <button
-            type="button"
-            className={state === 'needs_you' ? 'send' : 'chip'}
-            onClick={() => onTalk(hero.id)}
-            data-testid={`desk-${name}-talk`}
-          >
-            {state === 'needs_you' ? 'Answer' : 'Open chat'}
-          </button>
-        )}
-      </div>
+    <li className={`ts-card library-desk desk-${state}`} data-testid={`desk-${name}`} data-state={state}>
+      <h3 className={`ts-ribbon ${state === 'needs_you' ? 'ts-ribbon-red' : 'ts-ribbon-yellow'}`}>{name}</h3>
+      <p>
+        <span className={`desk-state state-${state}`}>{STATE_LABEL[state]}</span>
+      </p>
+      <p className="muted small">{ABOUT[name] ?? 'A librarian.'}</p>
+      {hero ? (
+        <p className="small" data-testid={`desk-${name}-doing`}>
+          {state === 'working'
+            ? `${doing ?? 'Starting'}…`
+            : state === 'needs_you'
+              ? 'Waiting for your answer.'
+              : `Finished ${ago(now - hero.lastActiveAt)}${doing ? `; last: ${doing.toLowerCase()}` : ''}.`}
+        </p>
+      ) : (
+        <p className="small muted">Not in the Library now. They come in when the librarians run.</p>
+      )}
+      {hero && onTalk && (
+        <button
+          type="button"
+          className={state === 'needs_you' ? 'ts-button ts-button-red' : 'ts-button'}
+          onClick={() => onTalk(hero.id)}
+          data-testid={`desk-${name}-talk`}
+        >
+          {state === 'needs_you' ? 'Answer' : 'Open chat'}
+        </button>
+      )}
     </li>
   );
 }
 
-/** The same icons the Library shows on the map: a book, "zzz", or a red "!". */
-function StateIcon({ state }: { state: LibrarianState }) {
-  if (state === 'needs_you') return <span className="desk-icon icon-alert">!</span>;
-  if (state === 'resting') return <span className="desk-icon icon-sleep">zzz</span>;
-  return (
-    <span className="desk-icon icon-work">
-      <svg viewBox="0 0 28 18" width="24" height="16">
-        <path d="M14 16 L1 13 L1 2 L14 5 Z" fill="#f4ecd2" stroke="#3a2410" strokeWidth="1.5" />
-        <path d="M14 16 L27 13 L27 2 L14 5 Z" fill="#f4ecd2" stroke="#3a2410" strokeWidth="1.5" />
-        <rect x="12.5" y="4" width="3" height="12" fill="#7b3fa0" />
-      </svg>
-    </span>
-  );
-}
-
-/** The live half of the page: the schedule, what waits for the user, and the notes. */
-function LibraryDesk({ control, now }: { control: LibraryControl; now: number }) {
-  const { api, version } = control;
-  const [status, setStatus] = useState<SkillsStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const load = useCallback(() => {
-    api.skills().then(
-      (s) => {
-        setStatus(s);
-        setError(null);
-      },
-      () => setError('Could not load the Archive.'),
-    );
-  }, [api]);
-  useEffect(load, [load, version]);
+/** The live half of the page: the orders, what waits for the user, and the notes. */
+function LibraryCards({
+  control,
+  status,
+  error,
+  now,
+  onChanged,
+}: {
+  control: LibraryControl;
+  status: SkillsStatus | null;
+  error: string | null;
+  now: number;
+  onChanged: () => void;
+}) {
+  const [runError, setRunError] = useState<string | null>(null);
   if (!status) return <p className="muted">{error ?? 'Opening the Archive…'}</p>;
-
+  const { api } = control;
   const count = (s: string) => status.entries.filter((e) => e.status === s).length;
   const library = status.library;
   return (
     <div className="library-cards">
-      <div className="library-card" data-testid="library-schedule">
-        <h3>Their orders</h3>
+      <div className="ts-card" data-testid="library-schedule">
+        <h3 className="ts-ribbon ts-ribbon-blue">Their orders</h3>
         {library ? (
           <>
             <p className="small">
@@ -222,20 +249,20 @@ function LibraryDesk({ control, now }: { control: LibraryControl; now: number })
             <div className="skill-actions">
               <button
                 type="button"
-                className="send"
+                className="ts-button"
                 disabled={library.running}
                 onClick={() =>
                   void api
                     .runLibrary()
-                    .then(load, (err: unknown) =>
-                      setError(err instanceof ApiError ? err.message : 'Could not start the librarians.'),
+                    .then(onChanged, (err: unknown) =>
+                      setRunError(err instanceof ApiError ? err.message : 'Could not start the librarians.'),
                     )
                 }
                 data-testid="library-run"
               >
                 Run now
               </button>
-              <button type="button" className="chip" onClick={control.onOpenSkills}>
+              <button type="button" className="link" onClick={control.onOpenSkills}>
                 Change in the Skills tab
               </button>
             </div>
@@ -243,14 +270,14 @@ function LibraryDesk({ control, now }: { control: LibraryControl; now: number })
         ) : (
           <p className="muted small">The librarians are off while chats are off.</p>
         )}
-        {error && (
+        {(runError ?? error) && (
           <p className="error small" role="alert">
-            {error}
+            {runError ?? error}
           </p>
         )}
       </div>
-      <div className="library-card" data-testid="library-archive">
-        <h3>The Archive</h3>
+      <div className="ts-card" data-testid="library-archive">
+        <h3 className="ts-ribbon ts-ribbon-red">The Archive</h3>
         <p className="library-waiting">
           <strong>{status.waiting}</strong> {status.waiting === 1 ? 'skill waits' : 'skills wait'} for you
         </p>
@@ -260,15 +287,15 @@ function LibraryDesk({ control, now }: { control: LibraryControl; now: number })
         </p>
         <button
           type="button"
-          className={status.waiting > 0 ? 'send' : 'chip'}
+          className={status.waiting > 0 ? 'ts-button ts-button-red' : 'ts-button'}
           onClick={control.onOpenSkills}
           data-testid="library-review"
         >
           {status.waiting > 0 ? 'Review them' : 'Open the Skills tab'}
         </button>
       </div>
-      <div className="library-card library-notes">
-        <h3>Their notes</h3>
+      <div className="ts-card library-notes">
+        <h3 className="ts-ribbon ts-ribbon-blue">Their notes</h3>
         {status.notes.length === 0 ? (
           <p className="muted small">No notes yet.</p>
         ) : (

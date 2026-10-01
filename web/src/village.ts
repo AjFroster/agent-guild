@@ -179,7 +179,7 @@ export interface Sprites {
   units: Record<string, CanvasImageSource>;
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
+export function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
@@ -1204,7 +1204,7 @@ export function bubbleFor(hero: Hero): 'alert' | 'sleep' | null {
   return null;
 }
 
-function bubble(
+export function bubble(
   ctx: CanvasRenderingContext2D,
   x: number,
   top: number,

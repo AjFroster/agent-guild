@@ -127,8 +127,15 @@ test('the librarians work inside the Library, and its signs show what each is do
   await expect(library.getByTestId('desk-Scout-doing')).toHaveText('Searching the web…');
   await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
   await expect(library.getByTestId('desk-Reviewer-doing')).toContainText('last: writing a review');
-  await page.screenshot({ path: `${SHOTS}/16-library-page.png`, animations: 'disabled' });
-  await library.getByTestId('library-back').click();
+  // The Library's grounds: the Scout at its glowing orb, the Reviewer asleep at its lectern.
+  const scene = page.locator('[data-testid="library-scene"][data-ready="true"]');
+  await expect(scene).toHaveCount(1);
+  await expect(scene).toHaveAttribute('aria-label', /the Scout is at work, the Reviewer is resting/);
+  await page.screenshot({ path: `${SHOTS}/16-library-page.png`, animations: 'disabled', fullPage: true });
+  // Clicking a librarian in the scene opens its session (demo mode has no chats).
+  const box = (await scene.boundingBox())!;
+  await scene.click({ position: { x: (300 / 1120) * box.width, y: (360 / 720) * box.height } });
+  await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'Scout' })).toBeVisible();
   await expect(page.getByTestId('village')).toBeVisible();
   expect(errors).toEqual([]);
 });
