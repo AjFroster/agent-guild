@@ -24,6 +24,11 @@ export interface ServerOptions {
   webDir?: string;
   /** Upper bound on events kept for the snapshot a new browser tab receives. */
   maxEvents?: number;
+  /**
+   * Routes that act on sessions (chats, the Town Crier). They get the token check to
+   * enforce themselves. Omitted, the server is watch-only.
+   */
+  control?: (scope: FastifyInstance, isToken: (given: unknown) => boolean) => Promise<void>;
 }
 
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1']);
@@ -52,6 +57,8 @@ function sameToken(given: unknown, expected: string): boolean {
 export interface GuildServer {
   app: FastifyInstance;
   publish: (events: GuildEvent[]) => void;
+  /** Send a named message to every open tab, and to tabs that open later. */
+  announce: (event: string, data: unknown) => void;
 }
 
 export function createServer(opts: ServerOptions): GuildServer {
@@ -63,6 +70,8 @@ export function createServer(opts: ServerOptions): GuildServer {
   const maxEvents = opts.maxEvents ?? 20_000;
   const history: GuildEvent[] = [];
   const clients = new Set<FastifyReply>();
+  /** Latest value of each announced message, replayed to a tab when it connects. */
+  const announced = new Map<string, unknown>();
   const app = Fastify({ logger: false });
 
   app.addHook('onRequest', async (req, reply) => {
@@ -95,6 +104,7 @@ export function createServer(opts: ServerOptions): GuildServer {
       connection: 'keep-alive',
     });
     res.write(`event: snapshot\ndata: ${JSON.stringify(history)}\n\n`);
+    for (const [event, data] of announced) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     clients.add(reply);
     const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
     req.raw.on('close', () => {
@@ -102,6 +112,11 @@ export function createServer(opts: ServerOptions): GuildServer {
       clients.delete(reply);
     });
   });
+
+  if (opts.control) {
+    const control = opts.control;
+    void app.register(async (scope) => control(scope, (given) => sameToken(given, opts.token)));
+  }
 
   if (opts.webDir && existsSync(opts.webDir)) {
     void app.register(fastifyStatic, { root: opts.webDir });
@@ -115,7 +130,13 @@ export function createServer(opts: ServerOptions): GuildServer {
     for (const client of clients) client.raw.write(frame);
   };
 
-  return { app, publish };
+  const announce = (event: string, data: unknown) => {
+    announced.set(event, data);
+    const frame = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const client of clients) client.raw.write(frame);
+  };
+
+  return { app, publish, announce };
 }
 
 /**

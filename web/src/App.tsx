@@ -2,10 +2,12 @@ import { type GuildEvent, type GuildState, replay, roster } from '@agent-guild/c
 import { useEffect, useMemo, useState } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
+import { type Api, type ChatInfo, api } from './api.ts';
+import { ChatDrawer, CrierCard, NewChatDialog, ReportDrawer } from './chat.tsx';
 import { type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
-import { resolveSelection, useSelection } from './selection.ts';
+import { resolveSelection, useDrawer, useSelection } from './selection.ts';
 import { useHint, useSettings } from './settings.ts';
 import { useNotices } from './useNotices.ts';
 import { VillageCanvas } from './VillageCanvas.tsx';
@@ -58,6 +60,14 @@ function DemoLinks() {
   );
 }
 
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface Control {
+  api: Api;
+  chats: ChatInfo[];
+  crierVersion: number;
+}
+
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
 
 /** Wall clock in epoch seconds, refreshed every `ms` so relative times stay current. */
@@ -78,7 +88,8 @@ const LIVE_LABEL: Record<LiveStatus, string> = {
 };
 
 function Live({ token }: { token: string }) {
-  const { events, status } = useLiveEvents(token);
+  const { events, status, announcements } = useLiveEvents(token);
+  const client = useMemo(() => api(token), [token]);
   const state = useMemo(() => replay(events), [events]);
   const now = useNow(5_000);
   if (status === 'unauthorized') {
@@ -92,7 +103,19 @@ function Live({ token }: { token: string }) {
       </main>
     );
   }
-  return <Guild state={state} live={LIVE_LABEL[status]} connected={status === 'live'} now={now} />;
+  return (
+    <Guild
+      state={state}
+      live={LIVE_LABEL[status]}
+      connected={status === 'live'}
+      now={now}
+      control={
+        announcements.control?.enabled
+          ? { api: client, chats: announcements.chats, crierVersion: announcements.crierVersion }
+          : undefined
+      }
+    />
+  );
 }
 
 function Guild({
@@ -100,12 +123,15 @@ function Guild({
   live,
   connected = false,
   now,
+  control,
 }: {
   state: GuildState;
   live?: string;
   /** Live and holding a snapshot: only then are changes news. */
   connected?: boolean;
   now: number;
+  /** Chats and the Town Crier, when the server allows them. */
+  control?: Control | undefined;
 }) {
   const heroes = roster(state);
   const waiting = heroes.filter((h) => h.status === 'needs_you');
@@ -116,6 +142,17 @@ function Guild({
   const [showHint, dismissHint] = useHint();
   // Notices are about things happening now, so only live mode raises them.
   const { toasts, dismiss } = useNotices(state, connected, settings);
+  const [drawer, openDrawer] = useDrawer();
+  const [projects, setProjects] = useState<string[]>([]);
+  useEffect(() => {
+    if (drawer?.kind === 'new' && control)
+      control.api.control().then(
+        (c) => setProjects(c.projects),
+        () => {},
+      );
+  }, [drawer, control]);
+  // Only main sessions have a Claude session id to chat with; sub-agents run inside them.
+  const chatId = hero && hero.parentId === null && SESSION_ID.test(hero.id) ? hero.id : null;
 
   return (
     <main className="guild" data-testid="guild">
@@ -144,6 +181,16 @@ function Guild({
           </p>
         )}
         <span className="topbar-end">
+          {control && (
+            <button
+              type="button"
+              className="send"
+              onClick={() => openDrawer({ kind: 'new' })}
+              data-testid="new-session"
+            >
+              New session
+            </button>
+          )}
           <SettingsButton settings={settings} onChange={updateSettings} />
         </span>
       </header>
@@ -160,13 +207,42 @@ function Guild({
       <Toasts toasts={toasts} onOpen={select} onDismiss={dismiss} />
       <aside className="panel" aria-label="Guild details">
         {hero ? (
-          <HeroPanel state={state} hero={hero} now={now} onSelect={select} />
+          <HeroPanel
+            state={state}
+            hero={hero}
+            now={now}
+            onSelect={select}
+            onOpenChat={control && chatId ? () => openDrawer({ kind: 'chat', id: chatId }) : undefined}
+          />
         ) : selection?.kind === 'building' ? (
           <BuildingPanel state={state} location={selection.id} now={now} onSelect={select} />
         ) : (
-          <GuildPanel state={state} onSelect={select} />
+          <GuildPanel state={state} onSelect={select}>
+            {control && (
+              <CrierCard
+                api={control.api}
+                version={control.crierVersion}
+                onOpenChat={(id) => openDrawer({ kind: 'chat', id })}
+                onOpenReport={(date) => openDrawer({ kind: 'report', date })}
+              />
+            )}
+          </GuildPanel>
         )}
       </aside>
+      {control && drawer?.kind === 'chat' && (
+        <ChatDrawer key={drawer.id} api={control.api} id={drawer.id} onClose={() => openDrawer(null)} />
+      )}
+      {control && drawer?.kind === 'report' && (
+        <ReportDrawer api={control.api} date={drawer.date} onClose={() => openDrawer(null)} />
+      )}
+      {control && drawer?.kind === 'new' && (
+        <NewChatDialog
+          api={control.api}
+          projects={projects}
+          onStarted={(id) => openDrawer({ kind: 'chat', id })}
+          onCancel={() => openDrawer(null)}
+        />
+      )}
     </main>
   );
 }

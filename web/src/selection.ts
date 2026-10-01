@@ -55,3 +55,34 @@ export function useSelection(): [Selection | null, (s: Selection | null) => void
 
   return [selection, select];
 }
+
+/** A drawer over the map: a chat, a Town Crier report, or the new-session form. */
+export type Drawer = { kind: 'chat'; id: string } | { kind: 'report'; date: string } | { kind: 'new' };
+
+export function parseDrawer(value: string | null): Drawer | null {
+  if (!value) return null;
+  if (value === 'new') return { kind: 'new' };
+  const [kind, ...rest] = value.split(':');
+  const arg = rest.join(':');
+  if (kind === 'chat' && /^[0-9a-f-]{36}$/i.test(arg)) return { kind: 'chat', id: arg };
+  if (kind === 'report' && /^\d{4}-\d{2}-\d{2}$/.test(arg)) return { kind: 'report', date: arg };
+  return null;
+}
+
+const formatDrawer = (d: Drawer) =>
+  d.kind === 'new' ? 'new' : d.kind === 'chat' ? `chat:${d.id}` : `report:${d.date}`;
+
+/** The open drawer, kept in `?open=` like the selection, so a reload keeps the chat open. */
+export function useDrawer(): [Drawer | null, (d: Drawer | null) => void] {
+  const [drawer, setDrawer] = useState<Drawer | null>(() =>
+    parseDrawer(new URLSearchParams(window.location.search).get('open')),
+  );
+  const open = useCallback((d: Drawer | null) => {
+    setDrawer(d);
+    const url = new URL(window.location.href);
+    if (d) url.searchParams.set('open', formatDrawer(d));
+    else url.searchParams.delete('open');
+    window.history.replaceState(null, '', url);
+  }, []);
+  return [drawer, open];
+}

@@ -9,6 +9,7 @@ import {
   roster,
   toolsFor,
 } from '@agent-guild/core';
+import type { ReactNode } from 'react';
 
 import { BUILDINGS, type Selection } from './village.ts';
 
@@ -93,7 +94,16 @@ function Quests({ hero }: { hero: Hero }) {
 
 // ---------------------------------------------------------------------------- guild
 
-export function GuildPanel({ state, onSelect }: { state: GuildState; onSelect: Select }) {
+export function GuildPanel({
+  state,
+  onSelect,
+  children,
+}: {
+  state: GuildState;
+  onSelect: Select;
+  /** Extra sections below the buildings, such as the Town Crier in live mode. */
+  children?: ReactNode;
+}) {
   const heroes = roster(state);
   return (
     <>
@@ -148,6 +158,7 @@ export function GuildPanel({ state, onSelect }: { state: GuildState; onSelect: S
         })}
       </ul>
       <p className="muted small hint">Click a hero or a building on the map for details.</p>
+      {children}
     </>
   );
 }
@@ -159,11 +170,14 @@ export function HeroPanel({
   hero,
   now,
   onSelect,
+  onOpenChat,
 }: {
   state: GuildState;
   hero: Hero;
   now: number;
   onSelect: Select;
+  /** Present when this session can be chatted with from the guild. */
+  onOpenChat?: (() => void) | undefined;
 }) {
   const leader = hero.parentId ? state.heroes[hero.parentId] : undefined;
   const party = roster(state).filter((h) => h.parentId === hero.id);
@@ -181,6 +195,11 @@ export function HeroPanel({
       <p className="doing">
         {hero.status === 'needs_you' ? 'Waiting for your answer' : DOING[hero.location]}
       </p>
+      {onOpenChat && (
+        <button type="button" className="send open-chat" onClick={onOpenChat} data-testid="open-chat">
+          Open chat
+        </button>
+      )}
       <XpBar hero={hero} />
       <p className="muted small">
         {hero.xp % XP_PER_LEVEL} / {XP_PER_LEVEL} XP to level {hero.level + 1}
