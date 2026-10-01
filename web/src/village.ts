@@ -1,5 +1,5 @@
 import type { GuildState, Hero, Location, Rank } from '@agent-guild/core';
-import { currentQuest, rankOf, roster } from '@agent-guild/core';
+import { currentQuest, inAudience, rankOf, roster } from '@agent-guild/core';
 
 /**
  * Canvas drawing for the village, using the Tiny Swords pack (Pixel Frog, CC0) and
@@ -279,7 +279,7 @@ export const ROWS: Record<Location, { x: number; perRow: number; spacing: number
  * building their latest tool sent them to; followers stand in formation behind their
  * leader wherever it goes, so a party moves as one.
  */
-export function heroPositions(state: GuildState): Map<string, Place> {
+export function heroPositions(state: GuildState, clock?: number): Map<string, Place> {
   const heroes = roster(state);
   const present = new Set(heroes.map((h) => h.id));
   const leads = (h: Hero) => h.parentId === null || !present.has(h.parentId);
@@ -287,9 +287,20 @@ export function heroPositions(state: GuildState): Map<string, Place> {
   const positions = new Map<string, Place>();
   const byBuilding = new Map<Location, Hero[]>();
   const sleepers: Hero[] = [];
+  let heard = 0;
   for (const hero of heroes.filter(leads)) {
     // The King keeps his throne at the castle gate: he commands, he does not walk to work.
     if (hero.crowned) positions.set(hero.id, { ...THRONE, pose: 'stand' });
+    // Just given an order: before the throne to hear it, facing the King.
+    else if (clock !== undefined && inAudience(hero, clock)) {
+      const [dx, dy] = AUDIENCE[heard++ % AUDIENCE.length]!;
+      positions.set(hero.id, {
+        x: THRONE.x + dx,
+        y: THRONE.y + dy,
+        pose: 'stand',
+        face: dx > 0 ? 'left' : 'right',
+      });
+    }
     // A Knight resting between turns goes to bed in the Barracks.
     else if (hero.status === 'idle') sleepers.push(hero);
     else byBuilding.set(hero.location, [...(byBuilding.get(hero.location) ?? []), hero]);
@@ -336,12 +347,28 @@ export function heroPositions(state: GuildState): Map<string, Place> {
   return positions;
 }
 
-/** Where a hero is, and whether it stands or lies asleep. */
+/** Where a hero is, whether it stands or lies asleep, and which way it faces if it matters. */
 export interface Place {
   x: number;
   y: number;
   pose: 'stand' | 'sleep';
+  face?: 'left' | 'right';
 }
+
+/**
+ * Where Knights stand before the throne while they hear an order, either side of the
+ * King, offsets from the throne.
+ */
+const AUDIENCE: readonly [number, number][] = [
+  [-90, 6],
+  [90, 6],
+  [-160, 18],
+  [160, 18],
+  [-90, 62],
+  [90, 62],
+  [-160, 74],
+  [160, 74],
+];
 
 /** The Barracks: a fenced camp in the bottom-left corner where resting Knights sleep. */
 export const BARRACKS = { left: 40, top: 440, right: 400, bottom: 708, fireX: 220, fireY: 482 };
@@ -451,6 +478,8 @@ export interface Placed {
   left: boolean;
   /** Lying asleep: only once a hero has arrived at its bed. */
   asleep: boolean;
+  /** Standing before the throne hearing an order: still, facing the King. */
+  hearing: boolean;
 }
 
 /** Where every hero is drawn right now: at its slot, or part way along a walk. */
@@ -458,15 +487,21 @@ export function placeHeroes(
   state: GuildState,
   walkers: ReadonlyMap<string, Walker>,
   nowMs: number,
+  clock?: number,
 ): Placed[] {
-  const targets = heroPositions(state);
+  const targets = heroPositions(state, clock);
   return roster(state).map((hero) => {
     const target = targets.get(hero.id)!;
     const walker = walkers.get(hero.id);
     const pos = walker
       ? walkerPosition(walker, nowMs)
-      : { x: target.x, y: target.y, moving: false, left: false };
-    return { hero, ...pos, asleep: target.pose === 'sleep' && !pos.moving };
+      : { x: target.x, y: target.y, moving: false, left: target.face === 'left' };
+    return {
+      hero,
+      ...pos,
+      asleep: target.pose === 'sleep' && !pos.moving,
+      hearing: target.face !== undefined && !pos.moving,
+    };
   });
 }
 
@@ -486,8 +521,9 @@ export function hitTest(
   nowMs: number,
   px: number,
   py: number,
+  clock?: number,
 ): Selection | null {
-  const placed = placeHeroes(state, walkers, nowMs).sort((a, b) => b.y - a.y);
+  const placed = placeHeroes(state, walkers, nowMs, clock).sort((a, b) => b.y - a.y);
   for (const p of placed) {
     const k = RANK_SCALE[rankOf(p.hero)];
     // A sleeper lies across its bed: wide and low.
@@ -507,6 +543,8 @@ export function hitTest(
 export interface VillageView {
   selected: Selection | null;
   hovered: Selection | null;
+  /** The guild's clock in epoch seconds (demo: the frozen moment), for timed places. */
+  clock?: number | undefined;
 }
 
 export function drawVillage(
@@ -553,7 +591,7 @@ export function drawVillage(
   }
 
   const teams = heroTeams(state);
-  const placed = placeHeroes(state, walkers, nowMs);
+  const placed = placeHeroes(state, walkers, nowMs, view.clock);
 
   // The chain of command: gold lines from the King to each Knight he has given orders,
   // flowing towards the Knight while the guild is live.
@@ -592,7 +630,7 @@ export function drawVillage(
       continue;
     }
     const rank = rankOf(p.hero);
-    const fighting = isFighting(p.hero, p.moving);
+    const fighting = isFighting(p.hero, p.moving) && !p.hearing;
     // A working Knight has its own training dummy, and it rocks back when a blow lands.
     if (fighting && rank === 'knight') {
       const frame = swingFrame(p.hero.id, nowMs);
@@ -603,7 +641,19 @@ export function drawVillage(
     if (picked) ring(ctx, p.x, p.y, k, '#ffcc33');
     else if (hovered) ring(ctx, p.x, p.y, k, 'rgba(241, 239, 230, 0.85)');
     // Fighters face their dummy, to the right.
-    drawUnit(ctx, sprites, p.hero, team, p.x, p.y, nowMs, p.moving, p.left && !fighting, picked || hovered);
+    drawUnit(
+      ctx,
+      sprites,
+      p.hero,
+      team,
+      p.x,
+      p.y,
+      nowMs,
+      p.moving,
+      p.left && !fighting,
+      picked || hovered,
+      fighting,
+    );
   }
 }
 
@@ -799,6 +849,8 @@ function drawUnit(
   facingLeft: boolean,
   /** Show a follower's name tag; leaders always show theirs. */
   focused: boolean,
+  /** Swinging at a dummy (or drilling) rather than standing. */
+  fighting: boolean,
 ): void {
   const rank = rankOf(hero);
   const k = RANK_SCALE[rank];
@@ -807,7 +859,6 @@ function drawUnit(
   // Row 0 is idle, row 1 is the walk cycle; six frames each. Resting heroes hold a
   // single pose so the busy ones stand out.
   // Rows: 0 idle, 1 walk, 2 the attack (a sword swing for warriors, a hammer for pawns).
-  const fighting = isFighting(hero, moving);
   const row = moving ? 1 : fighting ? 2 : 0;
   const frame = fighting
     ? swingFrame(hero.id, nowMs)

@@ -69,7 +69,9 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 | TodoWrite items                                         | Quests; each finished quest is 50 XP   |
 | Finished turn                                           | 10 XP, back to the Guildhall           |
 | AskUserQuestion                                         | Red "!" bubble and "needs you" beacon  |
-| Finished its turn, resting                              | "zzz" bubble                           |
+| Finished its turn, resting                              | Asleep on a bedroll in the Barracks    |
+| Given a message, by you or the King                     | Stands before the throne, then works   |
+| Working                                                 | Swings at a training dummy             |
 
 ## Using it
 

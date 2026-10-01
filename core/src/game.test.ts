@@ -10,6 +10,7 @@ import {
   applyEvent,
   currentQuest,
   depthOf,
+  inAudience,
   emptyGuild,
   guildTokens,
   levelFor,
@@ -362,5 +363,26 @@ describe('currentQuest', () => {
     expect(currentQuest(at([{ id: '3', title: 'Add tests', status: 'pending' }]))).toBe('Add tests');
     expect(currentQuest(at([{ id: '1', title: 'Done', status: 'completed' }]))).toBeNull();
     expect(currentQuest(at([]))).toBeNull();
+  });
+});
+
+describe('orders and the Throne Room', () => {
+  const asleep = replay([start('a'), { t: 1, session: 'a', type: 'stop' }]);
+
+  it('wakes a resting Knight when it is given an order', () => {
+    expect(asleep.heroes.a!.status).toBe('idle');
+    const ordered = applyEvent(asleep, { t: 100, session: 'a', type: 'ordered' });
+    expect(ordered.heroes.a).toMatchObject({ status: 'working', orderedAt: 100 });
+    const commanded = applyEvent(asleep, { t: 100, session: 'a', type: 'commanded' });
+    expect(commanded.heroes.a).toMatchObject({ status: 'working', orderedAt: 100, commanded: true });
+  });
+
+  it('keeps a Knight in audience for a few seconds after its order, then sends it to work', () => {
+    const hero = applyEvent(asleep, { t: 100, session: 'a', type: 'ordered' }).heroes.a!;
+    expect(inAudience(hero, 100)).toBe(true);
+    expect(inAudience(hero, 103.9)).toBe(true);
+    expect(inAudience(hero, 104)).toBe(false);
+    expect(inAudience(hero, 99)).toBe(false); // a replay from before the order
+    expect(inAudience(asleep.heroes.a!, 100)).toBe(false); // never ordered
   });
 });

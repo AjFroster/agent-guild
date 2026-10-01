@@ -60,9 +60,33 @@ describe('eventsFromLine', () => {
     expect(events).toEqual([{ t, session: 's1', type: 'stop' }]);
   });
 
-  it('ignores user lines, which carry the prompts', () => {
+  it('turns a user message into an order, keeping none of its text', () => {
     const line = { type: 'user', timestamp: at, message: { role: 'user', content: 'my secret plan' } };
-    expect(eventsFromLine(line, ctx)).toEqual([]);
+    const events = eventsFromLine(line, ctx);
+    expect(events).toEqual([{ t, session: 's1', type: 'ordered' }]);
+    expect(JSON.stringify(events)).not.toContain('secret');
+    const blocks = { type: 'user', timestamp: at, message: { content: [{ type: 'text', text: 'Fix it' }] } };
+    expect(eventsFromLine(blocks, ctx)).toEqual([{ t, session: 's1', type: 'ordered' }]);
+  });
+
+  it('does not count tool results, commands, interruptions or bookkeeping as orders', () => {
+    const user = (message: unknown, extra: object = {}) => ({
+      type: 'user',
+      timestamp: at,
+      message,
+      ...extra,
+    });
+    for (const line of [
+      user({ content: [{ type: 'tool_result', tool_use_id: 'x', content: 'output' }] }),
+      user({ content: '<command-name>/clear</command-name>' }),
+      user({ content: '<local-command-stdout>done</local-command-stdout>' }),
+      user({ content: '[Request interrupted by user]' }),
+      user({ content: 'Caveat: the messages below…' }, { isMeta: true }),
+      user({ content: 'Summary of the conversation so far' }, { isCompactSummary: true }),
+      user({ content: '   ' }),
+    ]) {
+      expect(eventsFromLine(line, ctx)).toEqual([]);
+    }
   });
 
   it('yields nothing for malformed lines instead of throwing', () => {

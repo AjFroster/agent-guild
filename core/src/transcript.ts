@@ -86,12 +86,37 @@ function usageDelta(message: Json, memory: Map<string, Tokens> | undefined): Tok
   return delta.input + delta.output + delta.cacheRead + delta.cacheWrite > 0 ? delta : null;
 }
 
+/**
+ * Whether a user line is a real message, rather than a tool result, a slash command's
+ * output, an interruption marker, a compaction summary or other bookkeeping the CLI
+ * records as "user".
+ */
+function isOrder(line: Json): boolean {
+  if (line.isMeta === true || line.isCompactSummary === true || !isObject(line.message)) return false;
+  const content = line.message.content;
+  const text =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content
+            .filter((b): b is Json => isObject(b) && b.type === 'text' && typeof b.text === 'string')
+            .map((b) => b.text as string)
+            .join('')
+        : '';
+  const trimmed = text.trim();
+  return trimmed.length > 0 && !trimmed.startsWith('<') && !trimmed.startsWith('[Request interrupted');
+}
+
 /** Events from one parsed transcript line. */
 export function eventsFromLine(line: unknown, ctx: TranscriptContext): GuildEvent[] {
   if (!isObject(line)) return [];
   const t = lineTime(line);
   if (t === null) return [];
   const session = ctx.session;
+
+  // A new message for the session: the user's (or the King's) next order. Only the fact
+  // crosses: the text is dropped here like every other prompt.
+  if (line.type === 'user' && isOrder(line)) return [{ t, session, type: 'ordered' }];
 
   if (line.type === 'assistant' && isObject(line.message)) {
     const events: GuildEvent[] = [];
