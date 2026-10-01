@@ -276,8 +276,14 @@ test('the librarians find and review a skill, and the user installs it from the 
   await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
   await expect(library.getByTestId('library-min-stars')).toHaveText('★ 5,000');
   await expect(library.getByTestId('library-archive')).toContainText('1 installed');
+  const scene = page.locator('[data-testid="library-scene"][data-ready="true"]');
+  await expect(scene).toHaveAttribute('aria-label', /0 skills wait for you on the Archive board/);
   await page.screenshot({ path: 'e2e-screenshots/21-library-page-live.png', animations: 'disabled' });
-  await library.getByTestId('library-back').click();
+  // The Archive board in the scene leads to the Skills tab.
+  const box = (await scene.boundingBox())!;
+  await scene.click({ position: { x: (560 / 1120) * box.width, y: (640 / 720) * box.height } });
+  await expect(page.getByTestId('skills-panel')).toBeVisible();
+  await page.getByTestId('tab-guild').click();
 
   // The King learns of it from the Archive.
   await page.getByTestId('talk-to-king').click();

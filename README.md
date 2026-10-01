@@ -120,8 +120,12 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 - **The Library page.** The librarians work inside the Library, so the map shows them as
   signs over its roof: an open book while one works, "zzz" while it rests, a red "!" when
   it needs you, and a gold count on the door of skills waiting for your review. Click the
-  Library to open its page: each librarian at its desk with what it is doing, their
-  schedule and threshold, Run now, the Archive's counts and the librarians' notes.
+  Library to open its page, a pixel-art scene of its grounds: the Scout at a crystal orb
+  that glows while it searches, the Reviewer at a lectern whose pages turn while it reads,
+  a campfire lit while either works, the Archive board with a note for each skill waiting
+  for you, and a sack of gold for each skill installed. Click a librarian to open its chat,
+  or the board to review skills. Below it: each librarian's desk, their schedule and
+  threshold, Run now, the Archive's counts and their notes.
 - **What a Knight is working on** (its quest in progress) shows under its name on the map
   and in its panel. A **Talk** button sits beside the Knight you select, and beside any
   Knight waiting on you (in red): one tap opens its chat.
