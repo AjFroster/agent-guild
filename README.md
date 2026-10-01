@@ -45,3 +45,9 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 - [x] Live sessions from Claude Code transcripts (read-only, 127.0.0.1, token)
 - [ ] Permission prompts as "needs you" (needs Claude Code hooks, opt-in)
 - [ ] Visual regression baselines
+
+## Credits
+
+Pixel art from [Tiny Swords](https://pixelfrog-assets.itch.io/tiny-swords) by Pixel Frog
+(CC0), and building art from [Agent Quest](https://github.com/FulAppiOS/Agent-Quest) (MIT).
+Details in `web/public/assets/tiny-swords/CREDITS.md`.
