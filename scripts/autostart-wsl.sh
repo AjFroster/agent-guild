@@ -11,18 +11,29 @@
 #      web app and runs the server from this checkout. Needs `systemd=true` in
 #      /etc/wsl.conf.
 #   2. `loginctl enable-linger`, so the service runs without an open login session.
-#   3. A Windows scheduled task, "Agent Guild WSL keep-alive", that starts a hidden,
-#      idle WSL process at Windows logon. Without it, WSL shuts the distro down a few
-#      seconds after the last terminal closes, and the service with it.
+#   3. "Agent Guild WSL keep-alive.vbs" in the Windows Startup folder, which starts a
+#      hidden, idle WSL process at Windows sign-in. Without it, WSL shuts the distro down
+#      a few seconds after the last terminal closes, and the service with it. (A Startup
+#      script rather than a scheduled task, because logon tasks need administrator rights.)
 set -euo pipefail
 
 SERVICE=agent-guild.service
-TASK="Agent Guild WSL keep-alive"
+KEEPALIVE="Agent Guild WSL keep-alive.vbs"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 UNIT_DIR="$HOME/.config/systemd/user"
 DATA_DIR="${AGENT_GUILD_DATA_DIR:-$HOME/.agent-guild}"
 
 die() { printf 'error: %s\n' "$*" >&2; exit 1; }
+
+# The Windows Startup folder, as a WSL path, or empty when not on WSL.
+startup_dir() {
+  command -v cmd.exe >/dev/null || return 0
+  local appdata
+  appdata="$(cmd.exe /c 'echo %APPDATA%' 2>/dev/null | tr -d '\r')"
+  if [[ -n "$appdata" ]]; then
+    wslpath "$appdata\\Microsoft\\Windows\\Start Menu\\Programs\\Startup"
+  fi
+}
 
 link() {
   local port
@@ -69,15 +80,23 @@ UNIT
   systemctl --user enable --now "$SERVICE"
   loginctl enable-linger "$USER"
 
-  if command -v schtasks.exe >/dev/null; then
+  local startup
+  startup="$(startup_dir)"
+  if [[ -n "$startup" && -d "$startup" ]]; then
     local distro="${WSL_DISTRO_NAME:-Ubuntu}"
-    # PowerShell starts wsl.exe hidden; `sleep infinity` keeps the distro alive.
-    local action="powershell.exe -NoProfile -WindowStyle Hidden -Command Start-Process wsl.exe -WindowStyle Hidden -ArgumentList '-d','$distro','--exec','sleep','infinity'"
-    schtasks.exe /Create /F /TN "$TASK" /SC ONLOGON /RL LIMITED /TR "$action" >/dev/null
-    schtasks.exe /Run /TN "$TASK" >/dev/null
-    printf 'Windows task "%s" created and started.\n' "$TASK"
+    # Window style 0 = hidden; `sleep infinity` keeps the distro alive while signed in.
+    printf 'CreateObject("WScript.Shell").Run "wsl.exe -d %s --exec sleep infinity", 0, False\r\n' "$distro" \
+      > "$startup/$KEEPALIVE"
+    # Start it now too, so the guild survives closing this terminal before the next
+    # sign-in; but only once, since re-running install should not stack keep-alives.
+    if pgrep -xf 'sleep infinity' >/dev/null; then
+      printf 'Keep-alive added to the Windows Startup folder (one is already running).\n'
+    else
+      (cd "$startup" && wscript.exe "$KEEPALIVE")
+      printf 'Keep-alive added to the Windows Startup folder and started.\n'
+    fi
   else
-    printf 'note: not on WSL with Windows interop; skipped the keep-alive task\n'
+    printf 'note: no Windows Startup folder found; skipped the keep-alive\n'
   fi
 
   printf 'Waiting for the guild to answer'
@@ -97,10 +116,10 @@ uninstall() {
   systemctl --user disable --now "$SERVICE" 2>/dev/null || true
   rm -f "$UNIT_DIR/$SERVICE"
   systemctl --user daemon-reload
-  if command -v schtasks.exe >/dev/null; then
-    schtasks.exe /Delete /F /TN "$TASK" >/dev/null 2>&1 || true
-  fi
-  printf 'Removed the service and the Windows task. Lingering was left on (loginctl disable-linger %s to undo).\n' "$USER"
+  local startup
+  startup="$(startup_dir)"
+  [[ -n "$startup" ]] && rm -f "$startup/$KEEPALIVE"
+  printf 'Removed the service and the Startup keep-alive. Lingering was left on (loginctl disable-linger %s to undo).\n' "$USER"
   printf 'The keep-alive WSL process stops at the next Windows sign-out or "wsl --shutdown".\n'
 }
 
