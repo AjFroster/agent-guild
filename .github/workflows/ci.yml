@@ -53,6 +53,12 @@ jobs:
         run: npm test
         continue-on-error: true
 
+      # The runner image ships shellcheck; the autostart script is the only shell we own.
+      - name: Shell scripts
+        id: shell
+        run: shellcheck scripts/*.sh
+        continue-on-error: true
+
       - name: Summary
         if: always()
         env:
@@ -60,6 +66,7 @@ jobs:
           LINT: ${{ steps.lint.outcome }}
           FORMAT: ${{ steps.format.outcome }}
           UNIT: ${{ steps.unit.outcome }}
+          SHELL_LINT: ${{ steps.shell.outcome }}
         run: |
           mark() { [ "$1" = success ] && echo "✅ pass" || echo "❌ $1"; }
           {
@@ -71,8 +78,9 @@ jobs:
             echo "| Lint | $(mark "$LINT") |"
             echo "| Format | $(mark "$FORMAT") |"
             echo "| Unit tests | $(mark "$UNIT") |"
+            echo "| Shell scripts | $(mark "$SHELL_LINT") |"
           } >> "$GITHUB_STEP_SUMMARY"
-          for s in "$TYPES" "$LINT" "$FORMAT" "$UNIT"; do
+          for s in "$TYPES" "$LINT" "$FORMAT" "$UNIT" "$SHELL_LINT"; do
             [ "$s" = success ] || { echo "::error::a check failed; see the summary table"; exit 1; }
           done
 

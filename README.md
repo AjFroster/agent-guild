@@ -31,6 +31,19 @@ and the server only listens on 127.0.0.1.
 | `AGENT_GUILD_IDLE_MINUTES`  | `20`                 | a silent session leaves the guild after this (`0` = never)     |
 | `CLAUDE_PROJECTS_DIR`       | `~/.claude/projects` |                                                                |
 
+### Keep it running (Windows + WSL)
+
+```bash
+scripts/autostart-wsl.sh install   # systemd user service on port 4760 + a Windows logon task
+scripts/autostart-wsl.sh link      # print the link again
+scripts/autostart-wsl.sh uninstall
+```
+
+The guild then starts at Windows sign-in and keeps running with no terminal open, which
+is what lets the Town Crier fire at its scheduled time. The token lives in
+`~/.agent-guild/token` (readable only by you), so the link stays the same; delete that
+file and restart to invalidate old links.
+
 Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=party`.
 
 ## How it maps
