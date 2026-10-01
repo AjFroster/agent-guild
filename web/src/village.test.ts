@@ -127,8 +127,8 @@ describe('heroPositions', () => {
     expect(Math.abs(hearing.x - THRONE.x)).toBeLessThan(200);
     expect(Math.abs(hearing.y - THRONE.y)).toBeLessThan(100);
     expect(hearing.face).toBe(hearing.x > THRONE.x ? 'left' : 'right');
-    // Four seconds on, it is at the Forge for the Edit it already started.
-    const working = heroPositions(state, 105).get('a')!;
+    // Six seconds on, it is at the Forge for the Edit it already started.
+    const working = heroPositions(state, 107).get('a')!;
     expect(working).toMatchObject({ x: BUILDINGS.forge.x, pose: 'stand' });
     // With no clock (live Talk buttons, old callers), no audience.
     expect(heroPositions(state).get('a')!.x).toBe(BUILDINGS.forge.x);
