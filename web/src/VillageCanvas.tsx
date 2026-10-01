@@ -1,4 +1,4 @@
-import type { GuildState, Hero } from '@agent-guild/core';
+import { type GuildState, type Hero, rankOf } from '@agent-guild/core';
 import { useEffect, useRef, useState } from 'react';
 
 import {
@@ -28,9 +28,16 @@ interface Props {
   animate: boolean;
   selected: Selection | null;
   onSelect: (s: Selection | null) => void;
+  /**
+   * Open a chat with a hero, when it can be talked to (live mode, a session the guild can
+   * resume). A "Talk" button then sits beside the selected Knight and beside any Knight
+   * waiting on the user: the two moments a conversation is wanted.
+   */
+  onTalk?: ((id: string) => void) | undefined;
+  canTalk?: ((hero: Hero) => boolean) | undefined;
 }
 
-export function VillageCanvas({ state, heroes, animate, selected, onSelect }: Props) {
+export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTalk, canTalk }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [sprites, setSprites] = useState<Sprites | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -132,26 +139,56 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect }: Pr
 
   if (error) return <p role="alert">The village art did not load: {error}</p>;
 
+  const positions = onTalk ? heroPositions(state) : null;
+  const talkable = onTalk
+    ? heroes.filter(
+        (h) =>
+          (rankOf(h) === 'knight' || rankOf(h) === 'king') &&
+          (canTalk?.(h) ?? true) &&
+          (h.status === 'needs_you' || sameSelection(selected, { kind: 'hero', id: h.id })),
+      )
+    : [];
+
   return (
-    <canvas
-      ref={canvas}
-      className="village"
-      width={VILLAGE_WIDTH}
-      height={VILLAGE_HEIGHT}
-      style={{ width: VILLAGE_WIDTH, height: VILLAGE_HEIGHT, cursor: hovered ? 'pointer' : 'default' }}
-      role="img"
-      aria-label={summary}
-      data-testid="village"
-      onMouseMove={(e) => {
-        const hit = pick(e);
-        if (!sameSelection(hit, hovered)) setHovered(hit);
-      }}
-      onMouseLeave={() => setHovered(null)}
-      onClick={(e) => {
-        const hit = pick(e);
-        // Clicking empty grass, or the thing already open, closes the panel.
-        onSelect(hit && !sameSelection(hit, selected) ? hit : null);
-      }}
-    />
+    <div className="village-wrap" style={{ width: VILLAGE_WIDTH, height: VILLAGE_HEIGHT }}>
+      <canvas
+        ref={canvas}
+        className="village"
+        width={VILLAGE_WIDTH}
+        height={VILLAGE_HEIGHT}
+        style={{ width: VILLAGE_WIDTH, height: VILLAGE_HEIGHT, cursor: hovered ? 'pointer' : 'default' }}
+        role="img"
+        aria-label={summary}
+        data-testid="village"
+        onMouseMove={(e) => {
+          const hit = pick(e);
+          if (!sameSelection(hit, hovered)) setHovered(hit);
+        }}
+        onMouseLeave={() => setHovered(null)}
+        onClick={(e) => {
+          const hit = pick(e);
+          // Clicking empty grass, or the thing already open, closes the panel.
+          onSelect(hit && !sameSelection(hit, selected) ? hit : null);
+        }}
+      />
+      {talkable.map((h) => {
+        const at = positions!.get(h.id);
+        if (!at) return null;
+        const k = h.crowned ? 1.3 : 1;
+        return (
+          <button
+            key={h.id}
+            type="button"
+            className={`talk-pill${h.status === 'needs_you' ? ' talk-urgent' : ''}`}
+            style={{ left: at.x + 30 * k, top: at.y - 16 }}
+            onClick={() => onTalk!(h.id)}
+            aria-label={`Talk to ${h.name}`}
+            data-testid={`talk-${h.id}`}
+          >
+            Talk
+          </button>
+        );
+      })}
+    </div>
   );
 }

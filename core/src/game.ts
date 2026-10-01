@@ -281,6 +281,16 @@ export function partyTokens(state: GuildState, hero: Hero): Tokens {
   return sum;
 }
 
+/**
+ * What a hero is working on, in its own words: the quest it has marked in progress, or
+ * failing that its next one still to do. Null when it has no quests open.
+ */
+export function currentQuest(hero: Hero): string | null {
+  const open =
+    hero.quests.find((q) => q.status === 'in_progress') ?? hero.quests.find((q) => q.status === 'pending');
+  return open?.title ?? null;
+}
+
 export function rankOf(hero: Hero): Rank {
   if (hero.crowned) return 'king';
   if (hero.parentId === null) return 'knight';

@@ -8,6 +8,7 @@ import {
   XP_PER_QUEST,
   XP_PER_TURN,
   applyEvent,
+  currentQuest,
   depthOf,
   emptyGuild,
   guildTokens,
@@ -341,5 +342,25 @@ describe('ranks', () => {
 
   it('puts the King at the head of the roster', () => {
     expect(roster(state).map((h) => h.id)).toEqual(['king', 'knight', 'scout', 'smith']);
+  });
+});
+
+describe('currentQuest', () => {
+  const at = (todos: { id: string; title: string; status: 'pending' | 'in_progress' | 'completed' }[]) =>
+    replay([start('a'), { t: 1, session: 'a', type: 'todos', todos }]).heroes.a!;
+
+  it('names the quest in progress, else the next one to do, else nothing', () => {
+    expect(
+      currentQuest(
+        at([
+          { id: '1', title: 'Read the model', status: 'completed' },
+          { id: '2', title: 'Build the page', status: 'in_progress' },
+          { id: '3', title: 'Add tests', status: 'pending' },
+        ]),
+      ),
+    ).toBe('Build the page');
+    expect(currentQuest(at([{ id: '3', title: 'Add tests', status: 'pending' }]))).toBe('Add tests');
+    expect(currentQuest(at([{ id: '1', title: 'Done', status: 'completed' }]))).toBeNull();
+    expect(currentQuest(at([]))).toBeNull();
   });
 });

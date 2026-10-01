@@ -5,6 +5,7 @@ import {
   LOCATIONS,
   type Location,
   XP_PER_LEVEL,
+  currentQuest,
   depthOf,
   guildTokens,
   hasLooseEnds,
@@ -270,6 +271,11 @@ export function HeroPanel({
       <p className="rank-line" data-testid="hero-rank">
         <strong>{RANK_LABEL[rankOf(hero)]}</strong> · {RANK_ABOUT[rankOf(hero)]}
       </p>
+      {currentQuest(hero) && (
+        <p className="working-on" data-testid="working-on">
+          Working on: <strong>{currentQuest(hero)}</strong>
+        </p>
+      )}
       <p className="doing">
         {hero.status === 'needs_you' ? 'Waiting for your answer' : DOING[hero.location]}
       </p>
