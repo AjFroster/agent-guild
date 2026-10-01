@@ -28,7 +28,10 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
 - The Library: `server/src/skills.ts` lists installed skills (read-only), `archive.ts` keeps
   the reviewed skills, `library.ts` schedules the Scout and the Reviewer (each with its own
   MCP tools in `kingMcp.ts`, chosen by `GUILD_ROLE`), `install.ts` installs a reviewed
-  commit on the user's approval only, `libraryRoutes.ts` holds the routes. Tests never
+  commit on the user's approval only, `libraryRoutes.ts` holds the routes (and refuses
+  candidates below the user's star threshold). `web/src/library.tsx` is the Library page
+  (`?page=library`, opened by clicking the Library); the librarians are not drawn on the map
+  but as signs over the Library's roof (`drawLibrarySigns`). Tests never
   touch the real `~/.claude`: `CLAUDE_SKILLS_DIR` and `AGENT_GUILD_SKILL_GIT_BASE` point
   them at temporary folders and local repositories.
 - `web/e2e/fake-claude.mjs` stands in for the CLI in browser tests, and plays a scripted

@@ -11,6 +11,9 @@ import {
   currentQuest,
   depthOf,
   inAudience,
+  librarianDoing,
+  librarianState,
+  librariansIn,
   emptyGuild,
   guildTokens,
   levelFor,
@@ -390,5 +393,31 @@ describe('orders and the Throne Room', () => {
       { t: 100, session: 'l', type: 'ordered' },
     ]).heroes.l!;
     expect(inAudience(librarian, 101)).toBe(false); // sent by the schedule, not the King
+  });
+});
+
+describe('the librarians', () => {
+  const lib = (id: string): GuildEvent => ({ t: 0, session: id, type: 'librarian' });
+  it('lists the librarians present, with what each is doing', () => {
+    const state = replay([
+      start('k'),
+      start('s'),
+      lib('s'),
+      { t: 1, session: 's', type: 'tool', tool: 'mcp__guild__add_candidate' },
+      start('r'),
+      lib('r'),
+      { t: 1, session: 'r', type: 'stop' },
+      start('q'),
+      lib('q'),
+      { t: 2, session: 'q', type: 'needs_input' },
+    ]);
+    expect(librariansIn(state).map((h) => h.id)).toEqual(['s', 'r', 'q']);
+    expect(librariansIn(state).map(librarianState)).toEqual(['working', 'resting', 'needs_you']);
+    expect(librarianDoing(state.heroes.s!)).toBe('Filing a skill in the Archive');
+    expect(librarianDoing(state.heroes.r!)).toBeNull();
+    const searching = applyEvent(state, { t: 3, session: 'r', type: 'tool', tool: 'WebSearch' });
+    expect(librarianDoing(searching.heroes.r!)).toBe('Searching the web');
+    const gone = applyEvent(state, { t: 4, session: 's', type: 'session_end' });
+    expect(librariansIn(gone).map((h) => h.id)).toEqual(['r', 'q']);
   });
 });

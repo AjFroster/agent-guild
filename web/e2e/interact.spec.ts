@@ -52,13 +52,8 @@ test('clicking a building shows who is there and what happened there', async ({ 
   await page.goto('/?demo=party&t=20');
   await ready(page);
 
-  await village(page).click({ position: await at(page, LIBRARY) });
-  const panel = page.getByTestId('panel-building');
-  await expect(panel.getByRole('heading', { name: 'Library' })).toBeVisible();
-  await expect(panel.getByTestId('nobody-here')).toBeVisible();
-  await expect(panel).toContainText('Tools: Read, Grep, Glob, LS');
-
   await village(page).click({ position: await at(page, FORGE) });
+  const panel = page.getByTestId('panel-building');
   await expect(panel.getByRole('heading', { name: 'Forge' })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Ada' }).first()).toBeVisible();
   await page.screenshot({ path: 'e2e-screenshots/8-building-panel.png', animations: 'disabled' });
@@ -66,6 +61,23 @@ test('clicking a building shows who is there and what happened there', async ({ 
   // From the building straight to a hero.
   await panel.getByRole('button', { name: 'Ada' }).first().click();
   await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'Ada' })).toBeVisible();
+});
+
+test('clicking the Library opens its page, where the librarians are', async ({ page }) => {
+  await page.goto('/?demo=party&t=20');
+  await ready(page);
+  await village(page).click({ position: await at(page, LIBRARY) });
+  const library = page.getByTestId('library-page');
+  await expect(library.getByRole('heading', { name: 'The Library', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/page=library/);
+  // No librarians in this guild: both desks are empty.
+  await expect(library.getByTestId('desk-Scout')).toHaveAttribute('data-state', 'away');
+  await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'away');
+  await expect(library.getByTestId('nobody-reading')).toBeVisible();
+
+  await library.getByTestId('library-back').click();
+  await expect(page).not.toHaveURL(/page=/);
+  await ready(page);
 });
 
 test('clicking open grass or pressing Escape closes the panel', async ({ page }) => {

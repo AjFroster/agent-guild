@@ -320,6 +320,38 @@ export function inAudience(hero: Hero, now: number): boolean {
   );
 }
 
+/** The librarians in the guild now, in the order they arrived. They live inside the Library. */
+export function librariansIn(state: GuildState): Hero[] {
+  return roster(state).filter((h) => h.librarian);
+}
+
+/** What a librarian is doing, shown as its icon on the Library and on the Library page. */
+export type LibrarianState = 'working' | 'needs_you' | 'resting';
+
+export function librarianState(hero: Hero): LibrarianState {
+  if (hero.status === 'needs_you') return 'needs_you';
+  return hero.status === 'working' ? 'working' : 'resting';
+}
+
+const LIBRARIAN_TOOLS: Record<string, string> = {
+  WebSearch: 'Searching the web',
+  WebFetch: 'Reading a page',
+  Bash: 'Searching GitHub',
+  list_installed_skills: 'Looking over your skills',
+  list_archive: 'Checking the Archive',
+  list_candidates: 'Fetching skills to review',
+  add_candidate: 'Filing a skill in the Archive',
+  record_review: 'Writing a review',
+  write_note: 'Writing a note',
+};
+
+/** A librarian's latest tool call in words, or null before its first one. */
+export function librarianDoing(hero: Hero): string | null {
+  const tool = hero.recent[0]?.tool;
+  if (!tool) return null;
+  return LIBRARIAN_TOOLS[tool.replace(/^mcp__guild__/, '')] ?? `Using ${tool}`;
+}
+
 export function rankOf(hero: Hero): Rank {
   if (hero.crowned) return 'king';
   if (hero.librarian) return 'librarian';

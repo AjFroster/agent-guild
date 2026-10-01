@@ -137,6 +137,8 @@ describe('librarian instructions and settings', () => {
       expect(prompt).toContain('Never clone, install or run anything');
     }
     expect(scoutPrompt({ ...DEFAULT_LIBRARY, maxCandidates: 3 }, '2026-10-01')).toContain('at most 3');
+    expect(DEFAULT_LIBRARY.minStars).toBe(5000);
+    expect(scoutPrompt({ ...DEFAULT_LIBRARY, minStars: 12000 }, '2026-10-01')).toContain('stars:>=12000');
     expect(reviewerPrompt('2026-10-01')).toContain('at its pinned commit');
   });
 
@@ -148,6 +150,9 @@ describe('librarian instructions and settings', () => {
     });
     expect(() => validateLibraryPatch({ time: '7am' })).toThrow();
     expect(() => validateLibraryPatch({ maxCandidates: 50 })).toThrow();
+    expect(validateLibraryPatch({ minStars: 250 })).toEqual({ minStars: 250 });
+    expect(() => validateLibraryPatch({ minStars: -1 })).toThrow();
+    expect(() => validateLibraryPatch({ minStars: 1.5 })).toThrow();
     expect(validateLibraryPatch({ sessions: ['x'] } as never)).toEqual({});
   });
 });

@@ -158,7 +158,18 @@ export async function registerLibraryRoutes(app: FastifyInstance, opts: LibraryR
 
   app.post(
     '/api/library/candidates',
-    guarded(async (req) => changed(await archive.addCandidate((req.body ?? {}) as Candidate))),
+    guarded(async (req) => {
+      const candidate = (req.body ?? {}) as Candidate;
+      // The user's threshold, enforced here as well as asked of the Scout.
+      const minStars = opts.library?.config.minStars ?? 0;
+      if (Number(candidate.stars ?? 0) < minStars) {
+        throw new ChatError(
+          422,
+          `The user only wants skills from repositories with at least ${minStars} stars; this one has ${Number(candidate.stars ?? 0)}.`,
+        );
+      }
+      return changed(await archive.addCandidate(candidate));
+    }),
   );
 
   app.post(

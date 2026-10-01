@@ -274,6 +274,21 @@ function LibrariansCard({
           skills
         </label>
       </div>
+      <div className="crier-controls">
+        <label>
+          from repositories with at least ★{' '}
+          <input
+            type="number"
+            min={0}
+            step={500}
+            defaultValue={config.minStars}
+            onBlur={(e) => void update({ minStars: Number(e.target.value) })}
+            aria-label="Fewest stars"
+            data-testid="librarians-min-stars"
+          />{' '}
+          stars
+        </label>
+      </div>
       <button
         type="button"
         className="chip"

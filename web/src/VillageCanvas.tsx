@@ -40,9 +40,21 @@ interface Props {
   canTalk?: ((hero: Hero) => boolean) | undefined;
   /** Demo mode's frozen moment (epoch seconds of the replay); live mode reads the clock. */
   clock?: number | undefined;
+  /** Reviewed skills waiting on the user, counted on the Library's door. */
+  libraryWaiting?: number | undefined;
 }
 
-export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTalk, canTalk, clock }: Props) {
+export function VillageCanvas({
+  state,
+  heroes,
+  animate,
+  selected,
+  onSelect,
+  onTalk,
+  canTalk,
+  clock,
+  libraryWaiting,
+}: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [sprites, setSprites] = useState<Sprites | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +62,7 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
 
   // The animation loop reads these through refs so it never restarts on a state change.
   const stateRef = useRef(state);
-  const viewRef = useRef<VillageView>({ selected, hovered, clock });
+  const viewRef = useRef<VillageView>({ selected, hovered, clock, libraryWaiting });
   /** Heroes walking to a new building, keyed by hero id (live mode only). */
   const walkers = useRef(new Map<string, Walker>());
   /** Where each hero was last drawn, so a walk starts from there. */
@@ -61,9 +73,9 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
 
   useEffect(() => {
     stateRef.current = state;
-    viewRef.current = { selected, hovered, clock: animate ? wallClock() : clock };
+    viewRef.current = { selected, hovered, clock: animate ? wallClock() : clock, libraryWaiting };
     redraw.current();
-  }, [state, selected, hovered, clock, animate]);
+  }, [state, selected, hovered, clock, animate, libraryWaiting]);
 
   useEffect(() => {
     let cancelled = false;

@@ -162,15 +162,24 @@ async function answer(raw) {
         .toString()
         .trim();
       await kingTool('list_archive', {});
+      // Below the user's star threshold: the Archive must refuse it.
+      const small = await kingTool('add_candidate', {
+        name: 'tiny-helper',
+        repo: 'acme-labs/tiny-helper',
+        path: '',
+        commit: commit,
+        stars: 340,
+      });
       await kingTool('add_candidate', {
         name: 'csv-wrangler',
         repo: 'acme-labs/agent-skills',
         path: 'skills/csv-wrangler',
         commit,
-        stars: 2140,
+        stars: 6400,
         description: 'Clean, join and summarise CSV files.',
       });
-      await kingTool('write_note', { text: 'Looked at 12 skills; added csv-wrangler.' });
+      const refused = parse(small).refused ? ' tiny-helper had too few stars.' : ' tiny-helper got in!';
+      await kingTool('write_note', { text: `Looked at 12 skills; added csv-wrangler.${refused}` });
       reply = 'Added 1 candidate.';
     } else if (text.includes('You are the Reviewing Librarian')) {
       const { candidates } = parse(await kingTool('list_candidates', {}));
