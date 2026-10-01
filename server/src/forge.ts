@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
-import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import { type ChatManager, ChatError, type StartRequest } from './chats.ts';
+import { writeMcpConfig } from './mcpConfig.ts';
+import { JsonStore, list } from './jsonStore.ts';
 
 /**
  * The Forge: the Knights' equipment, made to order (docs/FORGE.md).
@@ -148,36 +150,20 @@ interface ForgeFile {
 }
 
 export class ForgeStore {
-  private readonly file: string;
+  private readonly store: JsonStore<ForgeFile>;
   private readonly now: () => number;
-  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(file: string, now: () => number = () => Date.now() / 1000) {
-    this.file = file;
+    this.store = new JsonStore(file, (raw) => ({ orders: list<Order>(raw.orders) }));
     this.now = now;
   }
 
-  async read(): Promise<ForgeFile> {
-    try {
-      const raw = JSON.parse(await readFile(this.file, 'utf8')) as Partial<ForgeFile>;
-      return { orders: Array.isArray(raw.orders) ? raw.orders : [] };
-    } catch {
-      return { orders: [] };
-    }
+  read(): Promise<ForgeFile> {
+    return this.store.read();
   }
 
   private change<T>(edit: (data: ForgeFile) => T): Promise<T> {
-    const run = this.queue.then(async () => {
-      const data = await this.read();
-      const result = edit(data);
-      await mkdir(dirname(this.file), { recursive: true });
-      const tmp = `${this.file}.tmp`;
-      await writeFile(tmp, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
-      await rename(tmp, this.file);
-      return result;
-    });
-    this.queue = run.catch(() => {});
-    return run;
+    return this.store.change(edit);
   }
 
   /** A new order; `project` must already be checked (ChatManager.checkFolder). */
@@ -512,16 +498,10 @@ export class Forge {
   }
 
   private async writeMcpConfig(role: 'smith' | 'forge-reviewer'): Promise<void> {
-    await mkdir(this.opts.dir, { recursive: true });
-    const config = {
-      mcpServers: {
-        guild: {
-          command: process.execPath,
-          args: [resolve(import.meta.dirname, 'kingMcp.ts')],
-          env: { GUILD_URL: this.opts.guildUrl, GUILD_TOKEN: this.opts.token, GUILD_ROLE: role },
-        },
-      },
-    };
-    await writeFile(this.mcpConfigFile(role), JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+    await writeMcpConfig(this.mcpConfigFile(role), {
+      guildUrl: this.opts.guildUrl,
+      token: this.opts.token,
+      role,
+    });
   }
 }

@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -23,6 +22,7 @@ import { installSkill } from './install.ts';
 import { installedSkills } from './skills.ts';
 import { loadToken } from './token.ts';
 import { TranscriptWatcher } from './watcher.ts';
+import { writeMcpConfig } from './mcpConfig.ts';
 
 /**
  * `npm start`: serve the guild, follow ~/.claude/projects, and run chats and the Town
@@ -105,20 +105,7 @@ const open = sessionOpener(
 // Every Knight the guild starts may ask the Forge for equipment: one MCP config, role
 // "knight"; the guild tells Knights apart by the folder they work in.
 const knightMcpFile = join(dataDir, 'knight-mcp.json');
-await mkdir(dataDir, { recursive: true });
-await writeFile(
-  knightMcpFile,
-  JSON.stringify({
-    mcpServers: {
-      guild: {
-        command: process.execPath,
-        args: [resolve(import.meta.dirname, 'kingMcp.ts')],
-        env: { GUILD_URL: `http://127.0.0.1:${port}`, GUILD_TOKEN: token, GUILD_ROLE: 'knight' },
-      },
-    },
-  }),
-  { mode: 0o600 },
-);
+await writeMcpConfig(knightMcpFile, { guildUrl: `http://127.0.0.1:${port}`, token, role: 'knight' });
 const knightExtras = () => ({
   mcpConfig: knightMcpFile,
   allowedTools: ['mcp__guild__request_equipment', 'mcp__guild__check_equipment'],

@@ -1,6 +1,7 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 
 import { type PortWatcher, pagePortal } from './ports.ts';
+import { guard } from './routes.ts';
 
 /**
  * The Portal Keeper's routes, behind the token: the portals (what is listening on a local
@@ -20,19 +21,7 @@ export const portalStatus = (ports: PortWatcher) => ({
 
 export async function registerPortalRoutes(app: FastifyInstance, opts: PortalRouteOptions): Promise<void> {
   const { ports } = opts;
-  const guarded =
-    (handler: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>) =>
-    async (req: FastifyRequest, reply: FastifyReply) => {
-      const header = req.headers.authorization ?? '';
-      if (!opts.isToken(header.startsWith('Bearer ') ? header.slice(7) : undefined)) {
-        return reply.code(401).send({ error: 'Missing or wrong token.' });
-      }
-      try {
-        return await handler(req, reply);
-      } catch (err) {
-        return reply.code(400).send({ error: (err as Error).message });
-      }
-    };
+  const guarded = guard(opts.isToken, { otherErrors: 400 });
 
   app.get(
     '/api/portals',

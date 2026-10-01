@@ -1,8 +1,7 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 
 import { ChatError } from './chats.ts';
+import { JsonStore, list as listOf } from './jsonStore.ts';
 
 /**
  * The Archive in the Library: every skill the librarians have found and reviewed, and
@@ -122,40 +121,24 @@ export function checkCandidate(
 }
 
 export class Archive {
-  private readonly file: string;
-  private readonly now: () => number;
   /** Writes run one after another, so two librarians cannot lose each other's work. */
-  private queue: Promise<unknown> = Promise.resolve();
+  private readonly store: JsonStore<ArchiveFile>;
+  private readonly now: () => number;
 
   constructor(file: string, now: () => number = () => Date.now() / 1000) {
-    this.file = file;
+    this.store = new JsonStore(file, (raw) => ({
+      entries: listOf<ArchiveEntry>(raw.entries),
+      notes: listOf<ArchiveFile['notes'][number]>(raw.notes),
+    }));
     this.now = now;
   }
 
-  async read(): Promise<ArchiveFile> {
-    try {
-      const raw = JSON.parse(await readFile(this.file, 'utf8')) as Partial<ArchiveFile>;
-      return {
-        entries: Array.isArray(raw.entries) ? raw.entries : [],
-        notes: Array.isArray(raw.notes) ? raw.notes : [],
-      };
-    } catch {
-      return { entries: [], notes: [] };
-    }
+  read(): Promise<ArchiveFile> {
+    return this.store.read();
   }
 
   private change<T>(edit: (data: ArchiveFile) => T): Promise<T> {
-    const run = this.queue.then(async () => {
-      const data = await this.read();
-      const result = edit(data);
-      await mkdir(dirname(this.file), { recursive: true });
-      const tmp = `${this.file}.tmp`;
-      await writeFile(tmp, JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
-      await rename(tmp, this.file);
-      return result;
-    });
-    this.queue = run.catch(() => {});
-    return run;
+    return this.store.change(edit);
   }
 
   /**

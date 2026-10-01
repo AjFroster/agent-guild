@@ -1,9 +1,10 @@
 import { basename } from 'node:path';
 
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { type ChatManager, ChatError } from './chats.ts';
 import { type Forge, type ForgeStore, type Order, installPiece, pieceDestination } from './forge.ts';
+import { guard } from './routes.ts';
 
 /**
  * The Forge's routes, all behind the token. `/api/forge` and `/api/forge/orders...` serve
@@ -30,20 +31,7 @@ export const forgeWaiting = (orders: Order[]) => orders.filter((o) => o.status =
 export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRouteOptions): Promise<void> {
   const { store, forge, chats } = opts;
 
-  const guarded =
-    (handler: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>) =>
-    async (req: FastifyRequest, reply: FastifyReply) => {
-      const header = req.headers.authorization ?? '';
-      if (!opts.isToken(header.startsWith('Bearer ') ? header.slice(7) : undefined)) {
-        return reply.code(401).send({ error: 'Missing or wrong token.' });
-      }
-      try {
-        return await handler(req, reply);
-      } catch (err) {
-        if (err instanceof ChatError) return reply.code(err.status).send({ error: err.message });
-        throw err;
-      }
-    };
+  const guarded = guard(opts.isToken);
   const changed = <T>(value: T): T => {
     opts.onChange();
     return value;

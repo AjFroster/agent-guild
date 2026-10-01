@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import type { ChatManager, StartRequest } from './chats.ts';
 import { type Schedule, isDue, localDate, nextRun } from './crier.ts';
+import { writeMcpConfig } from './mcpConfig.ts';
 
 /**
  * The librarians: two Claude Code sessions the guild starts once a day (when the user has
@@ -223,17 +224,11 @@ export class Library {
 
   /** Each librarian's MCP config: the guild's address, the token and its role, readable by the user only. */
   private async writeMcpConfig(role: 'scout' | 'reviewer'): Promise<void> {
-    await mkdir(this.opts.dir, { recursive: true });
-    const config = {
-      mcpServers: {
-        guild: {
-          command: process.execPath,
-          args: [resolve(import.meta.dirname, 'kingMcp.ts')],
-          env: { GUILD_URL: this.opts.guildUrl, GUILD_TOKEN: this.opts.token, GUILD_ROLE: role },
-        },
-      },
-    };
-    await writeFile(this.mcpConfigFile(role), JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+    await writeMcpConfig(this.mcpConfigFile(role), {
+      guildUrl: this.opts.guildUrl,
+      token: this.opts.token,
+      role,
+    });
   }
 
   private now(): Date {

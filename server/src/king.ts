@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import {
   type ChatItem,
@@ -12,6 +12,7 @@ import {
 } from '@agent-guild/core';
 
 import { type ChatManager, ChatError, type ChatMode, type SessionExtras, type TurnOutcome } from './chats.ts';
+import { writeMcpConfig } from './mcpConfig.ts';
 
 /**
  * The King: one Claude Code session the user talks to, which gets work done by giving
@@ -130,17 +131,7 @@ export class Court {
    * the user only, like the token file itself.
    */
   async writeMcpConfig(): Promise<void> {
-    await mkdir(this.opts.dir, { recursive: true });
-    const config = {
-      mcpServers: {
-        guild: {
-          command: process.execPath,
-          args: [resolve(import.meta.dirname, 'kingMcp.ts')],
-          env: { GUILD_URL: this.opts.guildUrl, GUILD_TOKEN: this.opts.token },
-        },
-      },
-    };
-    await writeFile(this.mcpConfigFile, JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+    await writeMcpConfig(this.mcpConfigFile, { guildUrl: this.opts.guildUrl, token: this.opts.token });
   }
 
   /** Talk to the King, crowning one first if there is none yet. */
