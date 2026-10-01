@@ -37,6 +37,8 @@ interface Tracked {
   name: string | null;
   /** Latest line timestamp seen, in epoch seconds. */
   lastT: number;
+  /** Last model/branch sent, so a meta event goes out only when one changes. */
+  lastMeta: string;
 }
 
 const MAX_READ = 8 * 1024 * 1024;
@@ -155,7 +157,17 @@ export class TranscriptWatcher {
       tracked.started = true;
       tracked.ended = false;
     }
-    for (const line of parsed) events.push(...eventsFromLine(line, { session: tracked.session }));
+    for (const line of parsed) {
+      for (const e of eventsFromLine(line, { session: tracked.session })) {
+        if (e.type === 'meta') {
+          // Every assistant line carries these; forward only a change.
+          const key = `${e.model ?? ''}\n${e.branch ?? ''}`;
+          if (key === tracked.lastMeta) continue;
+          tracked.lastMeta = key;
+        }
+        events.push(e);
+      }
+    }
     for (const e of events) tracked.lastT = Math.max(tracked.lastT, e.t);
     this.opts.onEvents(events);
   }
@@ -175,6 +187,7 @@ export class TranscriptWatcher {
       lastWriteMs: 0,
       name: null,
       lastT: 0,
+      lastMeta: '',
     };
     this.tracked.set(file, tracked);
     return tracked;

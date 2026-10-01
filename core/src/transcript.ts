@@ -4,8 +4,8 @@ import type { GuildEvent, Todo, TodoStatus } from './events.ts';
  * Turns Claude Code transcript lines (`~/.claude/projects/<project>/<session>.jsonl`) into
  * guild events.
  *
- * Only structure crosses this boundary: tool names, todo titles, turn ends, and a
- * sub-agent's short description. Prompt text, tool inputs, file contents and replies are
+ * Only structure crosses this boundary: tool names, todo titles, turn ends, the model
+ * and git branch, and a sub-agent's short description. Prompt text, tool inputs, file contents and replies are
  * read past and dropped here, so nothing downstream can leak them.
  *
  * The transcript format is Claude Code's internal format, not a public contract. Every
@@ -53,6 +53,17 @@ export function eventsFromLine(line: unknown, ctx: TranscriptContext): GuildEven
 
   if (line.type === 'assistant' && isObject(line.message)) {
     const events: GuildEvent[] = [];
+    const model = typeof line.message.model === 'string' ? line.message.model.slice(0, 60) : '';
+    const branch = typeof line.gitBranch === 'string' ? line.gitBranch.slice(0, 100) : '';
+    if (model || branch) {
+      events.push({
+        t,
+        session,
+        type: 'meta',
+        ...(model ? { model } : {}),
+        ...(branch ? { branch } : {}),
+      });
+    }
     const content = Array.isArray(line.message.content) ? line.message.content : [];
     for (const block of content) {
       if (!isObject(block) || block.type !== 'tool_use' || typeof block.name !== 'string') continue;

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { GuildEvent } from './events.ts';
 import { EventStream } from './events.ts';
 import {
+  RECENT_LIMIT,
   XP_PER_LEVEL,
   XP_PER_QUEST,
   XP_PER_TURN,
@@ -13,6 +14,7 @@ import {
   locationForTool,
   replay,
   roster,
+  toolsFor,
 } from './game.ts';
 
 const start = (session: string, t = 0): GuildEvent => ({ t, session, type: 'session_start', name: session });
@@ -159,5 +161,57 @@ describe('EventStream schema', () => {
   it('rejects a quest title long enough to be a pasted prompt', () => {
     const todos = [{ id: '1', title: 'x'.repeat(121), status: 'pending' }];
     expect(EventStream.safeParse([{ t: 0, session: 'a', type: 'todos', todos }]).success).toBe(false);
+  });
+});
+
+describe('hero history', () => {
+  const state = replay([
+    start('a'),
+    { t: 1, session: 'a', type: 'meta', model: 'claude-opus-5-5', branch: 'main' },
+    { t: 2, session: 'a', type: 'tool', tool: 'Read' },
+    { t: 3, session: 'a', type: 'tool', tool: 'Grep' },
+    { t: 4, session: 'a', type: 'tool', tool: 'Edit' },
+    { t: 5, session: 'a', type: 'stop' },
+    { t: 6, session: 'a', type: 'meta', branch: 'feat/x' },
+  ]);
+  const hero = state.heroes.a!;
+
+  it('counts tool calls per building and finished turns', () => {
+    expect(hero.visits).toEqual({ library: 2, forge: 1, arena: 0, tower: 0, guildhall: 0 });
+    expect(hero.turns).toBe(1);
+  });
+
+  it('keeps recent activity newest first', () => {
+    expect(hero.recent.map((a) => a.tool)).toEqual(['Edit', 'Grep', 'Read']);
+    expect(hero.recent[0]).toEqual({ t: 4, tool: 'Edit', location: 'forge' });
+  });
+
+  it('caps recent activity', () => {
+    const many = replay([
+      start('b'),
+      ...Array.from({ length: RECENT_LIMIT + 10 }, (_, i) => ({
+        t: i + 1,
+        session: 'b',
+        type: 'tool' as const,
+        tool: 'Bash',
+      })),
+    ]);
+    expect(many.heroes.b!.recent).toHaveLength(RECENT_LIMIT);
+    expect(many.heroes.b!.visits.arena).toBe(RECENT_LIMIT + 10);
+  });
+
+  it('records model and branch, keeping the model when only the branch changes', () => {
+    expect(hero.model).toBe('claude-opus-5-5');
+    expect(hero.branch).toBe('feat/x');
+  });
+
+  it('tracks when the hero arrived and was last active', () => {
+    expect(hero.startedAt).toBe(0);
+    expect(hero.lastActiveAt).toBe(6);
+  });
+
+  it('lists which tools send a hero to each building', () => {
+    expect(toolsFor('arena')).toEqual(['Bash']);
+    expect(toolsFor('guildhall')).toEqual([]);
   });
 });

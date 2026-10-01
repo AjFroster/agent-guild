@@ -40,6 +40,13 @@ export const GuildEvent = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('needs_input') }),
   /** The agent finished its turn. */
   z.object({ ...base, type: z.literal('stop') }),
+  /** Which model the session runs on and which git branch it is on, when they change. */
+  z.object({
+    ...base,
+    type: z.literal('meta'),
+    model: z.string().min(1).max(60).optional(),
+    branch: z.string().min(1).max(100).optional(),
+  }),
 ]);
 export type GuildEvent = z.infer<typeof GuildEvent>;
 

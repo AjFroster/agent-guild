@@ -15,6 +15,10 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   `~/.claude/projects/**.jsonl` read-only; `core/src/transcript.ts` decides what crosses
   over (tool names, todos, turn ends) and drops everything else. Keep it that way.
 - `web/e2e/transcripts/`: fake transcripts the live browser test runs against.
+- `web/src/village.ts`: pure drawing and hit-testing. `VillageCanvas.tsx` owns the
+  animation loop; `panels.tsx` the side panels; `selection.ts` keeps the open panel in
+  `?select=`. Interaction tests click canvas coordinates taken from the layout in
+  `village.ts`, so moving a building means updating `web/e2e/interact.spec.ts`.
 
 ## Workflow
 

@@ -13,6 +13,23 @@ export interface Hero {
   xp: number;
   level: number;
   quests: Todo[];
+  /** Epoch seconds: when the hero arrived, and when it last did anything. */
+  startedAt: number;
+  lastActiveAt: number;
+  /** Finished turns. */
+  turns: number;
+  /** Tool calls per building, over the hero's whole life. */
+  visits: Record<Location, number>;
+  /** The latest tool calls, newest first, capped at RECENT_LIMIT. */
+  recent: Activity[];
+  model: string | null;
+  branch: string | null;
+}
+
+export interface Activity {
+  t: number;
+  tool: string;
+  location: Location;
 }
 
 export interface GuildState {
@@ -24,6 +41,11 @@ export interface GuildState {
 export const XP_PER_QUEST = 50;
 export const XP_PER_TURN = 10;
 export const XP_PER_LEVEL = 150;
+export const RECENT_LIMIT = 25;
+
+export const LOCATIONS: readonly Location[] = ['library', 'forge', 'arena', 'tower', 'guildhall'];
+
+const noVisits = (): Record<Location, number> => ({ library: 0, forge: 0, arena: 0, tower: 0, guildhall: 0 });
 
 export const emptyGuild = (): GuildState => ({ heroes: {}, order: [] });
 
@@ -50,8 +72,31 @@ export function locationForTool(tool: string): Location {
   return TOOL_LOCATIONS[tool] ?? 'guildhall';
 }
 
-function newHero(id: string, name: string, parentId: string | null): Hero {
-  return { id, name, parentId, location: 'guildhall', status: 'idle', xp: 0, level: 1, quests: [] };
+/** Which tools send a hero to each building, for explaining a building to the user. */
+export function toolsFor(location: Location): string[] {
+  return Object.entries(TOOL_LOCATIONS)
+    .filter(([, l]) => l === location)
+    .map(([tool]) => tool);
+}
+
+function newHero(id: string, name: string, parentId: string | null, t: number): Hero {
+  return {
+    id,
+    name,
+    parentId,
+    location: 'guildhall',
+    status: 'idle',
+    xp: 0,
+    level: 1,
+    quests: [],
+    startedAt: t,
+    lastActiveAt: t,
+    turns: 0,
+    visits: noVisits(),
+    recent: [],
+    model: null,
+    branch: null,
+  };
 }
 
 function withXp(hero: Hero, gained: number): Hero {
@@ -74,8 +119,8 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
     const parentId = event.type === 'subagent_start' ? event.parent : null;
     // A resumed session comes back with the XP it earned before it went quiet.
     const hero = existing
-      ? { ...existing, status: 'idle' as const, location: 'guildhall' as const }
-      : newHero(event.session, event.name, parentId);
+      ? { ...existing, status: 'idle' as const, location: 'guildhall' as const, lastActiveAt: event.t }
+      : newHero(event.session, event.name, parentId, event.t);
     return {
       heroes: { ...state.heroes, [hero.id]: hero },
       order: existing ? state.order : [...state.order, hero.id],
@@ -84,10 +129,21 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
 
   if (!existing || existing.status === 'gone') return state;
 
-  let hero: Hero = existing;
+  let hero: Hero = { ...existing, lastActiveAt: Math.max(existing.lastActiveAt, event.t) };
   switch (event.type) {
-    case 'tool':
-      hero = { ...hero, location: locationForTool(event.tool), status: 'working' };
+    case 'tool': {
+      const location = locationForTool(event.tool);
+      hero = {
+        ...hero,
+        location,
+        status: 'working',
+        visits: { ...hero.visits, [location]: hero.visits[location] + 1 },
+        recent: [{ t: event.t, tool: event.tool, location }, ...hero.recent].slice(0, RECENT_LIMIT),
+      };
+      break;
+    }
+    case 'meta':
+      hero = { ...hero, model: event.model ?? hero.model, branch: event.branch ?? hero.branch };
       break;
     case 'todos': {
       // XP only for quests that newly reached completed, so re-sending the same list
@@ -101,7 +157,7 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
       hero = { ...hero, status: 'needs_you' };
       break;
     case 'stop':
-      hero = withXp({ ...hero, status: 'idle', location: 'guildhall' }, XP_PER_TURN);
+      hero = withXp({ ...hero, status: 'idle', location: 'guildhall', turns: hero.turns + 1 }, XP_PER_TURN);
       break;
     case 'session_end':
     case 'subagent_stop':
