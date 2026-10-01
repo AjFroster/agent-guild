@@ -14,6 +14,7 @@ import {
   levelFor,
   looseEnds,
   partyTokens,
+  rankOf,
   locationForTool,
   replay,
   roster,
@@ -304,5 +305,35 @@ describe('git state', () => {
     expect(looseEnds(state).map((h) => h.id)).toEqual(['new', 'old']);
     // Pushing everything clears it.
     expect(looseEnds(replay([start('a'), git('a', 1, 2, 0), git('a', 2, 0, 0)]))).toEqual([]);
+  });
+});
+
+describe('ranks', () => {
+  const state = replay([
+    start('knight'),
+    start('king', 1),
+    { t: 2, session: 'king', type: 'crown' },
+    { t: 3, session: 'scout', type: 'subagent_start', parent: 'knight', name: 'Scout' },
+    { t: 4, session: 'smith', type: 'subagent_start', parent: 'knight', name: 'Smith' },
+    { t: 5, session: 'scout', type: 'tool', tool: 'Grep' },
+    { t: 6, session: 'smith', type: 'tool', tool: 'Read' },
+  ]);
+
+  it('crowns the King, makes other sessions Knights and their sub-agents Workers', () => {
+    expect(rankOf(state.heroes.king!)).toBe('king');
+    expect(rankOf(state.heroes.knight!)).toBe('knight');
+    expect(rankOf(state.heroes.scout!)).toBe('worker');
+    expect(rankOf(state.heroes.smith!)).toBe('worker');
+  });
+
+  it('promotes a Worker to Footsoldier once it edits a file or runs a command', () => {
+    const next = applyEvent(state, { t: 7, session: 'smith', type: 'tool', tool: 'Edit' });
+    expect(rankOf(next.heroes.smith!)).toBe('footsoldier');
+    const ran = applyEvent(state, { t: 7, session: 'scout', type: 'tool', tool: 'Bash' });
+    expect(rankOf(ran.heroes.scout!)).toBe('footsoldier');
+  });
+
+  it('puts the King at the head of the roster', () => {
+    expect(roster(state).map((h) => h.id)).toEqual(['king', 'knight', 'scout', 'smith']);
   });
 });

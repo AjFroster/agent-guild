@@ -36,6 +36,8 @@ export const GuildEvent = z.discriminatedUnion('type', [
     name: z.string().min(1).max(40),
   }),
   z.object({ ...base, type: z.literal('subagent_stop') }),
+  /** This session is the King: the one the user talks to, who commands the others. */
+  z.object({ ...base, type: z.literal('crown') }),
   /** Claude Code is waiting on the user: a permission prompt or an idle notification. */
   z.object({ ...base, type: z.literal('needs_input') }),
   /** The agent finished its turn. */
