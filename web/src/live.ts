@@ -12,6 +12,8 @@ export interface Announcements {
   king: { id: string | null } | null;
   /** Reviewed skills waiting on the user, and a counter that ticks when the Archive changes. */
   skills: { waiting: number; version: number };
+  /** Forged pieces waiting on the user, and a counter that ticks when the Forge changes. */
+  forge: { waiting: number; version: number };
   chats: ChatInfo[];
   crierVersion: number;
 }
@@ -31,6 +33,7 @@ export function useLiveEvents(token: string): {
     control: null,
     king: null,
     skills: { waiting: 0, version: 0 },
+    forge: { waiting: 0, version: 0 },
     chats: [],
     crierVersion: 0,
   });
@@ -57,6 +60,12 @@ export function useLiveEvents(token: string): {
       setAnnouncements((a) => ({
         ...a,
         skills: { waiting: (json(e) as { waiting: number }).waiting, version: a.skills.version + 1 },
+      })),
+    );
+    source.addEventListener('forge', (e) =>
+      setAnnouncements((a) => ({
+        ...a,
+        forge: { waiting: (json(e) as { waiting: number }).waiting, version: a.forge.version + 1 },
       })),
     );
     source.addEventListener('chats', (e) =>

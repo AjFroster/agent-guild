@@ -67,6 +67,7 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 | Sub-agent that edits or runs commands                   | Footsoldier, following its Knight      |
 | Sub-agent that only reads and searches                  | Worker, following its leader           |
 | Read/Grep/Glob · Edit/Write · Bash · WebFetch/WebSearch | Library · Forge · Arena · Tower        |
+| Asking the Forge for equipment                          | Walks to the Forge                     |
 | TodoWrite items                                         | Quests; each finished quest is 50 XP   |
 | Finished turn                                           | 10 XP, back to the Guildhall           |
 | AskUserQuestion                                         | Red "!" bubble and "needs you" beacon  |
@@ -128,6 +129,15 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
   by GitHub stars or name (stars are known for skills installed from the Archive; your own
   and plugins' skills sort last), then each librarian's desk, their schedule and threshold,
   Run now, the Archive's counts and their notes.
+- **The Forge.** Knights started from the guild can ask the Forge for equipment their
+  project is missing (a skill, or a slash command); the King and you can commission it too,
+  from the Forge page. The **Blacksmith** reads that project (it can change nothing) and
+  forges the piece; the Library's **Reviewer** tests it; you approve it on the Forge page,
+  and only then is exactly the reviewed piece written into the project's `.claude/` (never
+  over anything). The Knight who asked is told where it is. On the Forge page the
+  Blacksmith hammers at the anvil while it works, and each piece waiting for you hangs on
+  the rack: a sword for a skill, an axe for a command. The Armorer, who will mend broken
+  builds, comes next.
 - **What a Knight is working on** (its quest in progress) shows under its name on the map
   and in its panel. A **Talk** button sits beside the Knight you select, and beside any
   Knight waiting on you (in red): one tap opens its chat.

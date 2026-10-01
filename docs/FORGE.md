@@ -27,6 +27,12 @@ repair job.
 - What the guild learns from transcripts stays as it is (tool names, todos, turn ends,
   token counts). The smiths read the project itself, not other sessions' conversations.
 
+## Status
+
+Done: phases 1 and 2, the King's `commission_equipment`, the Forge's signs on the map, and
+the cohesion test in `web/e2e/chat.spec.ts`: a Knight asks, the Blacksmith forges in its
+project, the Library reviews, the user installs, the Knight is told. Next: the Armorer.
+
 ## Phases
 
 1. **Art and scene** (this branch, first): Forge props in the Tiny Swords style

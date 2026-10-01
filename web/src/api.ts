@@ -101,6 +101,41 @@ export class ApiError extends Error {
   }
 }
 
+export type PieceKind = 'skill' | 'command';
+export type OrderStatus =
+  'requested' | 'forging' | 'forged' | 'reviewed' | 'installed' | 'dismissed' | 'failed';
+
+export interface ForgeOrder {
+  id: string;
+  project: string;
+  requestedBy: string;
+  knightId: string | null;
+  kind: PieceKind;
+  need: string;
+  status: OrderStatus;
+  piece: {
+    name: string;
+    description: string;
+    files: { path: string; content: string }[];
+    forgedAt: number;
+  } | null;
+  review: {
+    verdict: 'ready' | 'needs-work' | 'risky';
+    reason: string;
+    risks: string[];
+    reviewedAt: number;
+  } | null;
+  createdAt: number;
+  installedAt: number | null;
+  error: string | null;
+}
+
+export interface ForgeStatus {
+  orders: ForgeOrder[];
+  current: string | null;
+  waiting: number;
+}
+
 export function api(token: string) {
   const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     const res = await fetch(path, {
@@ -132,6 +167,14 @@ export function api(token: string) {
     installSkill: (id: string) => call<ArchiveEntry>('POST', `/api/skills/${encodeURIComponent(id)}/install`),
     updateLibrary: (patch: Partial<LibrarySchedule>) => call<SkillsStatus>('PUT', '/api/library', patch),
     runLibrary: () => call<{ ok: true }>('POST', '/api/library/run'),
+    forge: () => call<ForgeStatus>('GET', '/api/forge'),
+    commission: (body: { project: string; kind: PieceKind; need: string }) =>
+      call<{ id: string }>('POST', '/api/forge/orders', body),
+    installPiece: (id: string) =>
+      call<unknown>('POST', `/api/forge/orders/${encodeURIComponent(id)}/install`),
+    dismissPiece: (id: string) =>
+      call<unknown>('POST', `/api/forge/orders/${encodeURIComponent(id)}/dismiss`),
+    reforge: (id: string) => call<unknown>('POST', `/api/forge/orders/${encodeURIComponent(id)}/reforge`),
     updateCrier: (patch: Partial<CrierConfig>) => call<CrierStatus>('PUT', '/api/crier', patch),
     runCrier: () => call<ChatInfo>('POST', '/api/crier/run'),
     report: (date: string) =>

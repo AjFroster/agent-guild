@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -10,6 +11,8 @@ import { GitWatcher } from './git.ts';
 import { ChatManager } from './chats.ts';
 import { TownCrier } from './crier.ts';
 import { Court } from './king.ts';
+import { Forge, ForgeStore } from './forge.ts';
+import { forgeWaiting, registerForgeRoutes } from './forgeRoutes.ts';
 import { Library } from './library.ts';
 import { registerKingRoutes } from './kingRoutes.ts';
 import { registerLibraryRoutes } from './libraryRoutes.ts';
@@ -69,6 +72,7 @@ let guildEvents: () => readonly GuildEvent[] = () => [];
 let kingId: () => string | null = () => null;
 let commanded: (id: string) => boolean = () => false;
 let isLibrarian: (id: string) => boolean = () => false;
+let isSmith: (id: string) => boolean = () => false;
 /**
  * The King's session gets its crown as it walks in, and a Knight he has commanded its
  * mark, including one he raised whose session had not started yet when he gave the order.
@@ -79,6 +83,7 @@ const crowned = (events: GuildEvent[]): GuildEvent[] =>
     if (e.session === kingId()) return [e, { t: e.t, session: e.session, type: 'crown' }];
     if (commanded(e.session)) return [e, { t: e.t, session: e.session, type: 'commanded' }];
     if (isLibrarian(e.session)) return [e, { t: e.t, session: e.session, type: 'librarian' }];
+    if (isSmith(e.session)) return [e, { t: e.t, session: e.session, type: 'smith' }];
     return [e];
   });
 const watcher = new TranscriptWatcher({
@@ -93,7 +98,30 @@ const open = sessionOpener(
   (id) => watcher.sessionOf(id),
   (id) => (id === court.kingId ? court.extras() : undefined),
 );
+// Every Knight the guild starts may ask the Forge for equipment: one MCP config, role
+// "knight"; the guild tells Knights apart by the folder they work in.
+const knightMcpFile = join(dataDir, 'knight-mcp.json');
+await mkdir(dataDir, { recursive: true });
+await writeFile(
+  knightMcpFile,
+  JSON.stringify({
+    mcpServers: {
+      guild: {
+        command: process.execPath,
+        args: [resolve(import.meta.dirname, 'kingMcp.ts')],
+        env: { GUILD_URL: `http://127.0.0.1:${port}`, GUILD_TOKEN: token, GUILD_ROLE: 'knight' },
+      },
+    },
+  }),
+  { mode: 0o600 },
+);
+const knightExtras = () => ({
+  mcpConfig: knightMcpFile,
+  allowedTools: ['mcp__guild__request_equipment', 'mcp__guild__check_equipment'],
+});
+
 const court = new Court({
+  knightExtras,
   dir: dataDir,
   chats,
   state: () => replay(guildEvents()),
@@ -118,7 +146,23 @@ const library = new Library({
   onLibrarian: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'librarian' }]),
   onError: (message) => void archive.addNote('Library', message).then(announceSkills),
 });
-isLibrarian = (id) => library.config.sessions.includes(id);
+// The Forge: equipment made to order by the Blacksmith, reviewed by the Library's Reviewer.
+const forgeStore = new ForgeStore(join(dataDir, 'forge.json'));
+const announceForge = () =>
+  void forgeStore.read().then(({ orders }) => announce('forge', { waiting: forgeWaiting(orders) }));
+const forge = new Forge({
+  dir: dataDir,
+  chats,
+  store: forgeStore,
+  guildUrl: `http://127.0.0.1:${port}`,
+  token,
+  onSmith: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'smith' }]),
+  onReviewer: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'librarian' }]),
+  onChange: announceForge,
+  onError: (message) => void archive.addNote('Forge', message).then(announceSkills),
+});
+isLibrarian = (id) => library.config.sessions.includes(id) || forge.isReviewer(id);
+isSmith = (id) => forge.isSmith(id);
 
 // The Library: the Archive of reviewed skills, compared against the installed ones.
 const archive = new Archive(join(dataDir, 'archive.json'));
@@ -145,6 +189,20 @@ const server = createServer({
             sessionOf: (id) => watcher.sessionOf(id),
             projects: () => watcher.projects(),
             extrasFor: (id) => (id === court.kingId ? court.extras() : undefined),
+            knightExtras,
+          });
+          await registerForgeRoutes(scope, {
+            isToken,
+            store: forgeStore,
+            forge,
+            chats,
+            onChange: announceForge,
+            resolveKnight: (knight) => {
+              const hero = court.resolve(knight);
+              const cwd =
+                chats.list().find((c) => c.id === hero.id)?.cwd ?? watcher.sessionOf(hero.id)?.cwd ?? null;
+              return { ...hero, cwd };
+            },
           });
           await registerKingRoutes(scope, {
             isToken,
@@ -195,6 +253,7 @@ await server.app.listen({ host: '127.0.0.1', port });
 if (controlOn) {
   await court.load();
   await library.load();
+  await forge.load();
 }
 watcher.start();
 git?.start();
@@ -204,6 +263,9 @@ if (controlOn) {
   library.start();
   announce('king', { id: court.kingId });
   announceSkills();
+  announceForge();
+  // Orders taken before a restart are picked up again.
+  void forge.kick();
 }
 
 console.log(`Agent Guild is watching ${root}`);

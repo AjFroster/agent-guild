@@ -1,0 +1,55 @@
+[
+  {
+    "t": 0,
+    "session": "s-perc",
+    "type": "session_start",
+    "name": "Percival"
+  },
+  {
+    "t": 1,
+    "session": "s-perc",
+    "type": "tool",
+    "tool": "Read"
+  },
+  {
+    "t": 2,
+    "session": "s-perc",
+    "type": "tool",
+    "tool": "mcp__guild__request_equipment"
+  },
+  {
+    "t": 3,
+    "session": "s-smith",
+    "type": "session_start",
+    "name": "Blacksmith"
+  },
+  {
+    "t": 3,
+    "session": "s-smith",
+    "type": "smith"
+  },
+  {
+    "t": 4,
+    "session": "s-smith",
+    "type": "tool",
+    "tool": "mcp__guild__read_order"
+  },
+  {
+    "t": 6,
+    "session": "s-smith",
+    "type": "tool",
+    "tool": "Grep"
+  },
+  {
+    "t": 7,
+    "session": "s-gaw",
+    "type": "session_start",
+    "name": "Gawain"
+  },
+  {
+    "t": 8,
+    "session": "s-gaw",
+    "type": "tool",
+    "tool": "Bash"
+  }
+]

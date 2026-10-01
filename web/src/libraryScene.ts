@@ -4,6 +4,7 @@ import {
   type LibrarianState,
   librarianState,
   librariansIn,
+  roleName,
 } from '@agent-guild/core';
 
 import { type Art, type Rect, FRAMES, frameAt, grass, inside, nine, put, ribbon, terrain } from './scene.ts';
@@ -50,7 +51,7 @@ export interface LibraryModel {
 export function librarySeats(state: GuildState): Seat[] {
   const present = librariansIn(state);
   return ROLES.map((role) => {
-    const hero = present.filter((h) => h.name === role).at(-1);
+    const hero = present.find((h) => roleName(h.name) === role);
     return { role, hero, state: hero ? librarianState(hero) : 'away' };
   });
 }

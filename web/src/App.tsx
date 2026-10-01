@@ -7,6 +7,7 @@ import { ChatDrawer, CrierCard, CrownDialog, NewChatDialog, ReportDrawer } from 
 import { type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
+import { ForgePage } from './forge.tsx';
 import { LibraryPage } from './library.tsx';
 import { resolveSelection, useDrawer, usePage, usePanelTab, useSelection } from './selection.ts';
 import { SkillsPanel } from './skills.tsx';
@@ -79,6 +80,8 @@ interface Control {
   kingId: string | null;
   /** Reviewed skills waiting on the user, and a counter that ticks when the Archive changes. */
   skills: { waiting: number; version: number };
+  /** Forged pieces waiting on the user, and a counter that ticks when the Forge changes. */
+  forge: { waiting: number; version: number };
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -136,6 +139,7 @@ function Live({ token }: { token: string }) {
               allowBypass: announcements.control.allowBypass === true,
               kingId: announcements.king?.id ?? null,
               skills: announcements.skills,
+              forge: announcements.forge,
             }
           : undefined
       }
@@ -167,8 +171,8 @@ function Guild({
   // has a page of its own, where the librarians are.
   const select = useCallback(
     (s: Selection | null) => {
-      if (s?.kind === 'building' && s.id === 'library') {
-        openPage('library');
+      if (s?.kind === 'building' && (s.id === 'library' || s.id === 'forge')) {
+        openPage(s.id);
         return;
       }
       if (s) {
@@ -249,7 +253,22 @@ function Guild({
           <SettingsButton settings={settings} onChange={updateSettings} />
         </span>
       </header>
-      {page === 'library' ? (
+      {page === 'forge' ? (
+        <ForgePage
+          state={state}
+          now={now}
+          animate={live !== undefined}
+          onBack={() => openPage('village')}
+          onSelectHero={(id) => select({ kind: 'hero', id })}
+          control={
+            control && {
+              api: control.api,
+              version: control.forge.version,
+              onTalk: (id) => openDrawer({ kind: 'chat', id }),
+            }
+          }
+        />
+      ) : page === 'library' ? (
         <LibraryPage
           state={state}
           now={now}
@@ -281,6 +300,7 @@ function Guild({
               canTalk={(h) => h.parentId === null && SESSION_ID.test(h.id)}
               clock={live === undefined ? now : undefined}
               libraryWaiting={control?.skills.waiting}
+              forgeWaiting={control?.forge.waiting}
             />
             {showHint && <Hint onDismiss={dismissHint} />}
           </div>
