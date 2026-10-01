@@ -228,15 +228,36 @@ export async function loadSprites(): Promise<Sprites> {
  */
 const FORMATION: readonly [number, number][] = [
   [-40, -16],
-  [40, -16],
-  [-22, -38],
-  [22, -38],
+  [-22, -40],
+  [24, -42],
   [-62, -36],
-  [62, -36],
-  [0, -58],
-  [-44, -60],
-  [44, -60],
+  [0, -60],
+  [58, -50],
+  [-80, -14],
+  [-44, -62],
+  [44, -68],
 ];
+
+/** Where a working leader's training dummy stands: to its right, a step behind. */
+export const DUMMY_OFFSET = { x: 46, y: -4 };
+
+/** Milliseconds per frame of a swing, and the frame on which a blow lands. */
+const SWING_MS = 105;
+const IMPACT_FRAME = 3;
+
+/**
+ * Which frame of its swing a hero is on. Each hero starts its swing at a different point
+ * (from its id), so a busy yard does not strike in unison, and a frozen demo frame
+ * catches some mid-blow.
+ */
+export function swingFrame(id: string, nowMs: number): number {
+  return (Math.floor(nowMs / SWING_MS) + (hash(id) % 6)) % 6;
+}
+
+/** Whether a hero is at its post hitting something: working, standing still, not the King. */
+export function isFighting(hero: Hero, moving: boolean): boolean {
+  return hero.status === 'working' && !moving && !hero.crowned;
+}
 
 /** The King's place: his throne at the castle gate. */
 export const THRONE = { x: 640, y: 625 };
@@ -570,10 +591,19 @@ export function drawVillage(
       drawSleeper(ctx, sprites, p.hero, team, p.x, p.y, nowMs, picked || hovered);
       continue;
     }
+    const rank = rankOf(p.hero);
+    const fighting = isFighting(p.hero, p.moving);
+    // A working Knight has its own training dummy, and it rocks back when a blow lands.
+    if (fighting && rank === 'knight') {
+      const frame = swingFrame(p.hero.id, nowMs);
+      const tilt = frame === IMPACT_FRAME ? 0.28 : frame === IMPACT_FRAME + 1 ? 0.12 : 0;
+      dummy(ctx, p.x + DUMMY_OFFSET.x, p.y + DUMMY_OFFSET.y, tilt);
+    }
     teamDisc(ctx, p.x, p.y, k, TEAM_CSS[team]);
     if (picked) ring(ctx, p.x, p.y, k, '#ffcc33');
     else if (hovered) ring(ctx, p.x, p.y, k, 'rgba(241, 239, 230, 0.85)');
-    drawUnit(ctx, sprites, p.hero, team, p.x, p.y, nowMs, p.moving, p.left, picked || hovered);
+    // Fighters face their dummy, to the right.
+    drawUnit(ctx, sprites, p.hero, team, p.x, p.y, nowMs, p.moving, p.left && !fighting, picked || hovered);
   }
 }
 
@@ -609,6 +639,53 @@ function drawSleeper(
   } else if (focused) {
     label(ctx, hero.name, x, y + 10, 'rgba(20, 26, 18, 0.85)', '#f1efe6', 10);
   }
+}
+
+/**
+ * A training dummy: a post with a crossbar, a straw body with a red target and a sack
+ * head. `tilt` rocks it back (radians) about its foot when a blow lands.
+ */
+function dummy(ctx: CanvasRenderingContext2D, x: number, y: number, tilt: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 14, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.rotate(tilt);
+  ctx.strokeStyle = '#4a3016';
+  ctx.lineWidth = 2;
+  // Post and crossbar.
+  ctx.fillStyle = '#7d5833';
+  ctx.fillRect(-3, -44, 6, 44);
+  ctx.strokeRect(-3, -44, 6, 44);
+  ctx.fillRect(-17, -36, 34, 5);
+  ctx.strokeRect(-17, -36, 34, 5);
+  // Straw body with a target.
+  ctx.fillStyle = '#d9b968';
+  ctx.beginPath();
+  ctx.ellipse(0, -26, 11, 15, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath();
+  ctx.arc(0, -25, 6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#f1efe6';
+  ctx.beginPath();
+  ctx.arc(0, -25, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath();
+  ctx.arc(0, -25, 1.3, 0, Math.PI * 2);
+  ctx.fill();
+  // Sack head.
+  ctx.fillStyle = '#cdb07a';
+  ctx.beginPath();
+  ctx.arc(0, -48, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }
 
 /** A bedroll: a straw mat, a pillow at the head and a blanket in the sleeper's colour. */
@@ -729,8 +806,14 @@ function drawUnit(
   const sheet = sprites.units[`${rank === 'worker' ? 'Pawn' : 'Warrior'}_${team}`]!;
   // Row 0 is idle, row 1 is the walk cycle; six frames each. Resting heroes hold a
   // single pose so the busy ones stand out.
-  const row = moving ? 1 : 0;
-  const frame = hero.status === 'idle' && !moving ? 0 : Math.floor(nowMs / FRAME_MS) % 6;
+  // Rows: 0 idle, 1 walk, 2 the attack (a sword swing for warriors, a hammer for pawns).
+  const fighting = isFighting(hero, moving);
+  const row = moving ? 1 : fighting ? 2 : 0;
+  const frame = fighting
+    ? swingFrame(hero.id, nowMs)
+    : hero.status === 'idle' && !moving
+      ? 0
+      : Math.floor(nowMs / FRAME_MS) % 6;
   const dx = x - size / 2;
   const dy = y - size * FEET;
 
