@@ -11,6 +11,8 @@ mkdirSync(SHOTS, { recursive: true });
  * canvas next to one correct label still passes.
  */
 async function capture(page: Page, name: string) {
+  // The canvas marks itself ready once its sprites have loaded and it has drawn.
+  await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
   await page.screenshot({ path: `${SHOTS}/${name}.png`, animations: 'disabled' });
 }
 

@@ -1,9 +1,19 @@
 import { type GuildState, type Hero, XP_PER_LEVEL, depthOf, replay, roster } from '@agent-guild/core';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
 import { type LiveStatus, useLiveEvents } from './live.ts';
-import { BUILDINGS, VILLAGE_HEIGHT, VILLAGE_WIDTH, drawVillage } from './village.ts';
+import {
+  BUILDINGS,
+  type Sprites,
+  VILLAGE_HEIGHT,
+  VILLAGE_WIDTH,
+  type Walker,
+  drawVillage,
+  heroPositions,
+  loadSprites,
+  walkerPosition,
+} from './village.ts';
 
 const STATUS_LABEL: Record<Hero['status'], string> = {
   working: 'Working',
@@ -102,7 +112,7 @@ function Guild({ state, live }: { state: GuildState; live?: string }) {
           </p>
         )}
       </header>
-      <Village state={state} heroes={heroes} />
+      <Village state={state} heroes={heroes} animate={live !== undefined} />
       <aside className="panel" aria-label="Party and quests">
         {heroes.length === 0 ? (
           <p className="muted" data-testid="empty-guild">
@@ -120,25 +130,89 @@ function Guild({ state, live }: { state: GuildState; live?: string }) {
   );
 }
 
-function Village({ state, heroes }: { state: GuildState; heroes: Hero[] }) {
+/** Loaded once per page; every Village shares the same images. */
+let spritesPromise: Promise<Sprites> | null = null;
+const getSprites = () => (spritesPromise ??= loadSprites());
+
+function Village({ state, heroes, animate }: { state: GuildState; heroes: Hero[]; animate: boolean }) {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const [sprites, setSprites] = useState<Sprites | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  /** Heroes walking to a new building, keyed by hero id (live mode only). */
+  const walkers = useRef(new Map<string, Walker>());
+  /** Where each hero was last drawn, so a walk starts from there. */
+  const shown = useRef(new Map<string, { x: number; y: number }>());
+
+  useEffect(() => {
+    let cancelled = false;
+    getSprites().then(
+      (s) => !cancelled && setSprites(s),
+      (e: Error) => !cancelled && setError(e.message),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // When a hero's target moves, start a walk from wherever it is drawn now.
+  useEffect(() => {
+    if (!animate) return;
+    const now = performance.now();
+    for (const [id, to] of heroPositions(state)) {
+      const from = shown.current.get(id);
+      const current = walkers.current.get(id);
+      if (!from) {
+        shown.current.set(id, to);
+        continue;
+      }
+      if (current && current.toX === to.x && current.toY === to.y) continue;
+      if (!current && from.x === to.x && from.y === to.y) continue;
+      walkers.current.set(id, { fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, startMs: now });
+    }
+  }, [state, animate]);
 
   useEffect(() => {
     const el = canvas.current;
     const ctx = el?.getContext('2d');
-    if (!el || !ctx) return;
+    if (!el || !ctx || !sprites) return;
     const scale = window.devicePixelRatio || 1;
     el.width = VILLAGE_WIDTH * scale;
     el.height = VILLAGE_HEIGHT * scale;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawVillage(ctx, state);
-  }, [state]);
+
+    if (!animate) {
+      // Demo mode: one frozen frame, the same on every run.
+      drawVillage(ctx, stateRef.current, sprites, 0, new Map());
+      el.dataset.ready = 'true';
+      return;
+    }
+
+    let frame = 0;
+    const tick = (now: number) => {
+      for (const [id, w] of walkers.current) {
+        const pos = walkerPosition(w, now);
+        shown.current.set(id, { x: pos.x, y: pos.y });
+        if (!pos.moving) walkers.current.delete(id);
+      }
+      drawVillage(ctx, stateRef.current, sprites, now, walkers.current);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    el.dataset.ready = 'true';
+    return () => cancelAnimationFrame(frame);
+  }, [sprites, animate]);
 
   // The canvas is decoration for sighted users; this sentence carries the same facts.
   const summary =
     heroes.length === 0
       ? 'The village is empty.'
       : heroes.map((h) => `${h.name} at the ${BUILDINGS[h.location].label}`).join('; ') + '.';
+
+  if (error) return <p role="alert">The village art did not load: {error}</p>;
 
   return (
     <canvas
