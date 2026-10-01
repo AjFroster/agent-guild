@@ -20,6 +20,8 @@ import { type Schedule, isDue, localDate, nextRun } from './crier.ts';
 export interface LibraryConfig extends Schedule {
   /** Most new candidates the Scout adds in one run, which bounds the Reviewer's work too. */
   maxCandidates: number;
+  /** Fewest GitHub stars a skill's repository needs for the Scout to add it. */
+  minStars: number;
   /** Session ids of past librarians, newest first, so the map knows them. */
   sessions: string[];
 }
@@ -28,6 +30,7 @@ export const DEFAULT_LIBRARY: LibraryConfig = {
   enabled: false,
   time: '06:50',
   maxCandidates: 5,
+  minStars: 5000,
   lastRunDate: null,
   sessions: [],
 };
@@ -49,9 +52,9 @@ export function scoutPrompt(config: LibraryConfig, date: string): string {
     `You are the Scout Librarian of an Agent Guild. Today is ${date}. Find new Claude Code skills worth reviewing: folders containing a SKILL.md, on GitHub.`,
     '',
     '1. Call list_installed_skills and list_archive first, so you know what the user has and what has been found before.',
-    '2. Search for skills created or updated in the last 30 days, favouring repositories with many stars and stars gained quickly: for example `gh search repos "claude skills" --sort stars --limit 30`, `gh search code "filename:SKILL.md" --limit 50` if gh works, and web searches for new Claude Code skills and skill collections (including the official anthropics/skills repository).',
+    `2. Search for skills created or updated in the last 30 days, in repositories with at least ${config.minStars} stars, favouring those gaining stars quickly: for example \`gh search repos "claude skills" stars:>=${config.minStars} --sort stars --limit 30\`, \`gh search code "filename:SKILL.md" --limit 50\` if gh works, and web searches for new Claude Code skills and skill collections (including the official anthropics/skills repository).`,
     "3. For each promising skill: open its SKILL.md to read its name and description, then get the repository's stars and its default branch's latest commit from https://api.github.com/repos/OWNER/REPO and https://api.github.com/repos/OWNER/REPO/commits/BRANCH.",
-    `4. Call add_candidate for at most ${config.maxCandidates} skills that are new to the Archive (or at a newer commit), preferring those that could fill a gap in the user's skills. Use the full 40-character commit hash.`,
+    `4. Call add_candidate for at most ${config.maxCandidates} skills that are new to the Archive (or at a newer commit) and whose repository has at least ${config.minStars} stars (the Archive refuses the rest), preferring those that could fill a gap in the user's skills. Use the full 40-character commit hash.`,
     '5. Call write_note with one or two sentences: how many you looked at and which you added.',
     '',
     UNTRUSTED,
@@ -84,6 +87,12 @@ export function validateLibraryPatch(patch: Partial<LibraryConfig>): Partial<Lib
     const n = Number(patch.maxCandidates);
     if (!Number.isInteger(n) || n < 1 || n > 10) throw new Error('Choose from 1 to 10 skills a day.');
     out.maxCandidates = n;
+  }
+  if (patch.minStars !== undefined) {
+    const n = Number(patch.minStars);
+    if (!Number.isInteger(n) || n < 0 || n > 1_000_000)
+      throw new Error('Stars must be a whole number from 0 to 1,000,000.');
+    out.minStars = n;
   }
   return out;
 }

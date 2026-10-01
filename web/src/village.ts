@@ -1,5 +1,5 @@
 import type { GuildState, Hero, Location, Rank } from '@agent-guild/core';
-import { currentQuest, inAudience, rankOf, roster } from '@agent-guild/core';
+import { currentQuest, inAudience, librarianState, librariansIn, rankOf, roster } from '@agent-guild/core';
 
 /**
  * Canvas drawing for the village, using the Tiny Swords pack (Pixel Frog, CC0) and
@@ -309,12 +309,11 @@ export function heroPositions(state: GuildState, clock?: number): Map<string, Pl
       });
     }
     // A Knight resting between turns goes to bed in the Barracks.
-    // A resting Knight goes to bed; a librarian lives at the Library.
-    else if (hero.status === 'idle' && !hero.librarian) sleepers.push(hero);
-    else {
-      const where = hero.librarian && hero.status === 'idle' ? 'library' : hero.location;
-      byBuilding.set(where, [...(byBuilding.get(where) ?? []), hero]);
-    }
+    // The librarians work inside the Library: its signs show them (drawLibrarySigns).
+    else if (hero.librarian) continue;
+    // A resting Knight goes to bed in the Barracks.
+    else if (hero.status === 'idle') sleepers.push(hero);
+    else byBuilding.set(hero.location, [...(byBuilding.get(hero.location) ?? []), hero]);
   }
   for (const [location, group] of byBuilding) {
     const b = BUILDINGS[location];
@@ -341,7 +340,9 @@ export function heroPositions(state: GuildState, clock?: number): Map<string, Pl
   for (const hero of heroes) {
     if (leads(hero)) continue;
     const parent = state.heroes[hero.parentId!]!;
-    const at = positions.get(parent.id)!;
+    const at = positions.get(parent.id);
+    // A librarian's party stays inside with it.
+    if (!at) continue;
     const n = placedUnder.get(parent.id) ?? 0;
     placedUnder.set(parent.id, n + 1);
     const k = leads(parent) ? 1 : 0.65;
@@ -506,8 +507,9 @@ export function placeHeroes(
   clock?: number,
 ): Placed[] {
   const targets = heroPositions(state, clock);
-  return roster(state).map((hero) => {
-    const target = targets.get(hero.id)!;
+  return roster(state).flatMap((hero) => {
+    const target = targets.get(hero.id);
+    if (!target) return [];
     const walker = walkers.get(hero.id);
     const pos = walker
       ? walkerPosition(walker, nowMs)
@@ -553,6 +555,10 @@ export function hitTest(
     if (px >= box.left && px <= box.right && py >= box.top && py <= box.bottom)
       return { kind: 'building', id };
   }
+  // The librarians' signs over the roof belong to the Library.
+  const signs = LIBRARY_SIGNS;
+  if (px >= signs.left && px <= signs.right && py >= signs.top && py <= signs.bottom)
+    return { kind: 'building', id: 'library' };
   return null;
 }
 
@@ -561,6 +567,8 @@ export interface VillageView {
   hovered: Selection | null;
   /** The guild's clock in epoch seconds (demo: the frozen moment), for timed places. */
   clock?: number | undefined;
+  /** Reviewed skills waiting on the user: a badge on the Library's door. */
+  libraryWaiting?: number | undefined;
 }
 
 export function drawVillage(
@@ -672,6 +680,78 @@ export function drawVillage(
       fighting,
       p.hearing,
     );
+  }
+
+  drawLibrarySigns(ctx, librariansIn(state), nowMs, view.libraryWaiting ?? 0);
+}
+
+/** Where the librarians' signs hang, above the Library's roof. */
+export const LIBRARY_SIGNS = {
+  left: 60,
+  top: 0,
+  right: 220,
+  bottom: BUILDINGS.library.y - BUILDINGS.library.height,
+};
+const SIGN_SPACING = 62;
+
+/** Where each librarian's sign is drawn: centred over the Library, side by side. */
+export function librarySignXs(n: number): number[] {
+  const shown = Math.min(n, 3);
+  return Array.from({ length: shown }, (_, i) => BUILDINGS.library.x + (i - (shown - 1) / 2) * SIGN_SPACING);
+}
+
+/**
+ * The librarians work inside the Library, so the building shows them: over its roof, one
+ * sign per librarian (an open book while it works, "zzz" while it rests, a red "!" when it
+ * needs you) with its name, and on the door a gold count of skills waiting for the user.
+ */
+function drawLibrarySigns(
+  ctx: CanvasRenderingContext2D,
+  librarians: Hero[],
+  nowMs: number,
+  waiting: number,
+): void {
+  const xs = librarySignXs(librarians.length);
+  const roof = LIBRARY_SIGNS.bottom;
+  xs.forEach((x, i) => {
+    const hero = librarians[i]!;
+    const state = librarianState(hero);
+    bubble(
+      ctx,
+      x,
+      roof + 8,
+      state === 'working' ? 'work' : state === 'needs_you' ? 'alert' : 'sleep',
+      1.1,
+      nowMs,
+    );
+    label(
+      ctx,
+      hero.name,
+      x,
+      roof + 9,
+      'rgba(58, 26, 80, 0.85)',
+      state === 'needs_you' ? '#ffcc33' : '#f1efe6',
+      11,
+    );
+  });
+  if (waiting > 0) {
+    const b = BUILDINGS.library;
+    const x = b.x + 30;
+    const y = b.y - 40;
+    ctx.save();
+    ctx.fillStyle = '#ffcc33';
+    ctx.strokeStyle = '#4a3200';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 12, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#2a1c00';
+    ctx.font = '800 13px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.min(waiting, 99)), x, y + 1);
+    ctx.restore();
   }
 }
 
@@ -1027,8 +1107,8 @@ function teamDisc(ctx: CanvasRenderingContext2D, x: number, y: number, k: number
   ctx.restore();
 }
 
-/** An open book floating over a librarian's head. */
-function book(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+/** An open book: over a librarian's head, or on its sign while it works (`lift` flips a page). */
+function book(ctx: CanvasRenderingContext2D, x: number, y: number, lift = 0): void {
   ctx.save();
   ctx.strokeStyle = '#3a2410';
   ctx.lineWidth = 1.5;
@@ -1053,6 +1133,18 @@ function book(ctx: CanvasRenderingContext2D, x: number, y: number): void {
   }
   ctx.fillStyle = '#7b3fa0';
   ctx.fillRect(x - 1.5, y - 13, 3, 14);
+  if (lift) {
+    ctx.fillStyle = '#fffaf0';
+    ctx.strokeStyle = '#3a2410';
+    ctx.beginPath();
+    ctx.moveTo(x, y - 1);
+    ctx.lineTo(x + 8, y - 6 - Math.abs(lift) * 2);
+    ctx.lineTo(x + 8, y - 16 - Math.abs(lift) * 2);
+    ctx.lineTo(x, y - 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -1116,20 +1208,20 @@ function bubble(
   ctx: CanvasRenderingContext2D,
   x: number,
   top: number,
-  kind: 'alert' | 'sleep',
+  kind: 'alert' | 'sleep' | 'work',
   k: number,
   nowMs: number,
 ): void {
   const s = Math.max(0.75, k);
-  const w = (kind === 'alert' ? 26 : 34) * s;
+  const w = (kind === 'alert' ? 26 : kind === 'work' ? 38 : 34) * s;
   const h = 26 * s;
   // A sleeper's bubble bobs gently; demo mode's clock is frozen, so it holds still there.
   const bob = kind === 'sleep' ? Math.sin(nowMs / 600) * 2 : 0;
   const bx = x - w / 2;
   const by = top - h - 8 * s + bob;
   ctx.save();
-  ctx.fillStyle = kind === 'alert' ? '#d93a3a' : 'rgba(236, 240, 250, 0.92)';
-  ctx.strokeStyle = kind === 'alert' ? '#4a0b0b' : '#3a4256';
+  ctx.fillStyle = kind === 'alert' ? '#d93a3a' : kind === 'work' ? '#e6d6f4' : 'rgba(236, 240, 250, 0.92)';
+  ctx.strokeStyle = kind === 'alert' ? '#4a0b0b' : kind === 'work' ? '#4b2466' : '#3a4256';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(bx, by, w, h, 7 * s);
@@ -1140,7 +1232,10 @@ function bubble(
   ctx.stroke();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if (kind === 'alert') {
+  if (kind === 'work') {
+    // An open book, its pages lifting as the librarian reads.
+    book(ctx, x, by + h / 2 + 7 * s, Math.sin(nowMs / 180) * 2);
+  } else if (kind === 'alert') {
     ctx.fillStyle = '#ffffff';
     ctx.font = `900 ${Math.round(18 * s)}px system-ui, sans-serif`;
     ctx.fillText('!', x, by + h / 2 + 1);

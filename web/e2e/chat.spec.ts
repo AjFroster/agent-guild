@@ -240,6 +240,7 @@ test('the librarians find and review a skill, and the user installs it from the 
   const panel = page.getByTestId('skills-panel');
   await expect(panel.getByTestId('nothing-to-review')).toBeVisible();
   await expect(panel.getByTestId('librarians')).toContainText('Paused');
+  await expect(panel.getByTestId('librarians-min-stars')).toHaveValue('5000');
 
   // Run now: the Scout (fake CLI over the real MCP server) adds a candidate pinned to a
   // commit, then the Reviewer records its verdict.
@@ -250,6 +251,9 @@ test('the librarians find and review a skill, and the user installs it from the 
   await expect(card).toContainText('Nothing installed handles plain CSV files.');
   await expect(page.getByTestId('tab-skills')).toContainText('1');
   await expect(panel).toContainText('Scout Librarian');
+  // The threshold holds: the Archive refused the Scout's 340-star find.
+  await expect(panel).toContainText('tiny-helper had too few stars.');
+  await expect(panel.getByTestId('archive')).not.toContainText('tiny-helper');
   await page.screenshot({ path: 'e2e-screenshots/19-skills-to-review.png', animations: 'disabled' });
 
   // The user's decision: installed at the reviewed commit, into the skills folder.
@@ -262,11 +266,18 @@ test('the librarians find and review a skill, and the user installs it from the 
   await expect(page.getByTestId('tab-skills')).not.toContainText('1');
   await page.screenshot({ path: 'e2e-screenshots/20-skill-installed.png', animations: 'disabled' });
 
-  // The librarians are on the map, as librarians.
+  // The librarians are inside the Library: its page shows them at their desks.
   await page.getByTestId('tab-guild').click();
   await page.locator('.roster').getByRole('button', { name: 'Open Reviewer' }).click();
   await expect(page.getByTestId('hero-rank')).toContainText('Librarian');
   await page.getByTestId('back').click();
+  await page.getByTestId('open-library').click();
+  const library = page.getByTestId('library-page');
+  await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
+  await expect(library.getByTestId('library-min-stars')).toHaveText('★ 5,000');
+  await expect(library.getByTestId('library-archive')).toContainText('1 installed');
+  await page.screenshot({ path: 'e2e-screenshots/21-library-page-live.png', animations: 'disabled' });
+  await library.getByTestId('library-back').click();
 
   // The King learns of it from the Archive.
   await page.getByTestId('talk-to-king').click();

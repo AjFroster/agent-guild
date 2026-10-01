@@ -76,6 +76,7 @@ export interface LibrarySchedule {
   enabled: boolean;
   time: string;
   maxCandidates: number;
+  minStars: number;
   lastRunDate: string | null;
 }
 

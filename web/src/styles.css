@@ -58,8 +58,9 @@ a {
 .topbar {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 10px 16px;
 }
 
 .beacon {
@@ -992,4 +993,185 @@ kbd {
 
 .archive-status.status-reviewed {
   color: var(--accent);
+}
+
+/* --- the Library page ------------------------------------------------- */
+
+.library-page {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.library-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.library-head h2 {
+  margin: 0 0 2px;
+}
+
+.library-desks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
+  /* The reading room: warm wood under the desks. */
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #4a3622;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.12) 0 2px, transparent 2px 64px),
+    linear-gradient(#3a2a1a, #2c2014);
+}
+
+.library-desk {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid #7b3fa0;
+}
+
+.library-desk.desk-needs_you {
+  border-left-color: #d93a3a;
+}
+
+.library-desk.desk-away {
+  opacity: 0.7;
+  border-left-color: var(--line);
+}
+
+.library-desk h3 {
+  margin: 0 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desk-body {
+  min-width: 0;
+}
+
+.desk-body p {
+  margin: 0 0 8px;
+}
+
+.desk-portrait {
+  position: relative;
+  flex: none;
+  width: 96px;
+  height: 96px;
+  border-radius: 10px;
+  background: rgba(123, 63, 160, 0.18);
+}
+
+/* The Pawn sheet is 6 frames by 6 rows; row 0 is idle. */
+.librarian-sprite {
+  position: absolute;
+  /* The figure fills about a third of its frame: draw the frame larger than the desk. */
+  inset: -44px -50px;
+  pointer-events: none;
+  background: url('/assets/tiny-swords/units/Pawn_Purple.png') 0 0 / 600% 600% no-repeat;
+  image-rendering: pixelated;
+}
+
+.desk-away .librarian-sprite {
+  filter: grayscale(1) brightness(0.6);
+}
+
+.sprite-working {
+  animation: librarian-idle 0.66s steps(6) infinite;
+}
+
+@keyframes librarian-idle {
+  to {
+    background-position-x: 120%;
+  }
+}
+
+.desk-icon {
+  position: absolute;
+  top: -8px;
+  right: -10px;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 2px solid;
+  font:
+    800 13px system-ui,
+    sans-serif;
+}
+
+.icon-alert {
+  background: #d93a3a;
+  border-color: #4a0b0b;
+  color: #fff;
+}
+
+.icon-sleep {
+  background: rgba(236, 240, 250, 0.92);
+  border-color: #3a4256;
+  color: #3a4256;
+}
+
+.icon-work {
+  background: #e6d6f4;
+  border-color: #4b2466;
+}
+
+.desk-state {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--muted);
+}
+
+.desk-state.state-working {
+  background: #4b2466;
+  color: #f1e6fa;
+}
+
+.desk-state.state-needs_you {
+  background: #d93a3a;
+  color: #fff;
+}
+
+.library-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 14px;
+}
+
+.library-card {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+.library-card h3 {
+  margin: 0 0 8px;
+}
+
+.library-waiting {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.library-waiting strong {
+  color: var(--accent);
+  font-size: 26px;
 }

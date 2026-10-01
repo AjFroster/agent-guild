@@ -73,6 +73,23 @@ export function usePanelTab(): [PanelTab, (t: PanelTab) => void] {
   return [tab, open];
 }
 
+/** Which page is open: the village, or the Library (`?page=library`). */
+export type Page = 'village' | 'library';
+
+export function usePage(): [Page, (p: Page) => void] {
+  const [page, setPage] = useState<Page>(() =>
+    new URLSearchParams(window.location.search).get('page') === 'library' ? 'library' : 'village',
+  );
+  const open = useCallback((p: Page) => {
+    setPage(p);
+    const url = new URL(window.location.href);
+    if (p === 'library') url.searchParams.set('page', 'library');
+    else url.searchParams.delete('page');
+    window.history.replaceState(null, '', url);
+  }, []);
+  return [page, open];
+}
+
 /** A drawer over the map: a chat, a Town Crier report, the new-session form, or crowning a King. */
 export type Drawer =
   { kind: 'chat'; id: string } | { kind: 'report'; date: string } | { kind: 'new' } | { kind: 'king' };

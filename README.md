@@ -108,14 +108,20 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
   ends says so in the roster and on its panel. Folders are checked once a minute.
 - **The Library and the Skills tab.** Two librarians keep an Archive of skills. Once a day
   (when you turn them on in the Skills tab; they start off, since each run uses your
-  Claude usage) the **Scout** searches GitHub for new, well-starred skills and pins each to
-  a commit, and the **Reviewer** reads every file of each one at that commit, compares it
+  Claude usage) the **Scout** searches GitHub for new skills from repositories with at
+  least 5,000 stars (change the threshold in the Skills tab; the Archive refuses anything
+  below it) and pins each to a commit, and the **Reviewer** reads every file of each one at that commit, compares it
   with the skills you have, and gives a verdict: fills a gap, better than what you have,
   duplicate, or risky (with the risks it found). They treat everything in a repository as
   untrusted and can install nothing. You decide in the **Skills** tab beside the Guild:
   **Approve & install** copies exactly the reviewed commit of that skill's folder into
   `~/.claude/skills` (never over an existing skill, never a symbolic link), where every
   Knight can use it. The King checks the Archive when he plans orders.
+- **The Library page.** The librarians work inside the Library, so the map shows them as
+  signs over its roof: an open book while one works, "zzz" while it rests, a red "!" when
+  it needs you, and a gold count on the door of skills waiting for your review. Click the
+  Library to open its page: each librarian at its desk with what it is doing, their
+  schedule and threshold, Run now, the Archive's counts and the librarians' notes.
 - **What a Knight is working on** (its quest in progress) shows under its name on the map
   and in its panel. A **Talk** button sits beside the Knight you select, and beside any
   Knight waiting on you (in red): one tap opens its chat.

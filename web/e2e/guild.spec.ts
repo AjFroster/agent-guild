@@ -116,6 +116,23 @@ test('loose ends list unpushed work, from sessions that left too', async ({ page
   expect(errors).toEqual([]);
 });
 
+test('the librarians work inside the Library, and its signs show what each is doing', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=library&t=20');
+  // On the map: a book over the roof for the Scout at work, "zzz" for the resting Reviewer.
+  await capture(page, '15-library-signs');
+  await page.getByTestId('open-library').click();
+  const library = page.getByTestId('library-page');
+  await expect(library.getByTestId('desk-Scout')).toHaveAttribute('data-state', 'working');
+  await expect(library.getByTestId('desk-Scout-doing')).toHaveText('Searching the web…');
+  await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
+  await expect(library.getByTestId('desk-Reviewer-doing')).toContainText('last: writing a review');
+  await page.screenshot({ path: `${SHOTS}/16-library-page.png`, animations: 'disabled' });
+  await library.getByTestId('library-back').click();
+  await expect(page.getByTestId('village')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('a kingdom: the King, Knights in their colours, and parties following them', async ({ page }) => {
   const errors = watchForErrors(page);
   await page.goto('/?demo=kingdom&t=20');
