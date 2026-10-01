@@ -59,14 +59,16 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 
 ## How it maps
 
-| Claude Code                                             | Guild                                |
-| ------------------------------------------------------- | ------------------------------------ |
-| Session                                                 | Hero, named after its project folder |
-| Sub-agent                                               | Party member                         |
-| Read/Grep/Glob · Edit/Write · Bash · WebFetch/WebSearch | Library · Forge · Arena · Tower      |
-| TodoWrite items                                         | Quests; each finished quest is 50 XP |
-| Finished turn                                           | 10 XP, back to the Guildhall         |
-| AskUserQuestion                                         | "Needs you" beacon                   |
+| Claude Code                                             | Guild                                  |
+| ------------------------------------------------------- | -------------------------------------- |
+| Session                                                 | Knight, named after its project folder |
+| The session you crown                                   | King, who commands the Knights         |
+| Sub-agent that edits or runs commands                   | Footsoldier, following its Knight      |
+| Sub-agent that only reads and searches                  | Worker, following its leader           |
+| Read/Grep/Glob · Edit/Write · Bash · WebFetch/WebSearch | Library · Forge · Arena · Tower        |
+| TodoWrite items                                         | Quests; each finished quest is 50 XP   |
+| Finished turn                                           | 10 XP, back to the Guildhall           |
+| AskUserQuestion                                         | "Needs you" beacon                     |
 
 ## Using it
 

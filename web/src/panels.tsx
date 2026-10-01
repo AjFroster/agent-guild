@@ -10,6 +10,7 @@ import {
   hasLooseEnds,
   looseEnds,
   partyTokens,
+  rankOf,
   roster,
   toolsFor,
   totalTokens,
@@ -17,7 +18,7 @@ import {
 import type { ReactNode } from 'react';
 
 import { compact, duration, gitSummary } from './format.ts';
-import { BUILDINGS, type Selection } from './village.ts';
+import { BUILDINGS, RANK_LABEL, type Selection, TEAM_CSS, heroTeams } from './village.ts';
 
 /** Side panels: the guild overview, one hero, or one building. */
 
@@ -54,6 +55,23 @@ export function ago(seconds: number): string {
 }
 
 type Select = (s: Selection | null) => void;
+
+/** What each rank means, for the hero panel. */
+const RANK_ABOUT: Record<ReturnType<typeof rankOf>, string> = {
+  king: 'Talks to you and commands the Knights. Does no work with its own hands.',
+  knight: 'A Claude Code session: takes a task and leads a party to finish it.',
+  footsoldier: 'A sub-agent that changes things: it has edited files or run commands.',
+  worker: 'A sub-agent that so far only reads and searches, gathering what its leader needs.',
+};
+
+/** A dot in the hero's team colour, matching its unit on the map. */
+function TeamDot({ state, hero }: { state: GuildState; hero: Hero }) {
+  const team = heroTeams(state).get(hero.id);
+  if (!team) return null;
+  return (
+    <span className="team-dot" style={{ background: TEAM_CSS[team] }} title={`${team} team`} aria-hidden />
+  );
+}
 
 function HeroButton({ hero, onSelect }: { hero: Hero; onSelect: Select }) {
   return (
@@ -133,7 +151,9 @@ export function GuildPanel({
                 aria-label={`Open ${hero.name}`}
               >
                 <span className="hero-head">
+                  <TeamDot state={state} hero={hero} />
                   <strong>{hero.name}</strong>
+                  {rankOf(hero) !== 'knight' && <span className="rank">{RANK_LABEL[rankOf(hero)]}</span>}
                   <span className="level">Lv {hero.level}</span>
                   <span className={`status status-${hero.status}`}>{STATUS_LABEL[hero.status]}</span>
                 </span>
@@ -240,10 +260,14 @@ export function HeroPanel({
     <section data-testid="panel-hero" aria-label={`${hero.name} details`}>
       <BackButton onSelect={onSelect} />
       <header className="detail-head">
+        <TeamDot state={state} hero={hero} />
         <h2>{hero.name}</h2>
         <span className="level">Lv {hero.level}</span>
         <span className={`status status-${hero.status}`}>{STATUS_LABEL[hero.status]}</span>
       </header>
+      <p className="rank-line" data-testid="hero-rank">
+        <strong>{RANK_LABEL[rankOf(hero)]}</strong> · {RANK_ABOUT[rankOf(hero)]}
+      </p>
       <p className="doing">
         {hero.status === 'needs_you' ? 'Waiting for your answer' : DOING[hero.location]}
       </p>

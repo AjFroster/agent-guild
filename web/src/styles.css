@@ -109,6 +109,31 @@ a {
   gap: 10px;
 }
 
+.team-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  align-self: center;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.rank {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rank-line {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.rank-line strong {
+  color: var(--ink);
+}
+
 .level {
   color: var(--accent);
   font-weight: 700;
