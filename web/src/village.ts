@@ -550,7 +550,8 @@ function drawUnit(
 
   if (rank === 'king') crown(ctx, x, y - 56 * k);
   // Beside the head rather than above it, where it would cover the building name.
-  if (hero.status === 'needs_you') bubble(ctx, x + 30 * k, y - 30 * k);
+  const mark = bubbleFor(hero);
+  if (mark) bubble(ctx, x + 30 * k, y - 30 * k, mark, k, nowMs);
 
   const fg = hero.status === 'needs_you' ? '#ffcc33' : '#f1efe6';
   if (rank === 'king')
@@ -620,27 +621,61 @@ function outline(
   ctx.stroke();
 }
 
-/** A "!" speech bubble over a hero that is waiting on the user. */
-function bubble(ctx: CanvasRenderingContext2D, x: number, top: number): void {
-  const w = 26;
-  const h = 26;
+/**
+ * The bubble over a hero: a red "!" when it is waiting on the user (a question or a
+ * decision), "zzz" when it has finished its turn and is resting. Working heroes get none.
+ */
+export function bubbleFor(hero: Hero): 'alert' | 'sleep' | null {
+  if (hero.status === 'needs_you') return 'alert';
+  if (hero.status === 'idle') return 'sleep';
+  return null;
+}
+
+function bubble(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  top: number,
+  kind: 'alert' | 'sleep',
+  k: number,
+  nowMs: number,
+): void {
+  const s = Math.max(0.75, k);
+  const w = (kind === 'alert' ? 26 : 34) * s;
+  const h = 26 * s;
+  // A sleeper's bubble bobs gently; demo mode's clock is frozen, so it holds still there.
+  const bob = kind === 'sleep' ? Math.sin(nowMs / 600) * 2 : 0;
   const bx = x - w / 2;
-  const by = top - h - 8;
-  ctx.fillStyle = '#ffcc33';
-  ctx.strokeStyle = '#2b2000';
+  const by = top - h - 8 * s + bob;
+  ctx.save();
+  ctx.fillStyle = kind === 'alert' ? '#d93a3a' : 'rgba(236, 240, 250, 0.92)';
+  ctx.strokeStyle = kind === 'alert' ? '#4a0b0b' : '#3a4256';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.roundRect(bx, by, w, h, 6);
-  ctx.moveTo(x - 5, by + h);
-  ctx.lineTo(x, by + h + 7);
-  ctx.lineTo(x + 5, by + h);
+  ctx.roundRect(bx, by, w, h, 7 * s);
+  ctx.moveTo(x - 5 * s, by + h);
+  ctx.lineTo(x - 2 * s, by + h + 7 * s);
+  ctx.lineTo(x + 3 * s, by + h);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = '#2b2000';
-  ctx.font = '800 18px system-ui, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('!', x, by + h / 2 + 1);
+  if (kind === 'alert') {
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${Math.round(18 * s)}px system-ui, sans-serif`;
+    ctx.fillText('!', x, by + h / 2 + 1);
+  } else {
+    // Three z's, each a little bigger and higher, the way sleep is drawn in comics.
+    ctx.fillStyle = '#3a4256';
+    [
+      [-9, 4, 9],
+      [0, 1, 11],
+      [9, -3, 13],
+    ].forEach(([dx, dy, size]) => {
+      ctx.font = `800 ${Math.round(size! * s)}px system-ui, sans-serif`;
+      ctx.fillText('z', x + dx! * s, by + h / 2 + dy! * s);
+    });
+  }
+  ctx.restore();
 }
 
 function label(
