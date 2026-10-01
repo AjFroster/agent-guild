@@ -88,6 +88,12 @@
     "name": "Tristan"
   },
   {
+    "t": 3.2,
+    "session": "s-bors",
+    "type": "session_start",
+    "name": "Bors"
+  },
+  {
     "t": 3.5,
     "session": "s-perc-1",
     "type": "tool",
@@ -192,6 +198,11 @@
     "type": "subagent_start",
     "parent": "s-lan",
     "name": "Reader"
+  },
+  {
+    "t": 10,
+    "session": "s-bors",
+    "type": "stop"
   },
   {
     "t": 10.5,
@@ -299,5 +310,10 @@
     "output": 2900,
     "cacheRead": 20000,
     "cacheWrite": 1200
+  },
+  {
+    "t": 18.5,
+    "session": "s-bors",
+    "type": "commanded"
   }
 ]

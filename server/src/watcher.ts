@@ -176,6 +176,8 @@ export class TranscriptWatcher {
     }
     for (const line of parsed) {
       for (const e of eventsFromLine(line, { session: tracked.session, usage: tracked.usage })) {
+        // A sub-agent's prompt comes from its Knight, not from the user or the King.
+        if (e.type === 'ordered' && tracked.isSubagent) continue;
         if (e.type === 'meta') {
           // Every assistant line carries these; forward only a change.
           const key = `${e.model ?? ''}\n${e.branch ?? ''}`;

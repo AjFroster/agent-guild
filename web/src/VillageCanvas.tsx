@@ -17,6 +17,9 @@ import {
   walkerPosition,
 } from './village.ts';
 
+/** The live guild's clock, in epoch seconds like event times. Demo mode passes its own. */
+const wallClock = () => Date.now() / 1000;
+
 /** Loaded once per page; every Village shares the same images. */
 let spritesPromise: Promise<Sprites> | null = null;
 const getSprites = () => (spritesPromise ??= loadSprites());
@@ -35,9 +38,11 @@ interface Props {
    */
   onTalk?: ((id: string) => void) | undefined;
   canTalk?: ((hero: Hero) => boolean) | undefined;
+  /** Demo mode's frozen moment (epoch seconds of the replay); live mode reads the clock. */
+  clock?: number | undefined;
 }
 
-export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTalk, canTalk }: Props) {
+export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTalk, canTalk, clock }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [sprites, setSprites] = useState<Sprites | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +50,7 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
 
   // The animation loop reads these through refs so it never restarts on a state change.
   const stateRef = useRef(state);
-  const viewRef = useRef<VillageView>({ selected, hovered });
+  const viewRef = useRef<VillageView>({ selected, hovered, clock });
   /** Heroes walking to a new building, keyed by hero id (live mode only). */
   const walkers = useRef(new Map<string, Walker>());
   /** Where each hero was last drawn, so a walk starts from there. */
@@ -56,9 +61,9 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
 
   useEffect(() => {
     stateRef.current = state;
-    viewRef.current = { selected, hovered };
+    viewRef.current = { selected, hovered, clock: animate ? wallClock() : clock };
     redraw.current();
-  }, [state, selected, hovered]);
+  }, [state, selected, hovered, clock, animate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,11 +76,13 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
     };
   }, []);
 
-  // When a hero's target moves, start a walk from wherever it is drawn now.
-  useEffect(() => {
-    if (!animate) return;
-    const now = performance.now();
-    for (const [id, to] of heroPositions(state)) {
+  /**
+   * When a hero's target moves, start a walk from wherever it is drawn now (live mode). Run
+   * on every state change and every frame: a place can change with time alone, as when a
+   * Knight's audience before the throne ends and it leaves for work.
+   */
+  const retarget = useRef((now: number) => {
+    for (const [id, to] of heroPositions(stateRef.current, wallClock())) {
       const from = shown.current.get(id);
       const current = walkers.current.get(id);
       if (!from) {
@@ -86,6 +93,10 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
       if (!current && from.x === to.x && from.y === to.y) continue;
       walkers.current.set(id, { fromX: from.x, fromY: from.y, toX: to.x, toY: to.y, startMs: now });
     }
+  });
+
+  useEffect(() => {
+    if (animate) retarget.current(performance.now());
   }, [state, animate]);
 
   useEffect(() => {
@@ -110,6 +121,8 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
     let frame = 0;
     const tick = (now: number) => {
       lastNow.current = now;
+      retarget.current(now);
+      viewRef.current = { ...viewRef.current, clock: wallClock() };
       for (const [id, w] of walkers.current) {
         const pos = walkerPosition(w, now);
         shown.current.set(id, { x: pos.x, y: pos.y });
@@ -127,7 +140,7 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * VILLAGE_WIDTH;
     const y = ((e.clientY - rect.top) / rect.height) * VILLAGE_HEIGHT;
-    return hitTest(stateRef.current, walkers.current, lastNow.current, x, y);
+    return hitTest(stateRef.current, walkers.current, lastNow.current, x, y, viewRef.current.clock);
   };
 
   // The canvas is decoration for sighted users; this sentence carries the same facts, and
@@ -139,7 +152,8 @@ export function VillageCanvas({ state, heroes, animate, selected, onSelect, onTa
 
   if (error) return <p role="alert">The village art did not load: {error}</p>;
 
-  const positions = onTalk ? heroPositions(state) : null;
+  // Live mode passes no clock here, so a Knight's button waits for it at its post.
+  const positions = onTalk ? heroPositions(state, clock) : null;
   const talkable = onTalk
     ? heroes.filter(
         (h) =>

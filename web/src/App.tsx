@@ -234,6 +234,7 @@ function Guild({
           onSelect={select}
           onTalk={control ? (id) => openDrawer({ kind: 'chat', id }) : undefined}
           canTalk={(h) => h.parentId === null && SESSION_ID.test(h.id)}
+          clock={live === undefined ? now : undefined}
         />
         {showHint && <Hint onDismiss={dismissHint} />}
       </div>
