@@ -2,12 +2,14 @@ import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import type { GuildEvent } from '@agent-guild/core';
+import { type GuildEvent, replay } from '@agent-guild/core';
 
-import { registerChatRoutes } from './chatRoutes.ts';
+import { registerChatRoutes, sessionOpener } from './chatRoutes.ts';
 import { GitWatcher } from './git.ts';
 import { ChatManager } from './chats.ts';
 import { TownCrier } from './crier.ts';
+import { Court } from './king.ts';
+import { registerKingRoutes } from './kingRoutes.ts';
 import { createServer } from './server.ts';
 import { loadToken } from './token.ts';
 import { TranscriptWatcher } from './watcher.ts';
@@ -53,12 +55,39 @@ const chats = new ChatManager({
 });
 const crier = new TownCrier({ dir: dataDir, chats, onChange: () => announce('crier', crier.config) });
 let publishEvents: (events: GuildEvent[]) => void = () => {};
+let guildEvents: () => readonly GuildEvent[] = () => [];
+// Filled in once the court exists: the King's session gets a crown as it walks in.
+let kingId: () => string | null = () => null;
+const crowned = (events: GuildEvent[]): GuildEvent[] =>
+  events.flatMap((e) =>
+    e.type === 'session_start' && e.session === kingId()
+      ? [e, { t: e.t, session: e.session, type: 'crown' }]
+      : [e],
+  );
 const watcher = new TranscriptWatcher({
   root,
   maxAgeMs: maxAgeHours * 3_600_000,
   idleMs: idleMinutes * 60_000,
-  onEvents: (e) => publishEvents(e),
+  onEvents: (e) => publishEvents(crowned(e)),
 });
+
+const open = sessionOpener(
+  chats,
+  (id) => watcher.sessionOf(id),
+  (id) => (id === court.kingId ? court.extras() : undefined),
+);
+const court = new Court({
+  dir: dataDir,
+  chats,
+  state: () => replay(guildEvents()),
+  sessionOf: (id) => watcher.sessionOf(id),
+  lastWrite: (id) => watcher.lastWrite(id),
+  open,
+  guildUrl: `http://127.0.0.1:${port}`,
+  token,
+  onChange: () => announce('king', { id: court.kingId, commanded: [...court.commanded] }),
+});
+kingId = () => court.kingId;
 
 // Unpushed commits and uncommitted files in the folders sessions ran in: counts only.
 const git =
@@ -72,27 +101,34 @@ const server = createServer({
   webDir,
   ...(controlOn
     ? {
-        control: (scope, isToken) =>
-          registerChatRoutes(scope, {
+        control: async (scope, isToken) => {
+          await registerChatRoutes(scope, {
             isToken,
             chats,
             crier,
             sessionOf: (id) => watcher.sessionOf(id),
             projects: () => watcher.projects(),
-          }),
+            extrasFor: (id) => (id === court.kingId ? court.extras() : undefined),
+          });
+          await registerKingRoutes(scope, { isToken, court });
+        },
       }
     : {}),
 });
 publishEvents = server.publish;
 announce = server.announce;
+guildEvents = server.events;
 announce('control', { enabled: controlOn, allowBypass: controlOn && allowBypass });
 
 await server.app.listen({ host: '127.0.0.1', port });
+// Before the first scan, so the King's session gets its crown as it is read in.
+if (controlOn) await court.load();
 watcher.start();
 git?.start();
 if (controlOn) {
   await crier.load();
   crier.start();
+  announce('king', { id: court.kingId, commanded: [] });
 }
 
 console.log(`Agent Guild is watching ${root}`);

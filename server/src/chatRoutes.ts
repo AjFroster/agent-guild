@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { itemsFromTranscript } from '@agent-guild/core';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { type ChatManager, type ChatMode, ChatError } from './chats.ts';
+import { type ChatManager, type ChatMode, ChatError, type SessionExtras } from './chats.ts';
 import { type TownCrier, nextRun } from './crier.ts';
 
 /**
@@ -21,6 +21,41 @@ export interface ChatRouteOptions {
   /** Where a session runs and where its transcript is, from the watcher. */
   sessionOf: (id: string) => { cwd: string | null; file: string; name: string | null } | null;
   projects: () => string[];
+  /** Options a special session (the King) keeps when it is opened again. */
+  extrasFor?: (id: string) => SessionExtras | undefined;
+}
+
+export type SessionOf = ChatRouteOptions['sessionOf'];
+
+/**
+ * Make a session known to the chat manager, loading its history from its transcript.
+ * Shared with the King's routes, which open Knights the same way.
+ */
+export function sessionOpener(
+  chats: ChatManager,
+  sessionOf: SessionOf,
+  extrasFor: (id: string) => SessionExtras | undefined = () => undefined,
+) {
+  return async (id: string) => {
+    const known = chats.get(id);
+    if (known) return known;
+    if (!UUID.test(id)) throw new ChatError(400, 'Not a session id.');
+    const session = sessionOf(id);
+    if (!session?.cwd)
+      throw new ChatError(404, 'The guild does not know this session or the folder it ran in.');
+    const lines = (await readFile(session.file, 'utf8'))
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((l) => {
+        try {
+          return JSON.parse(l) as unknown;
+        } catch {
+          return null;
+        }
+      });
+    await chats.adopt(id, session.cwd, session.name ?? 'Session', itemsFromTranscript(lines), extrasFor(id));
+    return chats.get(id)!;
+  };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,27 +76,7 @@ export async function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOp
     throw err;
   };
 
-  /** Make a session known to the chat manager, loading its history from disk. */
-  const open = async (id: string) => {
-    const known = chats.get(id);
-    if (known) return known;
-    if (!UUID.test(id)) throw new ChatError(400, 'Not a session id.');
-    const session = opts.sessionOf(id);
-    if (!session?.cwd)
-      throw new ChatError(404, 'The guild does not know this session or the folder it ran in.');
-    const lines = (await readFile(session.file, 'utf8'))
-      .split('\n')
-      .filter((l) => l.trim())
-      .map((l) => {
-        try {
-          return JSON.parse(l) as unknown;
-        } catch {
-          return null;
-        }
-      });
-    await chats.adopt(id, session.cwd, session.name ?? 'Session', itemsFromTranscript(lines));
-    return chats.get(id)!;
-  };
+  const open = sessionOpener(chats, opts.sessionOf, opts.extrasFor);
 
   const crierStatus = async () => ({
     config: crier.config,
