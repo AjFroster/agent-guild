@@ -8,6 +8,8 @@ import {
   ROWS,
   bedPlaces,
   bubbleFor,
+  isFighting,
+  swingFrame,
   shorten,
   THRONE,
   VILLAGE_HEIGHT,
@@ -253,5 +255,31 @@ describe('shorten', () => {
     expect(shorten('Add tests', 28)).toBe('Add tests');
     expect(shorten('Build the standings page with filters by season', 28)).toBe('Build the standings page…');
     expect(shorten('Supercalifragilisticexpialidocious', 10)).toBe('Supercali…');
+  });
+});
+
+describe('the training yard', () => {
+  const state = replay([
+    { t: 0, session: 'w', type: 'session_start', name: 'W' },
+    { t: 1, session: 'w', type: 'tool', tool: 'Edit' },
+    { t: 0, session: 'q', type: 'session_start', name: 'Q' },
+    { t: 1, session: 'q', type: 'needs_input' },
+    { t: 0, session: 'k', type: 'session_start', name: 'K' },
+    { t: 0, session: 'k', type: 'crown' },
+    { t: 1, session: 'k', type: 'tool', tool: 'Read' },
+  ]);
+
+  it('sets a hero fighting only while it works and stands still, and never the King', () => {
+    expect(isFighting(state.heroes.w!, false)).toBe(true);
+    expect(isFighting(state.heroes.w!, true)).toBe(false); // still walking to its post
+    expect(isFighting(state.heroes.q!, false)).toBe(false); // waiting on the user
+    expect(isFighting(state.heroes.k!, false)).toBe(false);
+  });
+
+  it('runs each swing through all six frames, out of step between heroes', () => {
+    const frames = Array.from({ length: 6 }, (_, i) => swingFrame('hero-a', i * 105));
+    expect(new Set(frames).size).toBe(6);
+    const starts = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((id) => swingFrame(id, 0));
+    expect(new Set(starts).size).toBeGreaterThan(1);
   });
 });
