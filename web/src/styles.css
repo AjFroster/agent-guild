@@ -874,3 +874,122 @@ kbd {
   background: linear-gradient(#ffd75e, #e0a91c);
   color: #2b2000;
 }
+
+/* Side-panel tabs: the guild, and the skills waiting for review. */
+.panel-tabs {
+  display: flex;
+  gap: 6px;
+  margin: -4px 0 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.panel-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  font:
+    600 14px system-ui,
+    sans-serif;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.panel-tab[aria-selected='true'] {
+  color: var(--ink);
+  border-color: var(--line);
+  background: rgba(241, 239, 230, 0.06);
+}
+
+.tab-badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #d93a3a;
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.skill-cards > li {
+  margin-bottom: 12px;
+}
+
+.skill-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  line-height: 1.45;
+}
+
+.skill-head a {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.verdict {
+  display: inline-block;
+  margin: 6px 0 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.verdict-good {
+  background: rgba(76, 175, 80, 0.2);
+  color: #8fd694;
+}
+
+.verdict-plain {
+  background: rgba(241, 239, 230, 0.1);
+  color: var(--muted);
+}
+
+.verdict-bad {
+  background: rgba(217, 58, 58, 0.22);
+  color: #ff9a8f;
+}
+
+.risks {
+  margin: 4px 0;
+  padding-left: 18px;
+  color: #ff9a8f;
+}
+
+.skill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.skills-installed summary {
+  cursor: pointer;
+}
+
+.skills-installed summary h3 {
+  display: inline;
+}
+
+.archive li,
+.notes li {
+  margin-bottom: 8px;
+}
+
+.archive-status {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.archive-status.status-installed {
+  color: #8fd694;
+}
+
+.archive-status.status-reviewed {
+  color: var(--accent);
+}

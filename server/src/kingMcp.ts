@@ -114,6 +114,13 @@ export const TOOLS: Tool[] = [
       ),
   },
   {
+    name: 'consult_archive',
+    description:
+      "What the librarians' Archive knows: the skills installed for every Knight (with what each is for), those the user installed recently on the librarians' advice, and the librarians' latest notes. Use it to name a fitting skill in an order.",
+    inputSchema: { type: 'object', properties: {} },
+    run: async (_, call) => text(await call('GET', '/api/king/archive')),
+  },
+  {
     name: 'halt_knight',
     description: "Stop a Knight's current turn. Its session is kept and can be given new orders.",
     inputSchema: { type: 'object', properties: { knight: knightArg }, required: ['knight'] },
@@ -121,6 +128,114 @@ export const TOOLS: Tool[] = [
       text(await call('POST', `/api/king/knights/${encodeURIComponent(String(args.knight))}/halt`)),
   },
 ];
+
+// ------------------------------------------------------------------ the librarians
+
+const listInstalled: Tool = {
+  name: 'list_installed_skills',
+  description:
+    "The skills the user already has: each one's name, description and source. Compare new skills against these.",
+  inputSchema: { type: 'object', properties: {} },
+  run: async (_, call) => text(await call('GET', '/api/library/installed')),
+};
+
+const writeNote: Tool = {
+  name: 'write_note',
+  description:
+    'Leave a short note in the Archive for the user and the King: what you did this run, in a sentence or two.',
+  inputSchema: {
+    type: 'object',
+    properties: { text: { type: 'string', description: 'The note, under 300 characters.' } },
+    required: ['text'],
+  },
+  run: async (args, call) =>
+    text(await call('POST', '/api/library/notes', { by: String(args.by ?? ''), text: args.text })),
+};
+
+/** The Scout: finds skills, records them as candidates. Cannot review or install. */
+export const SCOUT_TOOLS: Tool[] = [
+  listInstalled,
+  {
+    name: 'list_archive',
+    description:
+      'Every skill already in the Archive (any status), so you do not add one twice at the same commit.',
+    inputSchema: { type: 'object', properties: {} },
+    run: async (_, call) => text(await call('GET', '/api/library/archive')),
+  },
+  {
+    name: 'add_candidate',
+    description:
+      "Add a skill you found to the Archive for the Reviewer. Pin it to the default branch's latest commit: the full 40-character hash.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: "The skill's name from its SKILL.md: lowercase, digits, hyphens.",
+        },
+        repo: { type: 'string', description: 'The GitHub repository, "owner/name".' },
+        path: {
+          type: 'string',
+          description: 'The folder holding SKILL.md inside the repository ("" for the root).',
+        },
+        commit: { type: 'string', description: 'The full 40-character commit hash it was found at.' },
+        stars: { type: 'integer', description: "The repository's stars." },
+        description: { type: 'string', description: "The skill's description from its SKILL.md." },
+      },
+      required: ['name', 'repo', 'path', 'commit', 'stars'],
+    },
+    run: async (args, call) => text(await call('POST', '/api/library/candidates', args)),
+  },
+  writeNote,
+];
+
+/** The Reviewer: judges the Scout's candidates. Cannot add candidates or install. */
+export const REVIEWER_TOOLS: Tool[] = [
+  listInstalled,
+  {
+    name: 'list_candidates',
+    description: 'The skills waiting for review, each with its id, repository, folder and pinned commit.',
+    inputSchema: { type: 'object', properties: {} },
+    run: async (_, call) => text(await call('GET', '/api/library/candidates')),
+  },
+  {
+    name: 'record_review',
+    description: 'Record your verdict on one candidate. The user decides what to install from these.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: "The candidate's id from list_candidates." },
+        verdict: {
+          type: 'string',
+          enum: ['gap', 'better', 'duplicate', 'risky'],
+          description:
+            'gap: does something no installed skill does. better: does what an installed skill does, clearly better. duplicate: nothing new. risky: anything unsafe found, whatever else it offers.',
+        },
+        reason: { type: 'string', description: 'Why, in one to three sentences.' },
+        overlaps: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Installed skills it overlaps, by name.',
+        },
+        risks: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Each risk found, concretely, with the file.',
+        },
+      },
+      required: ['id', 'verdict', 'reason'],
+    },
+    run: async (args, call) => text(await call('POST', '/api/library/reviews', args)),
+  },
+  writeNote,
+];
+
+const TOOLSETS: Record<string, Tool[]> = { king: TOOLS, scout: SCOUT_TOOLS, reviewer: REVIEWER_TOOLS };
+const ROLE_NAME: Record<string, string> = {
+  king: 'King',
+  scout: 'Scout Librarian',
+  reviewer: 'Reviewing Librarian',
+};
 
 type Rpc = {
   jsonrpc?: string;
@@ -130,7 +245,11 @@ type Rpc = {
 };
 
 /** Answer one JSON-RPC message; null for notifications, which get no answer. */
-export async function handle(message: Rpc, call: GuildCall): Promise<Record<string, unknown> | null> {
+export async function handle(
+  message: Rpc,
+  call: GuildCall,
+  tools: Tool[] = TOOLS,
+): Promise<Record<string, unknown> | null> {
   const id = message.id;
   if (id === undefined || id === null) return null;
   const reply = (result: unknown) => ({ jsonrpc: '2.0', id, result });
@@ -145,10 +264,10 @@ export async function handle(message: Rpc, call: GuildCall): Promise<Record<stri
       return reply({});
     case 'tools/list':
       return reply({
-        tools: TOOLS.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
+        tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
       });
     case 'tools/call': {
-      const tool = TOOLS.find((t) => t.name === message.params?.name);
+      const tool = tools.find((t) => t.name === message.params?.name);
       if (!tool)
         return {
           jsonrpc: '2.0',
@@ -196,7 +315,20 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.stderr.write('guild MCP: GUILD_URL and GUILD_TOKEN must be set\n');
     process.exit(1);
   }
-  const call = guildClient(url, token);
+  const role = process.env.GUILD_ROLE ?? 'king';
+  const tools = TOOLSETS[role];
+  if (!tools) {
+    process.stderr.write(`guild MCP: unknown GUILD_ROLE "${role}"\n`);
+    process.exit(1);
+  }
+  const base = guildClient(url, token);
+  // A note says who wrote it: the librarian's role, filled in here, not by the model.
+  const call: GuildCall = (method, path, body) =>
+    base(
+      method,
+      path,
+      path === '/api/library/notes' && body ? { ...(body as object), by: ROLE_NAME[role] } : body,
+    );
   createInterface({ input: process.stdin }).on('line', (line) => {
     let message: Rpc;
     try {
@@ -204,7 +336,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     } catch {
       return;
     }
-    void handle(message, call).then((answer) => {
+    void handle(message, call, tools).then((answer) => {
       if (answer) process.stdout.write(JSON.stringify(answer) + '\n');
     });
   });

@@ -44,7 +44,10 @@ export function localDate(d: Date): string {
 }
 
 /** Due when enabled, not yet run today, and the scheduled time has passed. */
-export function isDue(config: CrierConfig, now: Date): boolean {
+/** The part of a daily schedule that says when it runs: the Town Crier's and the librarians'. */
+export type Schedule = Pick<CrierConfig, 'enabled' | 'time' | 'lastRunDate'>;
+
+export function isDue(config: Schedule, now: Date): boolean {
   const m = TIME.exec(config.time);
   if (!config.enabled || !m) return false;
   if (config.lastRunDate === localDate(now)) return false;
@@ -52,7 +55,7 @@ export function isDue(config: CrierConfig, now: Date): boolean {
 }
 
 /** The next time it will run, for showing in the UI. */
-export function nextRun(config: CrierConfig, now: Date): Date | null {
+export function nextRun(config: Schedule, now: Date): Date | null {
   const m = TIME.exec(config.time);
   if (!config.enabled || !m) return null;
   const at = new Date(now);

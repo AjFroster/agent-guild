@@ -42,6 +42,51 @@ export interface CrierStatus {
   reports: { date: string; bytes: number }[];
 }
 
+export type Verdict = 'gap' | 'better' | 'duplicate' | 'risky';
+export type EntryStatus = 'candidate' | 'reviewed' | 'installed' | 'dismissed';
+
+export interface ArchiveEntry {
+  id: string;
+  name: string;
+  repo: string;
+  path: string;
+  commit: string;
+  stars: number;
+  description: string;
+  foundAt: number;
+  review: {
+    verdict: Verdict;
+    reason: string;
+    overlaps: string[];
+    risks: string[];
+    reviewedAt: number;
+  } | null;
+  status: EntryStatus;
+  installedAt: number | null;
+}
+
+export interface InstalledSkill {
+  name: string;
+  description: string;
+  source: 'personal' | 'synced' | 'plugin';
+  path: string;
+}
+
+export interface LibrarySchedule {
+  enabled: boolean;
+  time: string;
+  maxCandidates: number;
+  lastRunDate: string | null;
+}
+
+export interface SkillsStatus {
+  installed: InstalledSkill[];
+  entries: ArchiveEntry[];
+  notes: { at: number; by: string; text: string }[];
+  waiting: number;
+  library?: { config: LibrarySchedule; nextRunAt: number | null; running: boolean };
+}
+
 export interface ChatSnapshot {
   info: ChatInfo;
   items: ChatItem[];
@@ -79,6 +124,13 @@ export function api(token: string) {
     /** Talk to the King; the first message crowns one. */
     speakToKing: (text: string) => call<{ id: string }>('POST', '/api/king/messages', { text }),
     crier: () => call<CrierStatus>('GET', '/api/crier'),
+    skills: () => call<SkillsStatus>('GET', '/api/skills'),
+    dismissSkill: (id: string) => call<ArchiveEntry>('POST', `/api/skills/${encodeURIComponent(id)}/dismiss`),
+    rereviewSkill: (id: string) =>
+      call<ArchiveEntry>('POST', `/api/skills/${encodeURIComponent(id)}/rereview`),
+    installSkill: (id: string) => call<ArchiveEntry>('POST', `/api/skills/${encodeURIComponent(id)}/install`),
+    updateLibrary: (patch: Partial<LibrarySchedule>) => call<SkillsStatus>('PUT', '/api/library', patch),
+    runLibrary: () => call<{ ok: true }>('POST', '/api/library/run'),
     updateCrier: (patch: Partial<CrierConfig>) => call<CrierStatus>('PUT', '/api/crier', patch),
     runCrier: () => call<ChatInfo>('POST', '/api/crier/run'),
     report: (date: string) =>

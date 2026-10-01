@@ -41,6 +41,7 @@ the token in the browser and takes it out of the address bar, so after the first
 | `AGENT_GUILD_ALLOW_BYPASS`  | off                  | `1` offers "skip all permission checks" for new chats          |
 | `AGENT_GUILD_NO_CONTROL`    | off                  | `1` turns chats and the Town Crier off: watch-only             |
 | `AGENT_GUILD_GIT`           | on                   | `0` stops checking session folders for unpushed work           |
+| `CLAUDE_SKILLS_DIR`         | `~/.claude/skills`   | installed skills; approved skills are installed here           |
 
 ### Keep it running (Windows + WSL)
 
@@ -105,6 +106,16 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 - **Loose ends** in the guild panel lists sessions whose folder has commits on no remote
   or uncommitted files, including sessions that have left the guild. A hero with loose
   ends says so in the roster and on its panel. Folders are checked once a minute.
+- **The Library and the Skills tab.** Two librarians keep an Archive of skills. Once a day
+  (when you turn them on in the Skills tab; they start off, since each run uses your
+  Claude usage) the **Scout** searches GitHub for new, well-starred skills and pins each to
+  a commit, and the **Reviewer** reads every file of each one at that commit, compares it
+  with the skills you have, and gives a verdict: fills a gap, better than what you have,
+  duplicate, or risky (with the risks it found). They treat everything in a repository as
+  untrusted and can install nothing. You decide in the **Skills** tab beside the Guild:
+  **Approve & install** copies exactly the reviewed commit of that skill's folder into
+  `~/.claude/skills` (never over an existing skill, never a symbolic link), where every
+  Knight can use it. The King checks the Archive when he plans orders.
 - **What a Knight is working on** (its quest in progress) shows under its name on the map
   and in its panel. A **Talk** button sits beside the Knight you select, and beside any
   Knight waiting on you (in red): one tap opens its chat.

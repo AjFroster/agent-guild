@@ -15,10 +15,16 @@
 //   "raise <Name> in <folder>: <text>" -> raise_knight
 //   anything else                      -> list_knights, replies with their names
 //
+// and the librarians, chosen by their prompt:
+//
+//   the Scout Librarian     -> add_candidate for the test skill in FAKE_SKILL_REPO
+//   the Reviewing Librarian -> record_review ("gap") for every candidate
+//   "consult the archive"   -> (as the King) consult_archive, replies with installed names
+//
 // Never shipped: the server only runs it because the test config points
 // AGENT_GUILD_CLAUDE at it.
 
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
@@ -151,7 +157,38 @@ async function answer(raw) {
         return { refused: answer };
       }
     };
-    if (order) {
+    if (text.includes('You are the Scout Librarian')) {
+      const commit = execFileSync('git', ['--git-dir', process.env.FAKE_SKILL_REPO, 'rev-parse', 'HEAD'])
+        .toString()
+        .trim();
+      await kingTool('list_archive', {});
+      await kingTool('add_candidate', {
+        name: 'csv-wrangler',
+        repo: 'acme-labs/agent-skills',
+        path: 'skills/csv-wrangler',
+        commit,
+        stars: 2140,
+        description: 'Clean, join and summarise CSV files.',
+      });
+      await kingTool('write_note', { text: 'Looked at 12 skills; added csv-wrangler.' });
+      reply = 'Added 1 candidate.';
+    } else if (text.includes('You are the Reviewing Librarian')) {
+      const { candidates } = parse(await kingTool('list_candidates', {}));
+      for (const c of candidates) {
+        await kingTool('record_review', {
+          id: c.id,
+          verdict: 'gap',
+          reason: 'Nothing installed handles plain CSV files.',
+          overlaps: [],
+          risks: [],
+        });
+      }
+      await kingTool('write_note', { text: `Reviewed ${candidates.length}; csv-wrangler fills a gap.` });
+      reply = `Reviewed ${candidates.length}.`;
+    } else if (text.includes('consult the archive')) {
+      const result = parse(await kingTool('consult_archive', {}));
+      reply = `Installed skills: ${result.installed.map((s) => s.name).join(', ')}.`;
+    } else if (order) {
       const result = parse(
         await kingTool('command_knight', { knight: order[1], order: order[2], wait_seconds: 30 }),
       );

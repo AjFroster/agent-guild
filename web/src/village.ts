@@ -155,13 +155,20 @@ export function hslToRgb(h: number, s: number, l: number): [number, number, numb
 }
 
 /** How big each rank is drawn, against the Knight's size. */
-export const RANK_SCALE: Record<Rank, number> = { king: 1.3, knight: 1, footsoldier: 0.76, worker: 0.66 };
+export const RANK_SCALE: Record<Rank, number> = {
+  king: 1.3,
+  knight: 1,
+  footsoldier: 0.76,
+  worker: 0.66,
+  librarian: 0.9,
+};
 
 export const RANK_LABEL: Record<Rank, string> = {
   king: 'King',
   knight: 'Knight',
   footsoldier: 'Footsoldier',
   worker: 'Worker',
+  librarian: 'Librarian',
 };
 
 export interface Sprites {
@@ -256,7 +263,7 @@ export function swingFrame(id: string, nowMs: number): number {
 
 /** Whether a hero is at its post hitting something: working, standing still, not the King. */
 export function isFighting(hero: Hero, moving: boolean): boolean {
-  return hero.status === 'working' && !moving && !hero.crowned;
+  return hero.status === 'working' && !moving && !hero.crowned && !hero.librarian;
 }
 
 /** The King's place: his throne at the castle gate. */
@@ -302,8 +309,12 @@ export function heroPositions(state: GuildState, clock?: number): Map<string, Pl
       });
     }
     // A Knight resting between turns goes to bed in the Barracks.
-    else if (hero.status === 'idle') sleepers.push(hero);
-    else byBuilding.set(hero.location, [...(byBuilding.get(hero.location) ?? []), hero]);
+    // A resting Knight goes to bed; a librarian lives at the Library.
+    else if (hero.status === 'idle' && !hero.librarian) sleepers.push(hero);
+    else {
+      const where = hero.librarian && hero.status === 'idle' ? 'library' : hero.location;
+      byBuilding.set(where, [...(byBuilding.get(where) ?? []), hero]);
+    }
   }
   for (const [location, group] of byBuilding) {
     const b = BUILDINGS[location];
@@ -409,6 +420,11 @@ export function heroTeams(state: GuildState): Map<string, Team> {
     const parentTeam = hero.parentId ? teams.get(hero.parentId) : undefined;
     if (parentTeam) {
       teams.set(hero.id, parentTeam);
+      continue;
+    }
+    if (hero.librarian) {
+      // The librarians wear purple robes, whatever the Knights wear.
+      teams.set(hero.id, 'Purple');
       continue;
     }
     if (hero.crowned) {
@@ -674,7 +690,7 @@ function drawSleeper(
   const k = RANK_SCALE[rank];
   // Drawn smaller lying down than standing, so a Knight fits on its bedroll.
   const size = UNIT_SIZE * k * 0.78;
-  const sheet = sprites.units[`${rank === 'worker' ? 'Pawn' : 'Warrior'}_${team}`]!;
+  const sheet = sprites.units[`${rank === 'worker' || rank === 'librarian' ? 'Pawn' : 'Warrior'}_${team}`]!;
   ctx.save();
   ctx.translate(x - 6 * k, y + 2 * k);
   ctx.rotate(-Math.PI / 2);
@@ -941,7 +957,7 @@ function drawUnit(
   const rank = rankOf(hero);
   const k = RANK_SCALE[rank];
   const size = UNIT_SIZE * k;
-  const sheet = sprites.units[`${rank === 'worker' ? 'Pawn' : 'Warrior'}_${team}`]!;
+  const sheet = sprites.units[`${rank === 'worker' || rank === 'librarian' ? 'Pawn' : 'Warrior'}_${team}`]!;
   // Row 0 is idle, row 1 is the walk cycle; six frames each. Resting heroes hold a
   // single pose so the busy ones stand out.
   // Rows: 0 idle, 1 walk, 2 the attack (a sword swing for warriors, a hammer for pawns).
@@ -964,12 +980,13 @@ function drawUnit(
   ctx.restore();
 
   if (rank === 'king') crown(ctx, x, y - 56 * k);
+  if (rank === 'librarian') book(ctx, x, y - 50 * k);
   // Beside the head rather than above it, where it would cover the building name.
   const mark = bubbleFor(hero);
   if (mark && !(hearing && mark === 'sleep')) bubble(ctx, x + 30 * k, y - 30 * k, mark, k, nowMs);
 
   const fg = hero.status === 'needs_you' ? '#ffcc33' : '#f1efe6';
-  if (rank === 'king' || rank === 'knight') {
+  if (rank === 'king' || rank === 'knight' || rank === 'librarian') {
     const king = rank === 'king';
     label(
       ctx,
@@ -1007,6 +1024,35 @@ function teamDisc(ctx: CanvasRenderingContext2D, x: number, y: number, k: number
   ctx.beginPath();
   ctx.ellipse(x, y - 2, 20 * k, 7 * k, 0, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
+}
+
+/** An open book floating over a librarian's head. */
+function book(ctx: CanvasRenderingContext2D, x: number, y: number): void {
+  ctx.save();
+  ctx.strokeStyle = '#3a2410';
+  ctx.lineWidth = 1.5;
+  for (const side of [-1, 1]) {
+    ctx.fillStyle = '#f4ecd2';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + side * 13, y - 3);
+    ctx.lineTo(x + side * 13, y - 15);
+    ctx.lineTo(x, y - 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(58, 36, 16, 0.5)';
+    for (const dy of [-6, -9]) {
+      ctx.beginPath();
+      ctx.moveTo(x + side * 3, y + dy);
+      ctx.lineTo(x + side * 10, y + dy - 2);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = '#3a2410';
+  }
+  ctx.fillStyle = '#7b3fa0';
+  ctx.fillRect(x - 1.5, y - 13, 3, 14);
   ctx.restore();
 }
 

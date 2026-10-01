@@ -56,6 +56,23 @@ export function useSelection(): [Selection | null, (s: Selection | null) => void
   return [selection, select];
 }
 
+/** Which side-panel tab is open, kept in `?tab=` so a reload keeps it. */
+export type PanelTab = 'guild' | 'skills';
+
+export function usePanelTab(): [PanelTab, (t: PanelTab) => void] {
+  const [tab, setTab] = useState<PanelTab>(() =>
+    new URLSearchParams(window.location.search).get('tab') === 'skills' ? 'skills' : 'guild',
+  );
+  const open = useCallback((t: PanelTab) => {
+    setTab(t);
+    const url = new URL(window.location.href);
+    if (t === 'skills') url.searchParams.set('tab', 'skills');
+    else url.searchParams.delete('tab');
+    window.history.replaceState(null, '', url);
+  }, []);
+  return [tab, open];
+}
+
 /** A drawer over the map: a chat, a Town Crier report, the new-session form, or crowning a King. */
 export type Drawer =
   { kind: 'chat'; id: string } | { kind: 'report'; date: string } | { kind: 'new' } | { kind: 'king' };

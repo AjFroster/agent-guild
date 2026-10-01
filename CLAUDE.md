@@ -25,6 +25,12 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   `/api/king` routes) and `kingMcp.ts` (the stdio MCP server the King's CLI runs, one tool
   per route). Ranks and team colours live in `core/src/game.ts` (`rankOf`) and
   `web/src/village.ts`.
+- The Library: `server/src/skills.ts` lists installed skills (read-only), `archive.ts` keeps
+  the reviewed skills, `library.ts` schedules the Scout and the Reviewer (each with its own
+  MCP tools in `kingMcp.ts`, chosen by `GUILD_ROLE`), `install.ts` installs a reviewed
+  commit on the user's approval only, `libraryRoutes.ts` holds the routes. Tests never
+  touch the real `~/.claude`: `CLAUDE_SKILLS_DIR` and `AGENT_GUILD_SKILL_GIT_BASE` point
+  them at temporary folders and local repositories.
 - `web/e2e/fake-claude.mjs` stands in for the CLI in browser tests, and plays a scripted
   King over the real MCP server when given `--mcp-config`. Never call the real
   `claude` from tests: CI has no login, and it would spend the user's usage.
