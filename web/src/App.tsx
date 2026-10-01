@@ -8,17 +8,21 @@ import { type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
 import { resolveSelection, useDrawer, useSelection } from './selection.ts';
+import { browserStore, takeToken } from './token.ts';
 import { useHint, useSettings } from './settings.ts';
 import { useNotices } from './useNotices.ts';
 import { VillageCanvas } from './VillageCanvas.tsx';
 
 export function App() {
   const demo = useMemo(() => readDemoRequest(window.location.search), []);
+  const token = useMemo(() => {
+    if (demo !== null) return null;
+    const { token, cleanHref } = takeToken(window.location.href, browserStore);
+    if (cleanHref !== null) window.history.replaceState(null, '', cleanHref);
+    return token;
+  }, [demo]);
 
-  if (demo === null) {
-    const token = new URLSearchParams(window.location.search).get('token');
-    return token ? <Live token={token} /> : <Landing />;
-  }
+  if (demo === null) return token ? <Live token={token} /> : <Landing />;
   if ('error' in demo) {
     return (
       <main className="page">
@@ -66,6 +70,8 @@ interface Control {
   api: Api;
   chats: ChatInfo[];
   crierVersion: number;
+  /** The server offers "skip all permission checks". */
+  allowBypass: boolean;
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -92,13 +98,18 @@ function Live({ token }: { token: string }) {
   const client = useMemo(() => api(token), [token]);
   const state = useMemo(() => replay(events), [events]);
   const now = useNow(5_000);
+  useEffect(() => {
+    // A rejected token is no use next time either; the newest link replaces it.
+    if (status === 'unauthorized') browserStore.clear();
+  }, [status]);
   if (status === 'unauthorized') {
     return (
       <main className="page">
         <h1>Agent Guild</h1>
         <p role="alert">
-          The server did not accept this link's token. It changes every time <code>npm start</code> runs, so
-          open the newest link it printed.
+          The server did not accept this link's token. Open the link the guild printed when it started (
+          <code>scripts/autostart-wsl.sh link</code> prints it again). If you deleted{' '}
+          <code>~/.agent-guild/token</code>, the guild made a new one on its next start.
         </p>
       </main>
     );
@@ -111,7 +122,12 @@ function Live({ token }: { token: string }) {
       now={now}
       control={
         announcements.control?.enabled
-          ? { api: client, chats: announcements.chats, crierVersion: announcements.crierVersion }
+          ? {
+              api: client,
+              chats: announcements.chats,
+              crierVersion: announcements.crierVersion,
+              allowBypass: announcements.control.allowBypass === true,
+            }
           : undefined
       }
     />
@@ -239,6 +255,7 @@ function Guild({
         <NewChatDialog
           api={control.api}
           projects={projects}
+          allowBypass={control.allowBypass}
           onStarted={(id) => openDrawer({ kind: 'chat', id })}
           onCancel={() => openDrawer(null)}
         />

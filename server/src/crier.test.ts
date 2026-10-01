@@ -10,7 +10,12 @@ import { DEFAULT_CRIER, TownCrier, crierPrompt, isDue, nextRun, validatePatch } 
 const at = (h: number, m = 0, day = 1) => new Date(2026, 9, day, h, m);
 
 describe('schedule', () => {
-  const cfg = { ...DEFAULT_CRIER, time: '18:00' };
+  const cfg = { ...DEFAULT_CRIER, enabled: true, time: '18:00' };
+
+  it("starts off, because every run spends the user's Claude usage", () => {
+    expect(DEFAULT_CRIER.enabled).toBe(false);
+    expect(isDue(DEFAULT_CRIER, at(23))).toBe(false);
+  });
 
   it('is due once the time has passed, and only once a day', () => {
     expect(isDue(cfg, at(17, 59))).toBe(false);
@@ -74,6 +79,9 @@ describe('TownCrier', () => {
   it('runs when due, in its reports folder, with web tools allowed, and records the day', async () => {
     const c = crier(at(18, 5));
     await c.load();
+    await c.tick(); // off by default: nothing yet
+    expect(started).toHaveLength(0);
+    await c.update({ enabled: true });
     await c.tick();
     await c.tick(); // second tick the same day does nothing
     expect(started).toHaveLength(1);

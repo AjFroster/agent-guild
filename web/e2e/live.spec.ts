@@ -40,6 +40,17 @@ test('the live guild shows sessions read from Claude Code transcripts', async ({
   expect(errors).toEqual([]);
 });
 
+test('the token leaves the address bar, and the plain address opens the guild afterwards', async ({
+  page,
+}) => {
+  await page.goto(`${LIVE}/?token=${LIVE_TOKEN}&select=building:forge`);
+  await expect(page.getByTestId('live-status')).toHaveText('Live');
+  expect(page.url()).not.toContain('token=');
+  expect(page.url()).toContain('select=building');
+  await page.goto(`${LIVE}/`);
+  await expect(page.getByTestId('live-status')).toHaveText('Live');
+});
+
 test('a wrong token gets an explanation, not an empty guild', async ({ page }) => {
   await page.goto(`${LIVE}/?token=${'x'.repeat(LIVE_TOKEN.length)}`);
   await expect(page.getByRole('alert')).toContainText('did not accept this link');

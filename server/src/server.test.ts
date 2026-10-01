@@ -51,6 +51,20 @@ describe('requests', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  it('rejects another app on localhost, which is a different origin', async () => {
+    const { app } = make();
+    const other = await app.inject({
+      url: '/api/health',
+      headers: { host: '127.0.0.1:4747', origin: 'http://localhost:3000' },
+    });
+    const same = await app.inject({
+      url: '/api/health',
+      headers: { host: '127.0.0.1:4747', origin: 'http://127.0.0.1:4747' },
+    });
+    expect(other.statusCode).toBe(403);
+    expect(same.statusCode).toBe(200);
+  });
+
   it('rejects the event stream without the token, or with a wrong one', async () => {
     const { app } = make();
     const none = await app.inject({ url: '/api/events', headers: { host: 'localhost:4747' } });

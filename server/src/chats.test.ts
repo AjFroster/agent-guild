@@ -51,8 +51,9 @@ afterEach(async () => {
   await rm(home, { recursive: true, force: true });
 });
 
-function manager() {
+function manager(extra: { allowBypass?: boolean } = {}) {
   return new ChatManager({
+    ...extra,
     claude: 'claude',
     home,
     spawn: (cmd, args, o) => {
@@ -66,6 +67,24 @@ function manager() {
 const tick = () => new Promise((r) => setTimeout(r, 10));
 
 describe('ChatManager.start', () => {
+  it('refuses to skip permission checks unless the guild allows it', async () => {
+    const off = manager();
+    await expect(off.start({ cwd: project, mode: 'bypassPermissions', message: 'go' })).rejects.toMatchObject(
+      { status: 403 },
+    );
+    expect(children).toHaveLength(0);
+
+    const on = manager({ allowBypass: true });
+    await on.start({ cwd: project, mode: 'bypassPermissions', message: 'go' });
+    expect(children[0]!.args.join(' ')).toContain('--permission-mode bypassPermissions');
+  });
+
+  it('refuses to switch a running chat to skipping checks', async () => {
+    const m = manager();
+    const info = await m.start({ cwd: project, message: 'hi' });
+    expect(() => m.send(info.id, 'now go wild', 'bypassPermissions')).toThrow(ChatError);
+  });
+
   it('starts claude headless with a fixed session id and sends the first message', async () => {
     const m = manager();
     const info = await m.start({ cwd: project, name: 'Fixer', message: 'Fix the bug' });

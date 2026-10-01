@@ -63,6 +63,8 @@ export interface ChatOptions {
   /** Close an idle process after this long; the next message resumes it. */
   idleMs?: number;
   maxRunning?: number;
+  /** Allow "bypassPermissions". Off unless the guild was started with it on. */
+  allowBypass?: boolean;
   onList?: (chats: ChatInfo[]) => void;
 }
 
@@ -119,7 +121,7 @@ export class ChatManager {
   async start(req: StartRequest): Promise<ChatInfo> {
     const cwd = await this.checkFolder(req.cwd);
     const mode = req.mode ?? 'acceptEdits';
-    if (!CHAT_MODES.includes(mode)) throw new ChatError(400, `Unknown permission mode "${mode}".`);
+    this.checkMode(mode);
     if (!req.message?.trim()) throw new ChatError(400, 'Write a first message for the session.');
     const id = randomUUID();
     const chat = this.add({
@@ -166,7 +168,7 @@ export class ChatManager {
     const message = text.trim();
     if (!message) throw new ChatError(400, 'The message is empty.');
     if (mode !== undefined) {
-      if (!CHAT_MODES.includes(mode)) throw new ChatError(400, `Unknown permission mode "${mode}".`);
+      this.checkMode(mode);
       if (mode !== chat.info.mode && chat.child) this.close(chat); // a new mode needs a new process
       chat.info.mode = mode;
     }
@@ -355,6 +357,17 @@ export class ChatManager {
 
   private emitList(): void {
     this.opts.onList?.(this.list());
+  }
+
+  private checkMode(mode: ChatMode): void {
+    if (!CHAT_MODES.includes(mode)) throw new ChatError(400, `Unknown permission mode "${mode}".`);
+    // Anyone holding the link could otherwise run any command on this machine unasked.
+    if (mode === 'bypassPermissions' && !this.opts.allowBypass) {
+      throw new ChatError(
+        403,
+        'Skipping permission checks is turned off. Start the guild with AGENT_GUILD_ALLOW_BYPASS=1 to allow it.',
+      );
+    }
   }
 
   private async checkFolder(raw: unknown): Promise<string> {

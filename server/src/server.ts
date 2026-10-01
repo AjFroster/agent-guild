@@ -38,10 +38,19 @@ export function isLoopback(host: string): boolean {
   return LOOPBACK_HOSTS.has(host);
 }
 
-/** Hostname part of a Host header or an Origin URL, lowercased; null if unparseable. */
-function hostnameOf(value: string, isOrigin: boolean): string | null {
+/** Hostname part of a Host header, lowercased; null if unparseable. */
+function hostnameOf(value: string): string | null {
   try {
-    return new URL(isOrigin ? value : `http://${value}`).hostname.toLowerCase();
+    return new URL(`http://${value}`).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+/** "host:port" of an Origin, as a Host header would carry it; null if unparseable. */
+function hostOf(origin: string): string | null {
+  try {
+    return new URL(origin).host.toLowerCase();
   } catch {
     return null;
   }
@@ -75,16 +84,15 @@ export function createServer(opts: ServerOptions): GuildServer {
   const app = Fastify({ logger: false });
 
   app.addHook('onRequest', async (req, reply) => {
-    const host = hostnameOf(req.headers.host ?? '', false);
+    const host = hostnameOf(req.headers.host ?? '');
     if (!host || !LOOPBACK_NAMES.has(host)) {
       return reply.code(403).send({ error: 'Host must be 127.0.0.1 or localhost.' });
     }
+    // The Origin must be this server itself, port included: another app on localhost is
+    // a different origin and has no business here.
     const origin = req.headers.origin;
-    if (origin !== undefined) {
-      const originHost = hostnameOf(origin, true);
-      if (!originHost || !LOOPBACK_NAMES.has(originHost)) {
-        return reply.code(403).send({ error: 'Cross-origin requests are not allowed.' });
-      }
+    if (origin !== undefined && hostOf(origin) !== (req.headers.host ?? '').toLowerCase()) {
+      return reply.code(403).send({ error: 'Cross-origin requests are not allowed.' });
     }
   });
 

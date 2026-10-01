@@ -25,6 +25,7 @@ import { TranscriptWatcher } from './watcher.ts';
  *   AGENT_GUILD_DATA_DIR      Town Crier settings and reports (default ~/.agent-guild)
  *   AGENT_GUILD_HOME          sessions may only start inside this folder (default: your home)
  *   AGENT_GUILD_NO_CONTROL    set to 1 for watch-only: no chats, no Town Crier
+ *   AGENT_GUILD_ALLOW_BYPASS  set to 1 to offer "skip all permission checks" for new chats
  */
 
 const port = Number(process.env.AGENT_GUILD_PORT ?? 4747);
@@ -33,6 +34,7 @@ const maxAgeHours = Number(process.env.AGENT_GUILD_MAX_AGE_HOURS ?? 3);
 const idleMinutes = Number(process.env.AGENT_GUILD_IDLE_MINUTES ?? 20);
 const dataDir = process.env.AGENT_GUILD_DATA_DIR ?? join(homedir(), '.agent-guild');
 const controlOn = process.env.AGENT_GUILD_NO_CONTROL !== '1';
+const allowBypass = process.env.AGENT_GUILD_ALLOW_BYPASS === '1';
 const token = process.env.AGENT_GUILD_TOKEN ?? (await loadToken(join(dataDir, 'token')));
 const webDir = resolve(import.meta.dirname, '../../web/dist');
 
@@ -44,6 +46,7 @@ const chats = new ChatManager({
   claude: process.env.AGENT_GUILD_CLAUDE ?? 'claude',
   // Sessions may only start inside this folder. Tests point it at a scratch directory.
   ...(process.env.AGENT_GUILD_HOME ? { home: process.env.AGENT_GUILD_HOME } : {}),
+  allowBypass,
   onList: (list) => announce('chats', list),
 });
 const crier = new TownCrier({ dir: dataDir, chats, onChange: () => announce('crier', crier.config) });
@@ -74,7 +77,7 @@ const server = createServer({
 });
 publishEvents = server.publish;
 announce = server.announce;
-announce('control', { enabled: controlOn });
+announce('control', { enabled: controlOn, allowBypass: controlOn && allowBypass });
 
 await server.app.listen({ host: '127.0.0.1', port });
 watcher.start();
