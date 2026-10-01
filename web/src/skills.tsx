@@ -10,7 +10,7 @@ import { ago } from './panels.tsx';
  * notes and the whole history.
  */
 
-const VERDICT: Record<Verdict, { label: string; tone: string }> = {
+export const VERDICT: Record<Verdict, { label: string; tone: string }> = {
   gap: { label: 'Fills a gap', tone: 'good' },
   better: { label: 'Better than what you have', tone: 'good' },
   duplicate: { label: 'Duplicate', tone: 'plain' },
@@ -203,7 +203,7 @@ export function SkillsPanel({ api, version, now }: { api: Api; version: number; 
   );
 }
 
-function SkillHead({ entry: e, compact = false }: { entry: ArchiveEntry; compact?: boolean }) {
+export function SkillHead({ entry: e, compact = false }: { entry: ArchiveEntry; compact?: boolean }) {
   return (
     <div className="skill-head">
       <strong>{e.name}</strong>{' '}

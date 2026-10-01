@@ -172,19 +172,31 @@ async function answer(raw) {
       }
     } else if (text.includes('You are the Blacksmith')) {
       const order = parse(await kingTool('read_order', {}));
-      const name = 'release-notes';
+      // A command is one <name>.md; a skill is SKILL.md plus anything else it needs.
+      const name = order.kind === 'command' ? 'hello' : 'release-notes';
       const result = parse(
         await kingTool('submit_piece', {
           id: order.id,
           name,
-          description: 'Write release notes the way this project does.',
-          files: [
-            {
-              path: 'SKILL.md',
-              content: `---\nname: ${name}\ndescription: Write release notes the way this project does.\n---\n\n# Release notes\n\n1. Run scripts/changes.sh <last tag>.\n2. Group the changes under Added, Fixed and Changed.\n`,
-            },
-            { path: 'scripts/changes.sh', content: '#!/bin/sh\ngit log --oneline "$1"..HEAD\n' },
-          ],
+          description:
+            order.kind === 'command'
+              ? 'Say hello and what this project is.'
+              : 'Write release notes the way this project does.',
+          files:
+            order.kind === 'command'
+              ? [
+                  {
+                    path: `${name}.md`,
+                    content: 'Say hello, then say what this project is in one sentence.\n',
+                  },
+                ]
+              : [
+                  {
+                    path: 'SKILL.md',
+                    content: `---\nname: ${name}\ndescription: Write release notes the way this project does.\n---\n\n# Release notes\n\n1. Run scripts/changes.sh <last tag>.\n2. Group the changes under Added, Fixed and Changed.\n`,
+                  },
+                  { path: 'scripts/changes.sh', content: '#!/bin/sh\ngit log --oneline "$1"..HEAD\n' },
+                ],
         }),
       );
       reply = result.refused ? `Refused: ${result.refused}` : `Forged ${name}.`;
@@ -203,38 +215,57 @@ async function answer(raw) {
       const commit = execFileSync('git', ['--git-dir', process.env.FAKE_SKILL_REPO, 'rev-parse', 'HEAD'])
         .toString()
         .trim();
-      await kingTool('list_archive', {});
-      // Below the user's star threshold: the Archive must refuse it.
-      const small = await kingTool('add_candidate', {
-        name: 'tiny-helper',
-        repo: 'acme-labs/tiny-helper',
-        path: '',
-        commit: commit,
-        stars: 340,
-      });
-      await kingTool('add_candidate', {
-        name: 'csv-wrangler',
-        repo: 'acme-labs/agent-skills',
-        path: 'skills/csv-wrangler',
-        commit,
-        stars: 6400,
-        description: 'Clean, join and summarise CSV files.',
-      });
-      const refused = parse(small).refused ? ' tiny-helper had too few stars.' : ' tiny-helper got in!';
-      await kingTool('write_note', { text: `Looked at 12 skills; added csv-wrangler.${refused}` });
-      reply = 'Added 1 candidate.';
+      const { known } = parse(await kingTool('list_archive', {}));
+      // A later run finds the repository's second skill, as a real Scout would.
+      if (known.some((k) => k.name === 'csv-wrangler')) {
+        await kingTool('add_candidate', {
+          name: 'md-tables',
+          repo: 'acme-labs/agent-skills',
+          path: 'skills/md-tables',
+          commit,
+          stars: 6400,
+          description: 'Format Markdown tables.',
+        });
+        await kingTool('write_note', { text: 'Looked again; added md-tables.' });
+        reply = 'Added 1 candidate.';
+      } else {
+        // Below the user's star threshold: the Archive must refuse it.
+        const small = await kingTool('add_candidate', {
+          name: 'tiny-helper',
+          repo: 'acme-labs/tiny-helper',
+          path: '',
+          commit: commit,
+          stars: 340,
+        });
+        await kingTool('add_candidate', {
+          name: 'csv-wrangler',
+          repo: 'acme-labs/agent-skills',
+          path: 'skills/csv-wrangler',
+          commit,
+          stars: 6400,
+          description: 'Clean, join and summarise CSV files.',
+        });
+        const refused = parse(small).refused ? ' tiny-helper had too few stars.' : ' tiny-helper got in!';
+        await kingTool('write_note', { text: `Looked at 12 skills; added csv-wrangler.${refused}` });
+        reply = 'Added 1 candidate.';
+      }
     } else if (text.includes('You are the Reviewing Librarian')) {
       const { candidates } = parse(await kingTool('list_candidates', {}));
       for (const c of candidates) {
         await kingTool('record_review', {
           id: c.id,
           verdict: 'gap',
-          reason: 'Nothing installed handles plain CSV files.',
+          reason:
+            c.name === 'csv-wrangler'
+              ? 'Nothing installed handles plain CSV files.'
+              : 'Nothing installed formats Markdown tables.',
           overlaps: [],
           risks: [],
         });
       }
-      await kingTool('write_note', { text: `Reviewed ${candidates.length}; csv-wrangler fills a gap.` });
+      await kingTool('write_note', {
+        text: `Reviewed ${candidates.length}; ${candidates.map((c) => c.name).join(', ')} fills a gap.`,
+      });
       reply = `Reviewed ${candidates.length}.`;
     } else if (text.includes('consult the archive')) {
       const result = parse(await kingTool('consult_archive', {}));

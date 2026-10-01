@@ -10,13 +10,14 @@ import type { GuildState, Hero } from '@agent-guild/core';
  * "Needs you" is raised for anyone, since a waiting sub-agent blocks its leader too.
  */
 
-export type NoticeKind = 'needs_you' | 'finished' | 'arrived' | 'left';
+export type NoticeKind = 'needs_you' | 'finished' | 'arrived' | 'left' | 'skill_ready' | 'piece_ready';
 
 export interface Notice {
   /** Stable for one occurrence, so the same change never toasts twice. */
   key: string;
   kind: NoticeKind;
-  heroId: string;
+  /** The hero it is about; null for a decision in the inbox (a skill or a piece). */
+  heroId: string | null;
   text: string;
 }
 
@@ -71,6 +72,43 @@ export function diffNotices(prev: GuildState | null, next: GuildState): Notice[]
         text: `${after.name} finished a turn`,
       });
     }
+  }
+  return notices;
+}
+
+/** What the server announces waits on the user, and how often it has announced. */
+export interface Waiting {
+  skills: { waiting: number; version: number };
+  forge: { waiting: number; version: number };
+}
+
+/**
+ * A reviewed skill or a forged piece newly waiting on the user. The server announces its
+ * counts once on connecting (version 1), which is history; after that, a count going up is
+ * news.
+ */
+export function diffWaiting(prev: Waiting | null, next: Waiting): Notice[] {
+  if (prev === null) return [];
+  const notices: Notice[] = [];
+  const grew = (a: Waiting['skills'], b: Waiting['skills']) => a.version > 0 && b.waiting > a.waiting;
+  if (grew(prev.skills, next.skills)) {
+    const n = next.skills.waiting - prev.skills.waiting;
+    notices.push({
+      key: `skill_ready:${next.skills.version}`,
+      kind: 'skill_ready',
+      heroId: null,
+      text:
+        n === 1 ? 'A reviewed skill waits for your approval' : `${n} reviewed skills wait for your approval`,
+    });
+  }
+  if (grew(prev.forge, next.forge)) {
+    const n = next.forge.waiting - prev.forge.waiting;
+    notices.push({
+      key: `piece_ready:${next.forge.version}`,
+      kind: 'piece_ready',
+      heroId: null,
+      text: n === 1 ? 'A forged piece is ready to install' : `${n} forged pieces are ready to install`,
+    });
   }
   return notices;
 }

@@ -1,7 +1,7 @@
 import { type GuildEvent, replay } from '@agent-guild/core';
 import { describe, expect, it } from 'vitest';
 
-import { diffNotices } from './notices.ts';
+import { diffNotices, diffWaiting } from './notices.ts';
 
 const base: GuildEvent[] = [
   { t: 0, session: 'a', type: 'session_start', name: 'Ada' },
@@ -65,3 +65,27 @@ function resumedEvents(): GuildEvent[] {
     { t: 4, session: 'a', type: 'tool', tool: 'Bash' },
   ];
 }
+
+describe('diffWaiting', () => {
+  const w = (skills: number, sv: number, forge: number, fv: number) => ({
+    skills: { waiting: skills, version: sv },
+    forge: { waiting: forge, version: fv },
+  });
+
+  it('takes the counts announced on connecting as history', () => {
+    expect(diffWaiting(null, w(2, 1, 1, 1))).toEqual([]);
+    expect(diffWaiting(w(0, 0, 0, 0), w(2, 1, 1, 1))).toEqual([]);
+  });
+
+  it('raises a notice when a skill or a piece newly waits', () => {
+    const notices = diffWaiting(w(0, 1, 0, 1), w(2, 2, 1, 2));
+    expect(notices.map((n) => [n.kind, n.heroId, n.text])).toEqual([
+      ['skill_ready', null, '2 reviewed skills wait for your approval'],
+      ['piece_ready', null, 'A forged piece is ready to install'],
+    ]);
+  });
+
+  it('stays quiet when a decision is made', () => {
+    expect(diffWaiting(w(2, 2, 1, 2), w(1, 3, 0, 3))).toEqual([]);
+  });
+});

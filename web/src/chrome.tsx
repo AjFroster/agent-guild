@@ -12,7 +12,8 @@ export function Toasts({
   onDismiss,
 }: {
   toasts: Toast[];
-  onOpen: (s: Selection) => void;
+  /** Open what a toast is about: its hero, or the inbox for a decision. */
+  onOpen: (s: Selection | null) => void;
   onDismiss: (key: string) => void;
 }) {
   if (toasts.length === 0) return null;
@@ -24,7 +25,7 @@ export function Toasts({
             type="button"
             className="toast-body"
             onClick={() => {
-              onOpen({ kind: 'hero', id: t.heroId });
+              onOpen(t.heroId === null ? null : { kind: 'hero', id: t.heroId });
               onDismiss(t.key);
             }}
           >

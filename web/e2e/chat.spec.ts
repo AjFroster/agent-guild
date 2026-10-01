@@ -460,3 +460,70 @@ test('the Portal Keeper opens a portal for each service on a local port', async 
     db.child.kill();
   }
 });
+
+test('everything waiting on the user is in one inbox, and each decision is made there', async ({
+  page,
+  request,
+}) => {
+  await openGuild(page);
+  await page.getByTestId('tab-inbox').click();
+  const inbox = page.getByTestId('inbox');
+  await expect(inbox).toBeVisible();
+
+  // A Knight with a question (a transcript, as Claude Code writes it).
+  const folder = join(LIVE_DIR, '-home-example-inbox-demo');
+  await mkdir(folder, { recursive: true });
+  await writeFile(
+    join(folder, 'sess-inbox.jsonl'),
+    JSON.stringify({
+      type: 'assistant',
+      timestamp: new Date().toISOString(),
+      cwd: '/home/example/inbox-demo',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'tool_use', name: 'AskUserQuestion', input: {} }],
+        stop_reason: 'tool_use',
+      },
+    }) + '\n',
+  );
+  // A slash command from the Forge, for the bakery (fake Blacksmith, real Reviewer route).
+  const auth = { authorization: `Bearer ${LIVE_TOKEN}` };
+  const bakery = join(LIVE_HOME, 'bakery');
+  await mkdir(bakery, { recursive: true });
+  const commissioned = await request.post(`${LIVE}/api/forge/orders`, {
+    headers: auth,
+    data: { project: bakery, kind: 'command', need: 'Say hello and what this project is.' },
+  });
+  expect(commissioned.ok()).toBe(true);
+  const { id: orderId } = (await commissioned.json()) as { id: string };
+  // A second skill from the Library: the Scout finds md-tables on this run.
+  expect((await request.post(`${LIVE}/api/library/run`, { headers: auth })).ok()).toBe(true);
+
+  // A new decision raises a toast that leads here.
+  const toast = page
+    .getByTestId('toasts')
+    .getByRole('button', { name: 'A forged piece is ready to install' });
+  await expect(toast).toBeVisible({ timeout: 40_000 });
+  await expect(inbox.getByTestId('question:sess-inbox')).toContainText('inbox-demo');
+  await expect(inbox.getByTestId(`piece:${orderId}`)).toContainText('hello');
+  await expect(inbox.getByTestId(`piece:${orderId}`)).toContainText('Ready to install');
+  const skill = inbox.locator('[data-testid^="skill:"]', { hasText: 'md-tables' });
+  await expect(skill).toContainText('Nothing installed formats Markdown tables.', { timeout: 40_000 });
+  await expect(page.getByTestId('tab-inbox').locator('.tab-badge')).not.toHaveText('0');
+  await page.screenshot({ path: 'e2e-screenshots/28-needs-you-inbox.png', animations: 'disabled' });
+  await page.getByTestId('tab-guild').click();
+  await toast.click();
+  await expect(inbox).toBeVisible();
+
+  // Install the piece and the skill from here.
+  await inbox.getByTestId(`inbox-install-order-${orderId}`).click();
+  await expect(inbox.getByTestId(`piece:${orderId}`)).toHaveCount(0);
+  expect(await readFile(join(bakery, '.claude', 'commands', 'hello.md'), 'utf8')).toContain('Say hello');
+  await skill.getByTestId('inbox-install-md-tables').click();
+  await expect(skill).toHaveCount(0);
+  expect(await readFile(join(LIVE_SKILLS, 'md-tables', 'SKILL.md'), 'utf8')).toContain('name: md-tables');
+
+  // Answer the Knight: its panel opens (a transcript-only session has no chat here).
+  await inbox.getByTestId('answer-sess-inbox').click();
+  await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'inbox-demo' })).toBeVisible();
+});

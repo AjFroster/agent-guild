@@ -57,16 +57,18 @@ export function useSelection(): [Selection | null, (s: Selection | null) => void
 }
 
 /** Which side-panel tab is open, kept in `?tab=` so a reload keeps it. */
-export type PanelTab = 'guild' | 'skills';
+export type PanelTab = 'guild' | 'inbox' | 'skills';
+const TABS: readonly PanelTab[] = ['inbox', 'skills'];
 
 export function usePanelTab(): [PanelTab, (t: PanelTab) => void] {
-  const [tab, setTab] = useState<PanelTab>(() =>
-    new URLSearchParams(window.location.search).get('tab') === 'skills' ? 'skills' : 'guild',
-  );
+  const [tab, setTab] = useState<PanelTab>(() => {
+    const t = new URLSearchParams(window.location.search).get('tab') as PanelTab | null;
+    return t && TABS.includes(t) ? t : 'guild';
+  });
   const open = useCallback((t: PanelTab) => {
     setTab(t);
     const url = new URL(window.location.href);
-    if (t === 'skills') url.searchParams.set('tab', 'skills');
+    if (t !== 'guild') url.searchParams.set('tab', t);
     else url.searchParams.delete('tab');
     window.history.replaceState(null, '', url);
   }, []);

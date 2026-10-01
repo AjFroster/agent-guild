@@ -1,7 +1,7 @@
 import type { GuildState } from '@agent-guild/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { type Notice, type NoticeKind, diffNotices } from './notices.ts';
+import { type Notice, type NoticeKind, type Waiting, diffNotices, diffWaiting } from './notices.ts';
 import type { Settings } from './settings.ts';
 
 export interface Toast extends Notice {
@@ -14,11 +14,17 @@ const LIFETIME: Record<NoticeKind, number | null> = {
   finished: 8_000,
   arrived: 6_000,
   left: 6_000,
+  skill_ready: null,
+  piece_ready: null,
 };
 
-/** Turns guild changes into toasts, a chime and (in the background) a desktop notice. */
-export function useNotices(state: GuildState, enabled: boolean, settings: Settings) {
+/**
+ * Turns guild changes, and decisions newly waiting on the user, into toasts, a chime and
+ * (in the background) a desktop notice.
+ */
+export function useNotices(state: GuildState, enabled: boolean, settings: Settings, waiting?: Waiting) {
   const prev = useRef<GuildState | null>(null);
+  const prevWaiting = useRef<Waiting | null>(null);
   const seen = useRef(new Set<string>());
   const [toasts, setToasts] = useState<Toast[]>([]);
 
@@ -27,15 +33,21 @@ export function useNotices(state: GuildState, enabled: boolean, settings: Settin
       // Not connected (or demo mode): forget the baseline, so the next snapshot is taken
       // as history rather than as a burst of things that just happened.
       prev.current = null;
+      prevWaiting.current = null;
       return;
     }
-    const notices = diffNotices(prev.current, state).filter((n) => {
+    const raised = [
+      ...diffNotices(prev.current, state),
+      ...(waiting ? diffWaiting(prevWaiting.current, waiting) : []),
+    ];
+    const notices = raised.filter((n) => {
       if (seen.current.has(n.key)) return false;
       if (n.kind === 'finished' && !settings.finished) return false;
       if ((n.kind === 'arrived' || n.kind === 'left') && !settings.comings) return false;
       return true;
     });
     prev.current = state;
+    if (waiting) prevWaiting.current = waiting;
     if (notices.length === 0) return;
 
     const now = performance.now();
@@ -48,10 +60,12 @@ export function useNotices(state: GuildState, enabled: boolean, settings: Settin
       })),
     ]);
 
-    const loudest = notices.some((n) => n.kind === 'needs_you') ? 'needs_you' : notices[0]!.kind;
+    const loudest = notices.some((n) => n.kind === 'needs_you' || n.kind.endsWith('_ready'))
+      ? 'needs_you'
+      : notices[0]!.kind;
     if (settings.sound) chime(loudest);
     if (settings.desktop && document.hidden) desktop(notices);
-  }, [state, enabled, settings]);
+  }, [state, enabled, settings, waiting]);
 
   // Expire timed toasts.
   useEffect(() => {
