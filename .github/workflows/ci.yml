@@ -175,7 +175,18 @@ jobs:
             echo "screenshots unchanged"
           else
             git commit -q -m "ci: screenshots for PR #$PR at $SHA"
-            git push -q origin ci-screenshots
+            # PRs pushed together race for this branch. Each only writes its own pr-N
+            # folder, so replaying our commit on the new tip is always clean. Cherry-pick
+            # rather than rebase: the shallow fetch leaves no merge base to rebase from.
+            for attempt in 1 2 3 4 5; do
+              git push -q origin ci-screenshots && break
+              [ "$attempt" = 5 ] && exit 1
+              sleep $((attempt * 2))
+              OURS=$(git rev-parse HEAD)
+              git fetch -q origin ci-screenshots --depth=1
+              git reset -q --hard FETCH_HEAD
+              git cherry-pick "$OURS"
+            done
           fi
           echo "base=https://raw.githubusercontent.com/${{ github.repository }}/ci-screenshots/$DIR" >> "$GITHUB_OUTPUT"
 
