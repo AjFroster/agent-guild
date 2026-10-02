@@ -312,3 +312,66 @@ test('the librarians find and review a skill, and the user installs it from the 
   await chat.getByTestId('composer').press('Enter');
   await expect(chat.getByTestId('msg-assistant').last()).toContainText('csv-wrangler', { timeout: 20_000 });
 });
+
+test('a Knight asks the Forge for a skill; the Blacksmith forges it, the Library reviews it, the user installs it', async ({
+  page,
+}) => {
+  // A Knight working in its own project (fictional), started from the browser like any session.
+  const bakery = join(LIVE_HOME, 'bakery');
+  await mkdir(bakery, { recursive: true });
+  await openGuild(page);
+  await page.getByTestId('new-session').click();
+  const form = page.getByTestId('new-chat');
+  await form.getByTestId('new-cwd').fill(bakery);
+  await form.getByTestId('new-name').fill('Tristan');
+  await form
+    .getByTestId('new-message')
+    .fill('forge me a skill: write release notes the way this project does');
+  await form.getByTestId('new-start').click();
+
+  // 1. The Knight asks the Forge (its request_equipment tool, through the real MCP server).
+  const chat = page.getByTestId('chat');
+  await expect(chat.getByTestId('msg-assistant').last()).toContainText('Asked the Forge', {
+    timeout: 20_000,
+  });
+  await expect(chat.getByTestId('msg-tool')).toContainText('request_equipment');
+  await page.screenshot({ path: 'e2e-screenshots/23-knight-asks-the-forge.png', animations: 'disabled' });
+  await chat.getByRole('button', { name: 'Close chat' }).click();
+
+  // 2. The Blacksmith forges it in the Knight's project; the Library's Reviewer tests it.
+  await page.getByTestId('open-forge').click();
+  const forge = page.getByTestId('forge-page');
+  const card = forge.getByTestId('order-release-notes');
+  await expect(card).toHaveAttribute('data-status', 'reviewed', { timeout: 40_000 });
+  await expect(card).toContainText('asked by Tristan');
+  await expect(card).toContainText('bakery');
+  await expect(card).toContainText('The Library: Ready to install.');
+  await card.locator('summary').click();
+  await expect(card).toContainText('scripts/changes.sh');
+  const scene = page.locator('[data-testid="forge-scene"][data-ready="true"]');
+  await expect(scene).toHaveAttribute('aria-label', /1 piece waits for you on the rack/);
+  await expect(page.getByTestId('desk-Blacksmith')).toHaveAttribute('data-state', 'resting');
+  await page.screenshot({
+    path: 'e2e-screenshots/24-forge-rack.png',
+    animations: 'disabled',
+    fullPage: true,
+  });
+
+  // 3. The user approves: exactly the reviewed files land in the Knight's project.
+  await card.getByRole('button', { name: 'Approve & install' }).click();
+  await expect(card).toHaveAttribute('data-status', 'installed');
+  const skill = join(bakery, '.claude', 'skills', 'release-notes');
+  expect(await readFile(join(skill, 'SKILL.md'), 'utf8')).toContain('name: release-notes');
+  expect(await readFile(join(skill, 'scripts', 'changes.sh'), 'utf8')).toContain('git log');
+  await expect(card).toContainText(`Installed at ${skill}`);
+
+  // 4. The Knight who asked is told where its new skill is.
+  await forge.getByTestId('forge-back').click();
+  await page.locator('.roster').getByRole('button', { name: 'Open Tristan' }).click();
+  await page.getByTestId('open-chat').click();
+  await expect(chat.getByTestId('msg-user').last()).toContainText(
+    'The Forge: the skill you asked for, "release-notes", was reviewed and the user installed it',
+    { timeout: 20_000 },
+  );
+  await page.screenshot({ path: 'e2e-screenshots/25-knight-told.png', animations: 'disabled' });
+});

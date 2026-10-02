@@ -54,6 +54,10 @@ const out = (obj) => process.stdout.write(JSON.stringify({ ...obj, session_id: s
 
 /** The King's MCP connection: one JSON-RPC client over the server's stdio. */
 const mcpConfig = flag('--mcp-config');
+/** Which guild role the MCP config gives this session: king, knight, smith, ... */
+const role = mcpConfig
+  ? (Object.values(JSON.parse(readFileSync(mcpConfig, 'utf8')).mcpServers)[0]?.env?.GUILD_ROLE ?? 'king')
+  : null;
 let mcp = null;
 function connectMcp() {
   const [server] = Object.values(JSON.parse(readFileSync(mcpConfig, 'utf8')).mcpServers);
@@ -157,7 +161,45 @@ async function answer(raw) {
         return { refused: answer };
       }
     };
-    if (text.includes('You are the Scout Librarian')) {
+    const forgeMe = /^forge me a (skill|command): (.+)$/s.exec(text);
+    if (role === 'knight') {
+      // A Knight that keeps needing something asks the Forge for it; otherwise it just talks.
+      if (forgeMe) {
+        const answer = parse(await kingTool('request_equipment', { kind: forgeMe[1], need: forgeMe[2] }));
+        reply = answer.refused
+          ? `The Forge refused: ${answer.refused}`
+          : `Asked the Forge (order ${answer.id}).`;
+      }
+    } else if (text.includes('You are the Blacksmith')) {
+      const order = parse(await kingTool('read_order', {}));
+      const name = 'release-notes';
+      const result = parse(
+        await kingTool('submit_piece', {
+          id: order.id,
+          name,
+          description: 'Write release notes the way this project does.',
+          files: [
+            {
+              path: 'SKILL.md',
+              content: `---\nname: ${name}\ndescription: Write release notes the way this project does.\n---\n\n# Release notes\n\n1. Run scripts/changes.sh <last tag>.\n2. Group the changes under Added, Fixed and Changed.\n`,
+            },
+            { path: 'scripts/changes.sh', content: '#!/bin/sh\ngit log --oneline "$1"..HEAD\n' },
+          ],
+        }),
+      );
+      reply = result.refused ? `Refused: ${result.refused}` : `Forged ${name}.`;
+    } else if (text.includes('The Forge has a piece waiting for review')) {
+      const { pieces } = parse(await kingTool('list_forged', {}));
+      for (const p of pieces) {
+        await kingTool('review_piece', {
+          id: p.id,
+          verdict: 'ready',
+          reason: 'Does what was asked, from the project itself; the script only reads git history.',
+          risks: [],
+        });
+      }
+      reply = `Reviewed ${pieces.length} piece(s) from the Forge.`;
+    } else if (text.includes('You are the Scout Librarian')) {
       const commit = execFileSync('git', ['--git-dir', process.env.FAKE_SKILL_REPO, 'rev-parse', 'HEAD'])
         .toString()
         .trim();

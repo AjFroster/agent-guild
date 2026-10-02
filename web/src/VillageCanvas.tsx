@@ -42,6 +42,8 @@ interface Props {
   clock?: number | undefined;
   /** Reviewed skills waiting on the user, counted on the Library's door. */
   libraryWaiting?: number | undefined;
+  /** Forged pieces waiting on the user, counted on the Forge's door. */
+  forgeWaiting?: number | undefined;
 }
 
 export function VillageCanvas({
@@ -54,6 +56,7 @@ export function VillageCanvas({
   canTalk,
   clock,
   libraryWaiting,
+  forgeWaiting,
 }: Props) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const [sprites, setSprites] = useState<Sprites | null>(null);
@@ -62,7 +65,7 @@ export function VillageCanvas({
 
   // The animation loop reads these through refs so it never restarts on a state change.
   const stateRef = useRef(state);
-  const viewRef = useRef<VillageView>({ selected, hovered, clock, libraryWaiting });
+  const viewRef = useRef<VillageView>({ selected, hovered, clock, libraryWaiting, forgeWaiting });
   /** Heroes walking to a new building, keyed by hero id (live mode only). */
   const walkers = useRef(new Map<string, Walker>());
   /** Where each hero was last drawn, so a walk starts from there. */
@@ -73,9 +76,15 @@ export function VillageCanvas({
 
   useEffect(() => {
     stateRef.current = state;
-    viewRef.current = { selected, hovered, clock: animate ? wallClock() : clock, libraryWaiting };
+    viewRef.current = {
+      selected,
+      hovered,
+      clock: animate ? wallClock() : clock,
+      libraryWaiting,
+      forgeWaiting,
+    };
     redraw.current();
-  }, [state, selected, hovered, clock, animate, libraryWaiting]);
+  }, [state, selected, hovered, clock, animate, libraryWaiting, forgeWaiting]);
 
   useEffect(() => {
     let cancelled = false;

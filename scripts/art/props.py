@@ -107,6 +107,187 @@ def scrolls():
     for k,(x,y,w) in enumerate(((6,26,44),(18,16,40),(10,6,36))):
         R(d,x,y,x+w,y+12,(244,236,210)); R(d,x,y+9,x+w,y+12,(214,200,170)); R(d,x-3,y-1,x+3,y+13,(218,181,112)); R(d,x+w-3,y-1,x+w+3,y+13,(218,181,112)); R(d,x+w//2-2,y,x+w//2+2,y+12,(192,69,58))
     return outlined(im)
+
+# ---------------------------------------------------------------- the Forge
+import math
+S0,S1,S2,S3=(46,48,66),(78,84,108),(122,132,156),(196,204,220)        # steel: deepest to brightest
+HOT=[(255,250,200),(255,214,92),(240,128,44),(176,58,34)]                # white-hot to dull red
+ST1,ST2,ST3=(176,166,152),(132,122,114),(90,82,84)                      # warm grey stone, for the hearth
+SA1,SA2,SA3=(214,196,160),(176,156,124),(124,108,92)                    # sandstone, for the wheel
+GOLD,GOLDD=(240,200,80),(176,131,40)
+LEATHER,LEATHERD=(150,92,60),(104,62,46)
+
+def glow(img,cx,cy,r,color,alpha):
+    g=Image.new('RGBA',img.size); d=ImageDraw.Draw(g)
+    for k,a in ((r,alpha//3),(int(r*0.75),alpha//2),(int(r*0.5),alpha)): d.ellipse((cx-k,cy-k,cx+k,cy+k),fill=color+(a,))
+    g=g.filter(ImageFilter.GaussianBlur(max(2,r//4))); g.alpha_composite(img); return g
+
+def anvil(heat=0.0):
+    """An anvil; with heat > 0 a glowing bar lies on it (the piece being forged)."""
+    im=Image.new('RGBA',(110,80)); d=ImageDraw.Draw(im)
+    d.polygon([(8,30),(30,22),(30,36)],fill=S2); d.line([(10,30),(30,23)],fill=S3,width=2)     # horn
+    R(d,28,20,92,34,S2); R(d,28,20,92,24,S3); R(d,86,24,92,34,S1)                               # face
+    R(d,44,34,76,52,S1); R(d,44,34,48,52,S2); R(d,70,34,76,52,S0)                               # waist
+    R(d,34,52,86,62,S1); R(d,34,52,86,55,S2); R(d,80,55,86,62,S0)                               # foot
+    R(d,30,62,90,68,WM); R(d,30,62,90,64,WL)                                                    # block it stands on
+    out=outlined(im)
+    if heat>0:
+        c=HOT[0] if heat>0.8 else HOT[1] if heat>0.5 else HOT[2]
+        b=Image.new('RGBA',out.size); bd=ImageDraw.Draw(b)
+        R(bd,46,12,80,21,c); R(bd,46,12,80,14,HOT[0]); R(bd,76,12,80,21,HOT[2])
+        b=outlined(b,2); out.alpha_composite(b); out=glow(out,63,16,int(18+10*heat),(255,170,60),int(110*heat))
+    return out
+
+def hearth(flicker=0):
+    """A stone hearth with hot coals, a hood and a chimney; `flicker` picks the coals' glow."""
+    rng=random.Random(40+flicker)
+    im=Image.new('RGBA',(170,170)); d=ImageDraw.Draw(im)
+    R(d,62,8,98,52,ST2); R(d,62,8,68,52,ST1); R(d,92,8,98,52,ST3); R(d,58,4,102,12,ST1)          # chimney
+    d.polygon([(30,74),(130,74),(110,46),(50,46)],fill=ST2); d.line([(32,74),(52,47)],fill=ST1,width=4)  # hood
+    R(d,18,74,142,160,ST2)                                                                       # body
+    for y in range(80,160,14):                                                                   # stone courses
+        off=0 if (y//14)%2 else 12
+        for x in range(18+off,142,24): R(d,x,y,x+2,y+12,ST3)
+        R(d,18,y+12,142,y+14,ST3)
+    R(d,18,74,24,160,ST1)
+    d.rounded_rectangle((44,98,116,152),18,fill=(40,22,26)); R(d,44,126,116,152,(40,22,26))      # mouth
+    for _ in range(60):                                                                          # coals
+        x=rng.randint(50,110); y=rng.randint(130,148); c=rng.choice(HOT[1:] if flicker%2 else HOT[:3])
+        R(d,x,y,x+rng.randint(3,6),y+rng.randint(3,5),c)
+    R(d,30,152,130,160,ST3)
+    out=outlined(im)
+    return glow(out,80,138,48+4*(flicker%3),(255,150,50),150+20*(flicker%2))
+
+def bellows(squeeze=0.0):
+    im=Image.new('RGBA',(100,56)); d=ImageDraw.Draw(im)
+    gap=int(16-12*squeeze)
+    d.polygon([(10,28-gap//2-6),(70,26),(70,30),(10,28+gap//2+6)],fill=LEATHER)                   # leather
+    d.line([(14,28-gap//2-4),(68,27)],fill=LEATHERD,width=2); d.line([(14,28+gap//2+4),(68,29)],fill=LEATHERD,width=2)
+    d.polygon([(4,28-gap//2-10),(72,24),(72,27),(4,28-gap//2-4)],fill=WL)                         # top board
+    d.polygon([(4,28+gap//2+4),(72,29),(72,32),(4,28+gap//2+10)],fill=WM)                         # bottom board
+    R(d,72,25,94,31,S1); R(d,72,25,94,27,S2)                                                     # nozzle
+    R(d,0,28-gap//2-14,8,28-gap//2-6,WM); R(d,0,28+gap//2+6,8,28+gap//2+14,WM)                    # handles
+    return outlined(im)
+
+def trough(steam=0):
+    im=Image.new('RGBA',(130,90)); d=ImageDraw.Draw(im)
+    R(d,8,50,122,84,WM); R(d,8,50,122,54,WL)
+    for x in (34,64,94): R(d,x,54,x+2,84,WD)
+    R(d,4,46,126,52,WL); R(d,4,46,126,48,WH)                                                    # rim
+    R(d,10,52,120,58,(80,173,164)); R(d,10,52,120,54,(160,220,214))                               # water
+    out=outlined(im)
+    if steam:
+        s=Image.new('RGBA',out.size); sd=ImageDraw.Draw(s)
+        for k,(x,y) in enumerate(((40,40),(66,30),(90,38))):
+            yy=y-8*steam-4*k; r=6+3*steam
+            sd.ellipse((x-r,yy-r,x+r,yy+r),fill=(240,244,250,150-30*steam))
+        s=s.filter(ImageFilter.GaussianBlur(1.5)); out.alpha_composite(s)
+    return out
+
+def grindstone(angle=0.0,sparks=False):
+    im=Image.new('RGBA',(100,110)); d=ImageDraw.Draw(im)
+    d.polygon([(20,104),(32,104),(50,48),(44,46)],fill=WM); d.polygon([(80,104),(68,104),(50,48),(56,46)],fill=WM)   # A-frame
+    R(d,16,100,84,106,WL)
+    cx,cy,r=50,50,30
+    d.ellipse((cx-r,cy-r,cx+r,cy+r),fill=SA3); d.ellipse((cx-r+3,cy-r+2,cx+r-5,cy+r-5),fill=SA2)
+    d.ellipse((cx-r+6,cy-r+5,cx+r-12,cy+r-12),fill=SA1); d.ellipse((cx-r+12,cy-r+12,cx+r-12,cy+r-12),fill=SA2)
+    for k in range(4):                                                                           # marks that turn
+        a=angle+k*math.pi/2; x=cx+math.cos(a)*(r-6); y=cy+math.sin(a)*(r-6)
+        R(d,int(x)-2,int(y)-2,int(x)+2,int(y)+2,SA3)
+    R(d,cx-4,cy-4,cx+4,cy+4,S1)                                                                  # axle
+    R(d,cx+4,cy-2,cx+26,cy+2,WM); R(d,cx+24,cy-2,cx+28,cy+14,WL)                                 # crank
+    out=outlined(im)
+    if sparks:
+        sp=ImageDraw.Draw(out); rng=random.Random(int(angle*10))
+        for _ in range(7):
+            x=cx-r+rng.randint(-14,6); y=cy-rng.randint(0,18); R(sp,x,y,x+3,y+2,rng.choice(HOT[:2]))
+    return out
+
+def weapon_rack():
+    im=Image.new('RGBA',(180,130)); d=ImageDraw.Draw(im)
+    for x in (12,160): R(d,x,8,x+10,122,WM); R(d,x,8,x+3,122,WL)                                 # posts
+    for y in (22,74): R(d,12,y,170,y+8,WL); R(d,12,y,170,y+3,WH); R(d,12,y+6,170,y+8,WM)        # bars
+    for x in range(36,160,28): R(d,x,22,x+3,30,WD)                                              # pegs
+    R(d,4,118,178,126,WM); R(d,4,118,178,120,WL)                                                # base
+    return outlined(im)
+
+def sword():
+    im=Image.new('RGBA',(30,100)); d=ImageDraw.Draw(im)
+    d.polygon([(11,72),(19,72),(19,14),(15,6),(11,14)],fill=S2); R(d,15,10,19,72,S1); R(d,11,14,13,72,S3)
+    R(d,3,72,27,78,GOLD); R(d,3,76,27,78,GOLDD)
+    R(d,12,78,18,92,LEATHER); R(d,12,82,18,84,LEATHERD); R(d,12,88,18,90,LEATHERD)
+    d.ellipse((10,90,20,99),fill=GOLD)
+    return outlined(im,2)
+
+def axe():
+    im=Image.new('RGBA',(56,100)); d=ImageDraw.Draw(im)
+    R(d,24,10,31,98,WM); R(d,24,10,26,98,WL)
+    d.polygon([(30,14),(48,6),(54,24),(48,42),(30,34)],fill=S2); d.polygon([(46,8),(54,24),(48,40),(50,24)],fill=S3)
+    R(d,30,14,34,34,S1)
+    return outlined(im,2)
+
+def spear():
+    im=Image.new('RGBA',(26,120)); d=ImageDraw.Draw(im)
+    R(d,11,30,16,118,WM); R(d,11,30,12,118,WL)
+    d.polygon([(13,2),(20,22),(13,32),(6,22)],fill=S2); d.polygon([(13,2),(20,22),(13,32)],fill=S1); R(d,9,30,18,34,GOLD)
+    R(d,8,40,19,44,(192,69,58))                                                                  # pennant tie
+    return outlined(im,2)
+
+def shield():
+    im=Image.new('RGBA',(70,80)); d=ImageDraw.Draw(im)
+    d.polygon([(6,8),(64,8),(64,40),(35,74),(6,40)],fill=(192,69,58))
+    d.polygon([(35,8),(64,8),(64,40),(35,74)],fill=(150,48,44))
+    d.line([(6,8),(64,8)],fill=GOLD,width=4); d.line([(6,8),(6,40),(35,74),(64,40),(64,8)],fill=GOLDD,width=3)
+    d.ellipse((26,26,44,44),fill=GOLD); d.ellipse((30,29,38,37),fill=(255,240,170))
+    return outlined(im,2)
+
+def broken_sword():
+    im=Image.new('RGBA',(110,40)); d=ImageDraw.Draw(im)
+    d.ellipse((4,20,14,30),fill=GOLD); R(d,12,21,28,29,LEATHER); R(d,28,14,34,36,GOLD)          # hilt
+    d.polygon([(34,21),(64,20),(60,25),(66,29),(34,29)],fill=S2); R(d,34,21,64,23,S3)            # stub, jagged end
+    d.polygon([(74,22),(98,24),(104,27),(98,30),(72,30),(76,26)],fill=S2); R(d,76,24,98,26,S3)   # the snapped tip
+    return outlined(im,2)
+
+def repair_bench():
+    im=Image.new('RGBA',(170,100)); d=ImageDraw.Draw(im)
+    R(d,10,40,160,52,WL); R(d,10,40,160,43,WH); R(d,10,50,160,52,WM)                              # top
+    for x in (16,146): R(d,x,52,x+10,96,WM); R(d,x,52,x+3,96,WL)
+    R(d,16,78,156,84,WM)                                                                         # stretcher
+    R(d,128,22,150,40,S1); R(d,128,22,150,26,S2); R(d,136,14,142,24,S2); R(d,124,30,154,34,S0)   # vice
+    R(d,40,32,80,36,WM); R(d,78,26,90,40,S1); R(d,78,26,90,29,S2)                                # hammer lying on it
+    d.line([(96,38),(116,30)],fill=S1,width=3); d.line([(96,32),(116,38)],fill=S1,width=3)      # tongs
+    return outlined(im)
+
+def ore_pile():
+    rng=random.Random(9); im=Image.new('RGBA',(90,50)); d=ImageDraw.Draw(im)
+    for x,y,r in ((20,34,14),(44,30,16),(66,36,13),(34,22,11),(56,18,10),(78,40,8)):
+        d.ellipse((x-r,y-r,x+r,y+r),fill=(70,64,84)); d.ellipse((x-r+3,y-r+2,x+r-5,y+r-6),fill=(100,94,118))
+        for _ in range(3):
+            a=rng.uniform(0,6.28); R(d,int(x+math.cos(a)*r/2),int(y+math.sin(a)*r/2),int(x+math.cos(a)*r/2)+3,int(y+math.sin(a)*r/2)+3,rng.choice((HOT[1],GOLD,(160,220,214))))
+    return outlined(im)
+
+def ingots():
+    im=Image.new('RGBA',(80,46)); d=ImageDraw.Draw(im)
+    for x,y,c in ((10,28,S2),(40,28,S2),(24,14,GOLD)):
+        hi=S3 if c==S2 else (255,236,150); lo=S1 if c==S2 else GOLDD
+        d.polygon([(x,y+14),(x+4,y),(x+28,y),(x+32,y+14)],fill=c); R(d,x+4,y,x+28,y+3,hi); R(d,x,y+11,x+32,y+14,lo)
+    return outlined(im)
+
+def sparks(frame):
+    rng=random.Random(frame); im=Image.new('RGBA',(60,50)); d=ImageDraw.Draw(im)
+    for _ in range(9):
+        a=rng.uniform(math.pi*1.1,math.pi*1.9); dist=8+frame*6+rng.randint(0,6)
+        x=30+math.cos(a)*dist; y=44+math.sin(a)*dist; c=HOT[0] if frame<2 else HOT[1]
+        R(d,int(x)-1,int(y)-1,int(x)+4,int(y)+4,HOT[2]); R(d,int(x),int(y),int(x)+3,int(y)+3,c)
+    return glow(im,30,36,20,(255,190,80),60 if frame<3 else 30)
+
+def tool_stump():
+    im=Image.new('RGBA',(70,70)); d=ImageDraw.Draw(im)
+    d.ellipse((8,30,62,46),fill=WL); R(d,8,38,62,62,WM); d.ellipse((8,54,62,68),fill=WM); R(d,8,38,14,62,WL)
+    d.ellipse((14,32,56,44),fill=WH); d.ellipse((24,35,46,41),fill=WL)                            # rings
+    R(d,30,14,36,40,WM); R(d,22,6,46,16,S1); R(d,22,6,46,9,S2)                                   # hammer stuck in it
+    return outlined(im)
+
 def strip(frames):
     w,h=frames[0].size; out=Image.new('RGBA',(w*len(frames),h))
     for k,f in enumerate(frames): out.alpha_composite(f,(k*w,0))
@@ -122,6 +303,25 @@ PROPS={
     'lectern': strip([lectern(0),lectern(0.5),lectern(1.1),lectern(1.45)]),
     # 6 frames: dark, then a glow that swells and fades
     'orb': strip([orb(0.0)]+[orb(p) for p in (0.55,0.8,1.0,0.8,0.55)]),
+    # The Forge. Animated strips: anvil (0 cold, 1-4 a bar glowing), hearth (4 flickers),
+    # bellows (4: open to squeezed and back), trough (0 still, 1-3 steam), grindstone
+    # (4 turns, sparks), sparks (4: a burst spreading).
+    'anvil': strip([anvil(0)]+[anvil(h) for h in (0.6,0.9,1.0,0.9)]),
+    'hearth': strip([hearth(k) for k in range(4)]),
+    'bellows': strip([bellows(q) for q in (0,0.5,1,0.5)]),
+    'trough': strip([trough(k) for k in range(4)]),
+    'grindstone': strip([grindstone(k*math.pi/8,sparks=True) for k in range(4)]),
+    'sparks': strip([sparks(k) for k in range(4)]),
+    'weapon_rack': weapon_rack(),
+    'sword': sword(),
+    'axe': axe(),
+    'spear': spear(),
+    'shield': shield(),
+    'broken_sword': broken_sword(),
+    'repair_bench': repair_bench(),
+    'ore_pile': ore_pile(),
+    'ingots': ingots(),
+    'tool_stump': tool_stump(),
 }
 if __name__=='__main__':
     os.makedirs(OUT_DIR,exist_ok=True)

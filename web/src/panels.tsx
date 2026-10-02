@@ -64,6 +64,7 @@ const RANK_ABOUT: Record<ReturnType<typeof rankOf>, string> = {
   footsoldier: 'A sub-agent that changes things: it has edited files or run commands.',
   worker: 'A sub-agent that so far only reads and searches, gathering what its leader needs.',
   librarian: 'Keeps the Archive: finds new skills on GitHub or reviews them for you. Installs nothing.',
+  smith: 'Works at the Forge: forges equipment for a Knight or mends what is broken. Installs nothing.',
 };
 
 /** A dot in the hero's team colour, matching its unit on the map. */

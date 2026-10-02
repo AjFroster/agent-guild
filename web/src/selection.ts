@@ -73,17 +73,18 @@ export function usePanelTab(): [PanelTab, (t: PanelTab) => void] {
   return [tab, open];
 }
 
-/** Which page is open: the village, or the Library (`?page=library`). */
-export type Page = 'village' | 'library';
+/** Which page is open: the village, or a building's (`?page=library`, `?page=forge`). */
+export type Page = 'village' | 'library' | 'forge';
 
 export function usePage(): [Page, (p: Page) => void] {
-  const [page, setPage] = useState<Page>(() =>
-    new URLSearchParams(window.location.search).get('page') === 'library' ? 'library' : 'village',
-  );
+  const [page, setPage] = useState<Page>(() => {
+    const p = new URLSearchParams(window.location.search).get('page');
+    return p === 'library' || p === 'forge' ? p : 'village';
+  });
   const open = useCallback((p: Page) => {
     setPage(p);
     const url = new URL(window.location.href);
-    if (p === 'library') url.searchParams.set('page', 'library');
+    if (p !== 'village') url.searchParams.set('page', p);
     else url.searchParams.delete('page');
     window.history.replaceState(null, '', url);
   }, []);

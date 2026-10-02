@@ -19,6 +19,8 @@ the license requires.
 
 ## The guild's own props — MIT, with this project
 
-`../props/` (bookshelves, books, scrolls, a lectern and a crystal orb) are drawn for
+`../props/` (the Library's bookshelves, books, scrolls, lectern and crystal orb; the Forge's
+hearth, anvil, bellows, trough, grindstone, weapon rack and weapons, repair bench, ore and
+ingots) are drawn for
 agent-guild in the Tiny Swords style by `scripts/art/props.py`, which regenerates them.
 They are part of this project and under its license.

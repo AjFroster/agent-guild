@@ -8,7 +8,7 @@ import { type Page, expect, test } from '@playwright/test';
  */
 const ADA = { x: 420, y: 270 };
 const LIBRARY = { x: 140, y: 130 };
-const FORGE = { x: 420, y: 130 };
+const ARENA = { x: 700, y: 130 };
 const GRASS = { x: 830, y: 380 };
 
 /** A map point as a click position on the canvas as drawn on the page. */
@@ -52,13 +52,15 @@ test('clicking a building shows who is there and what happened there', async ({ 
   await page.goto('/?demo=party&t=20');
   await ready(page);
 
-  await village(page).click({ position: await at(page, FORGE) });
+  await village(page).click({ position: await at(page, ARENA) });
   const panel = page.getByTestId('panel-building');
-  await expect(panel.getByRole('heading', { name: 'Forge' })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Ada' }).first()).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Arena' })).toBeVisible();
+  await expect(panel).toContainText('Tools: Bash');
   await page.screenshot({ path: 'e2e-screenshots/8-building-panel.png', animations: 'disabled' });
 
-  // From the building straight to a hero.
+  // From a building straight to a hero: Ada is at the Forge (whose panel a link still opens).
+  await page.goto('/?demo=party&t=20&select=building:forge');
+  await expect(panel.getByRole('heading', { name: 'Forge' })).toBeVisible();
   await panel.getByRole('button', { name: 'Ada' }).first().click();
   await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'Ada' })).toBeVisible();
 });

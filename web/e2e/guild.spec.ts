@@ -140,6 +140,25 @@ test('the librarians work inside the Library, and its signs show what each is do
   expect(errors).toEqual([]);
 });
 
+test('the Forge: a Knight asks for equipment, and the Blacksmith works inside', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=forge&t=20');
+  // On the map: Percival walked to the Forge to ask; a hammer sign for the Blacksmith at work.
+  await capture(page, '17-forge-signs');
+  await expect(page.getByTestId('hero-s-smith')).toContainText('Smith');
+  await page.getByTestId('open-forge').click();
+  const forge = page.getByTestId('forge-page');
+  await expect(forge.getByTestId('desk-Blacksmith')).toHaveAttribute('data-state', 'working');
+  await expect(forge.getByTestId('desk-Blacksmith-doing')).toHaveText('Searching the code…');
+  await expect(forge.getByTestId('desk-Armorer')).toHaveAttribute('data-state', 'unhired');
+  const scene = page.locator('[data-testid="forge-scene"][data-ready="true"]');
+  await expect(scene).toHaveAttribute('aria-label', /the Blacksmith is at the anvil/);
+  await page.screenshot({ path: `${SHOTS}/18-forge-page.png`, animations: 'disabled', fullPage: true });
+  await forge.getByTestId('forge-back').click();
+  await expect(page.getByTestId('village')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('a kingdom: the King, Knights in their colours, and parties following them', async ({ page }) => {
   const errors = watchForErrors(page);
   await page.goto('/?demo=kingdom&t=20');
