@@ -8,12 +8,15 @@ import {
   XP_PER_QUEST,
   XP_PER_TURN,
   applyEvent,
+  currentQuest,
   depthOf,
+  inAudience,
   emptyGuild,
   guildTokens,
   levelFor,
   looseEnds,
   partyTokens,
+  rankOf,
   locationForTool,
   replay,
   roster,
@@ -304,5 +307,82 @@ describe('git state', () => {
     expect(looseEnds(state).map((h) => h.id)).toEqual(['new', 'old']);
     // Pushing everything clears it.
     expect(looseEnds(replay([start('a'), git('a', 1, 2, 0), git('a', 2, 0, 0)]))).toEqual([]);
+  });
+});
+
+describe('ranks', () => {
+  const state = replay([
+    start('knight'),
+    start('king', 1),
+    { t: 2, session: 'king', type: 'crown' },
+    { t: 3, session: 'scout', type: 'subagent_start', parent: 'knight', name: 'Scout' },
+    { t: 4, session: 'smith', type: 'subagent_start', parent: 'knight', name: 'Smith' },
+    { t: 5, session: 'scout', type: 'tool', tool: 'Grep' },
+    { t: 6, session: 'smith', type: 'tool', tool: 'Read' },
+  ]);
+
+  it('crowns the King, makes other sessions Knights and their sub-agents Workers', () => {
+    expect(rankOf(state.heroes.king!)).toBe('king');
+    expect(rankOf(state.heroes.knight!)).toBe('knight');
+    expect(rankOf(state.heroes.scout!)).toBe('worker');
+    expect(rankOf(state.heroes.smith!)).toBe('worker');
+  });
+
+  it('promotes a Worker to Footsoldier once it edits a file or runs a command', () => {
+    const next = applyEvent(state, { t: 7, session: 'smith', type: 'tool', tool: 'Edit' });
+    expect(rankOf(next.heroes.smith!)).toBe('footsoldier');
+    const ran = applyEvent(state, { t: 7, session: 'scout', type: 'tool', tool: 'Bash' });
+    expect(rankOf(ran.heroes.scout!)).toBe('footsoldier');
+  });
+
+  it('marks a Knight the King has given orders to', () => {
+    const next = applyEvent(state, { t: 8, session: 'knight', type: 'commanded' });
+    expect(next.heroes.knight!.commanded).toBe(true);
+    expect(state.heroes.knight!.commanded).toBe(false);
+  });
+
+  it('puts the King at the head of the roster', () => {
+    expect(roster(state).map((h) => h.id)).toEqual(['king', 'knight', 'scout', 'smith']);
+  });
+});
+
+describe('currentQuest', () => {
+  const at = (todos: { id: string; title: string; status: 'pending' | 'in_progress' | 'completed' }[]) =>
+    replay([start('a'), { t: 1, session: 'a', type: 'todos', todos }]).heroes.a!;
+
+  it('names the quest in progress, else the next one to do, else nothing', () => {
+    expect(
+      currentQuest(
+        at([
+          { id: '1', title: 'Read the model', status: 'completed' },
+          { id: '2', title: 'Build the page', status: 'in_progress' },
+          { id: '3', title: 'Add tests', status: 'pending' },
+        ]),
+      ),
+    ).toBe('Build the page');
+    expect(currentQuest(at([{ id: '3', title: 'Add tests', status: 'pending' }]))).toBe('Add tests');
+    expect(currentQuest(at([{ id: '1', title: 'Done', status: 'completed' }]))).toBeNull();
+    expect(currentQuest(at([]))).toBeNull();
+  });
+});
+
+describe('orders and the Throne Room', () => {
+  const asleep = replay([start('a'), { t: 1, session: 'a', type: 'stop' }]);
+
+  it('wakes a resting Knight when it is given an order', () => {
+    expect(asleep.heroes.a!.status).toBe('idle');
+    const ordered = applyEvent(asleep, { t: 100, session: 'a', type: 'ordered' });
+    expect(ordered.heroes.a).toMatchObject({ status: 'working', orderedAt: 100 });
+    const commanded = applyEvent(asleep, { t: 100, session: 'a', type: 'commanded' });
+    expect(commanded.heroes.a).toMatchObject({ status: 'working', orderedAt: 100, commanded: true });
+  });
+
+  it('keeps a Knight in audience for a few seconds after its order, then sends it to work', () => {
+    const hero = applyEvent(asleep, { t: 100, session: 'a', type: 'ordered' }).heroes.a!;
+    expect(inAudience(hero, 100)).toBe(true);
+    expect(inAudience(hero, 105.9)).toBe(true);
+    expect(inAudience(hero, 106)).toBe(false);
+    expect(inAudience(hero, 99)).toBe(false); // a replay from before the order
+    expect(inAudience(asleep.heroes.a!, 100)).toBe(false); // never ordered
   });
 });

@@ -3,6 +3,14 @@ import type { GuildEvent, Todo } from './events.ts';
 export type Location = 'guildhall' | 'library' | 'forge' | 'arena' | 'tower';
 export type HeroStatus = 'working' | 'idle' | 'needs_you' | 'gone';
 
+/**
+ * Where an agent sits in the kingdom. The King is the session the user talks to and
+ * that commands the rest; every other session is a Knight; a Knight's sub-agents are
+ * Footsoldiers when they change things (edit files, run commands) and Workers while
+ * they only read and search.
+ */
+export type Rank = 'king' | 'knight' | 'footsoldier' | 'worker';
+
 export interface Hero {
   id: string;
   name: string;
@@ -28,6 +36,12 @@ export interface Hero {
   tokens: Tokens;
   /** Its folder's git state, once the server has looked; null outside a repository. */
   git: GitState | null;
+  /** The user's King: talks to the user and commands the Knights. */
+  crowned: boolean;
+  /** The King has given this Knight orders. */
+  commanded: boolean;
+  /** When it was last given an order (epoch seconds), or null. */
+  orderedAt: number | null;
 }
 
 export interface Tokens {
@@ -134,6 +148,9 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     branch: null,
     tokens: noTokens(),
     git: null,
+    crowned: false,
+    commanded: false,
+    orderedAt: null,
   };
 }
 
@@ -188,6 +205,16 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
       };
       break;
     }
+    case 'crown':
+      hero = { ...hero, crowned: true };
+      break;
+    case 'commanded':
+      hero = { ...hero, commanded: true, orderedAt: event.t, status: 'working' };
+      break;
+    case 'ordered':
+      // Given an order: up, even out of bed, and off to hear it.
+      hero = { ...hero, orderedAt: event.t, status: 'working' };
+      break;
     case 'usage':
       hero = { ...hero, tokens: addTokens(hero.tokens, event) };
       break;
@@ -236,7 +263,10 @@ export function roster(state: GuildState): Hero[] {
   const presentIds = new Set(present.map((h) => h.id));
   const membersOf = (id: string) => present.filter((h) => h.parentId === id);
   const withParty = (hero: Hero): Hero[] => [hero, ...membersOf(hero.id).flatMap(withParty)];
-  return present.filter((h) => h.parentId === null || !presentIds.has(h.parentId)).flatMap(withParty);
+  const leaders = present.filter((h) => h.parentId === null || !presentIds.has(h.parentId));
+  // The King heads the roster; everyone else keeps arrival order (sort is stable).
+  leaders.sort((a, b) => Number(b.crowned) - Number(a.crowned));
+  return leaders.flatMap(withParty);
 }
 
 /**
@@ -256,6 +286,36 @@ export function partyTokens(state: GuildState, hero: Hero): Tokens {
   };
   visit(hero.id);
   return sum;
+}
+
+/**
+ * What a hero is working on, in its own words: the quest it has marked in progress, or
+ * failing that its next one still to do. Null when it has no quests open.
+ */
+export function currentQuest(hero: Hero): string | null {
+  const open =
+    hero.quests.find((q) => q.status === 'in_progress') ?? hero.quests.find((q) => q.status === 'pending');
+  return open?.title ?? null;
+}
+
+/** How long a Knight stands before the throne after an order before going to work. */
+export const AUDIENCE_SECONDS = 6;
+
+/** Whether a Knight is in the Throne Room hearing its latest order at time `now`. */
+export function inAudience(hero: Hero, now: number): boolean {
+  return (
+    hero.parentId === null &&
+    !hero.crowned &&
+    hero.orderedAt !== null &&
+    now >= hero.orderedAt &&
+    now - hero.orderedAt < AUDIENCE_SECONDS
+  );
+}
+
+export function rankOf(hero: Hero): Rank {
+  if (hero.crowned) return 'king';
+  if (hero.parentId === null) return 'knight';
+  return hero.visits.forge + hero.visits.arena > 0 ? 'footsoldier' : 'worker';
 }
 
 /** Work that exists only on this machine: unpushed commits or uncommitted files. */

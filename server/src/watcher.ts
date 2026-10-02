@@ -176,6 +176,8 @@ export class TranscriptWatcher {
     }
     for (const line of parsed) {
       for (const e of eventsFromLine(line, { session: tracked.session, usage: tracked.usage })) {
+        // A sub-agent's prompt comes from its Knight, not from the user or the King.
+        if (e.type === 'ordered' && tracked.isSubagent) continue;
         if (e.type === 'meta') {
           // Every assistant line carries these; forward only a change.
           const key = `${e.model ?? ''}\n${e.branch ?? ''}`;
@@ -263,6 +265,14 @@ export class TranscriptWatcher {
       .sort((a, b) => b.lastWriteMs - a.lastWriteMs)
       .slice(0, limit)
       .map((t) => ({ session: t.session, cwd: t.cwd! }));
+  }
+
+  /** When a main session's transcript last changed (epoch ms), or null if unknown. */
+  lastWrite(session: string): number | null {
+    for (const t of this.tracked.values()) {
+      if (t.session === session && !t.isSubagent) return t.lastWriteMs;
+    }
+    return null;
   }
 
   /** Folders sessions have run in, most recently active first: suggestions for a new chat. */

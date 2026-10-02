@@ -76,6 +76,8 @@ export function api(token: string) {
     send: (id: string, text: string) =>
       call<{ ok: true }>('POST', `/api/chats/${encodeURIComponent(id)}/messages`, { text }),
     stop: (id: string) => call<{ ok: true }>('POST', `/api/chats/${encodeURIComponent(id)}/stop`),
+    /** Talk to the King; the first message crowns one. */
+    speakToKing: (text: string) => call<{ id: string }>('POST', '/api/king/messages', { text }),
     crier: () => call<CrierStatus>('GET', '/api/crier'),
     updateCrier: (patch: Partial<CrierConfig>) => call<CrierStatus>('PUT', '/api/crier', patch),
     runCrier: () => call<ChatInfo>('POST', '/api/crier/run'),

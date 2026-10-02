@@ -46,7 +46,8 @@ a {
 
 .guild {
   display: grid;
-  grid-template-columns: 880px 1fr;
+  /* The map takes what the panel leaves, up to its full 1120px. */
+  grid-template-columns: minmax(0, 1120px) minmax(320px, 1fr);
   grid-template-rows: auto 1fr;
   gap: 16px 20px;
   padding: 20px;
@@ -71,8 +72,49 @@ a {
 }
 
 .village {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1120 / 720;
   border-radius: 12px;
   border: 1px solid var(--line);
+}
+
+.village-wrap {
+  position: relative;
+}
+
+/* "Talk" beside a Knight on the map: a real button over the canvas. */
+.talk-pill {
+  position: absolute;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 2px solid #2b2000;
+  background: var(--accent);
+  color: #2b2000;
+  font:
+    700 12px system-ui,
+    sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.talk-pill.talk-urgent {
+  background: #d93a3a;
+  border-color: #4a0b0b;
+  color: #fff;
+}
+
+.talk-pill:hover,
+.talk-pill:focus-visible {
+  filter: brightness(1.1);
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.working-on {
+  margin: 6px 0 0;
+  font-size: 14px;
 }
 
 .panel {
@@ -107,6 +149,31 @@ a {
   display: flex;
   align-items: baseline;
   gap: 10px;
+}
+
+.team-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  align-self: center;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+
+.rank {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rank-line {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.rank-line strong {
+  color: var(--ink);
 }
 
 .level {
@@ -801,4 +868,9 @@ kbd {
   display: inline-flex;
   gap: 6px;
   align-items: center;
+}
+
+.king-button {
+  background: linear-gradient(#ffd75e, #e0a91c);
+  color: #2b2000;
 }

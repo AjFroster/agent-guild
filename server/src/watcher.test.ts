@@ -56,7 +56,8 @@ describe('TranscriptWatcher', () => {
     await w.scan();
     await w.scan(); // nothing new: must not repeat events
 
-    expect(events.map((e) => e.type)).toEqual(['session_start', 'tool', 'tool']);
+    // The user's line is an order: only that it happened, never its text.
+    expect(events.map((e) => e.type)).toEqual(['session_start', 'ordered', 'tool', 'tool']);
     const state = replay(events);
     expect(state.heroes['sess-1']).toMatchObject({ name: 'movie-league', location: 'forge' });
     expect(JSON.stringify(events)).not.toMatch(/secret|do not leak/);
@@ -97,11 +98,14 @@ describe('TranscriptWatcher', () => {
     const subDir = join(project, 'lead', 'subagents');
     await mkdir(subDir, { recursive: true });
     await writeFile(join(project, 'lead.jsonl'), line(tool(0, 'Agent')));
-    await writeFile(join(subDir, 'agent-abc.jsonl'), line(tool(1, 'Grep')));
+    // A sub-agent's transcript opens with its Knight's prompt, which is not an order.
+    const prompt = { type: 'user', timestamp: at(1), message: { role: 'user', content: 'Find the callers' } };
+    await writeFile(join(subDir, 'agent-abc.jsonl'), line(prompt) + line(tool(1, 'Grep')));
     await writeFile(join(subDir, 'agent-abc.meta.json'), JSON.stringify({ agentType: 'Explore' }));
 
     await watcher().scan();
     const state = replay(events);
+    expect(events.filter((e) => e.type === 'ordered')).toEqual([]);
     expect(roster(state).map((h) => h.name)).toEqual(['movie-league', 'Explore']);
     expect(state.heroes['agent-abc']).toMatchObject({ parentId: 'lead', location: 'library' });
   });

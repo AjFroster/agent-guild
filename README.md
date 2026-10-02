@@ -59,14 +59,19 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 
 ## How it maps
 
-| Claude Code                                             | Guild                                |
-| ------------------------------------------------------- | ------------------------------------ |
-| Session                                                 | Hero, named after its project folder |
-| Sub-agent                                               | Party member                         |
-| Read/Grep/Glob · Edit/Write · Bash · WebFetch/WebSearch | Library · Forge · Arena · Tower      |
-| TodoWrite items                                         | Quests; each finished quest is 50 XP |
-| Finished turn                                           | 10 XP, back to the Guildhall         |
-| AskUserQuestion                                         | "Needs you" beacon                   |
+| Claude Code                                             | Guild                                  |
+| ------------------------------------------------------- | -------------------------------------- |
+| Session                                                 | Knight, named after its project folder |
+| The session you crown                                   | King, who commands the Knights         |
+| Sub-agent that edits or runs commands                   | Footsoldier, following its Knight      |
+| Sub-agent that only reads and searches                  | Worker, following its leader           |
+| Read/Grep/Glob · Edit/Write · Bash · WebFetch/WebSearch | Library · Forge · Arena · Tower        |
+| TodoWrite items                                         | Quests; each finished quest is 50 XP   |
+| Finished turn                                           | 10 XP, back to the Guildhall           |
+| AskUserQuestion                                         | Red "!" bubble and "needs you" beacon  |
+| Finished its turn, resting                              | Asleep on a bedroll in the Barracks    |
+| Given a message, by you or the King                     | Stands before the throne, then works   |
+| Working                                                 | Swings at a training dummy             |
 
 ## Using it
 
@@ -74,6 +79,13 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
   (edit files freely, plan only, auto, or ask; "skip checks" only with
   `AGENT_GUILD_ALLOW_BYPASS=1`). Talk to it in the chat drawer: replies stream in, tool
   calls show as rows you can expand, **Stop** ends the current turn.
+- **Talk to the King** crowns a King on your first message: one Claude Code session that
+  works for you by commanding the others. It sees every Knight (session) and what it is
+  doing, gives orders to the Knight already working in a folder, raises a new Knight when
+  none covers the work, and reports back. It cannot edit files or run commands itself,
+  only read; each Knight works under its own permission mode. The guild refuses to let it
+  interrupt a Knight mid-turn, talk over a session that is open in a terminal, or skip
+  permission checks. Gold lines on the map show which Knights serve the King.
 - **Open chat** on a session's panel shows its conversation, including sessions you
   started in a terminal, and lets you continue it (`claude --resume`).
 - **Town Crier** (off until you turn it on, since each run uses your Claude usage)
@@ -93,6 +105,9 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 - **Loose ends** in the guild panel lists sessions whose folder has commits on no remote
   or uncommitted files, including sessions that have left the guild. A hero with loose
   ends says so in the roster and on its panel. Folders are checked once a minute.
+- **What a Knight is working on** (its quest in progress) shows under its name on the map
+  and in its panel. A **Talk** button sits beside the Knight you select, and beside any
+  Knight waiting on you (in red): one tap opens its chat.
 - **Click a building** to see who is there now, which tools send heroes there, and the
   latest activity inside.
 - Everything on the map can also be opened from the side panel with the keyboard.

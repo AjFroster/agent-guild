@@ -73,9 +73,23 @@ export interface StartRequest {
   name?: string;
   mode?: ChatMode;
   message: string;
-  /** Extra flags for special sessions such as the Town Crier. */
+  /** Extra flags for special sessions such as the Town Crier and the King. */
   allowedTools?: string[];
   appendSystemPrompt?: string;
+  /** Path of an MCP config file whose servers this session gets. */
+  mcpConfig?: string;
+}
+
+/** What a special session keeps when it is adopted again, e.g. after a restart. */
+export type SessionExtras = Pick<StartRequest, 'mode' | 'allowedTools' | 'appendSystemPrompt' | 'mcpConfig'>;
+
+/** How a turn ended for someone waiting on it. */
+export interface TurnOutcome {
+  /** False when the wait ran out with the turn still going. */
+  done: boolean;
+  /** What the assistant said this turn, joined; the result text if it said nothing. */
+  reply: string;
+  ok: boolean;
 }
 
 interface Chat {
@@ -88,6 +102,7 @@ interface Chat {
   listeners: Set<(change: ChatChange) => void>;
   allowedTools: string[];
   appendSystemPrompt: string | null;
+  mcpConfig: string | null;
 }
 
 export class ChatError extends Error {
@@ -133,6 +148,7 @@ export class ChatManager {
       items: [],
       allowedTools: req.allowedTools ?? [],
       appendSystemPrompt: req.appendSystemPrompt ?? null,
+      mcpConfig: req.mcpConfig ?? null,
     });
     this.send(chat.info.id, req.message);
     return { ...chat.info };
@@ -142,23 +158,71 @@ export class ChatManager {
    * Open an existing session (started anywhere: a terminal, another guild run) so the
    * user can read it and continue it. `items` is its history from the transcript.
    */
-  async adopt(id: string, cwd: string, name: string, items: ChatItem[]): Promise<ChatInfo> {
+  async adopt(
+    id: string,
+    cwd: string,
+    name: string,
+    items: ChatItem[],
+    extras: SessionExtras = {},
+  ): Promise<ChatInfo> {
     if (!UUID.test(id)) throw new ChatError(400, 'Not a session id.');
     const existing = this.chats.get(id);
     if (existing) return { ...existing.info };
     const folder = await this.checkFolder(cwd);
+    const mode = extras.mode ?? 'acceptEdits';
+    this.checkMode(mode);
     return {
       ...this.add({
         id,
         name,
         cwd: folder,
-        mode: 'acceptEdits',
+        mode,
         fresh: false,
         items,
-        allowedTools: [],
-        appendSystemPrompt: null,
+        allowedTools: extras.allowedTools ?? [],
+        appendSystemPrompt: extras.appendSystemPrompt ?? null,
+        mcpConfig: extras.mcpConfig ?? null,
       }).info,
     };
+  }
+
+  /**
+   * Wait for the chat's current turn to end, up to `ms`. Resolves at once when no turn
+   * is running. The reply is everything the assistant said since the last user message.
+   */
+  waitForTurn(id: string, ms: number): Promise<TurnOutcome> {
+    const chat = this.chats.get(id);
+    if (!chat) return Promise.reject(new ChatError(404, 'No such chat.'));
+    const outcome = (done: boolean): TurnOutcome => {
+      const items = chat.state.items;
+      let from = items.length;
+      while (from > 0 && items[from - 1]!.kind !== 'user') from -= 1;
+      const turn = items.slice(from);
+      const said = turn
+        .filter((i) => i.kind === 'assistant')
+        .map((i) => i.text.trim())
+        .filter(Boolean)
+        .join('\n\n');
+      const result = turn.findLast((i) => i.kind === 'result');
+      const failed = turn.some(
+        (i) => (i.kind === 'notice' && i.tone === 'error') || (i.kind === 'result' && !i.ok),
+      );
+      return { done, reply: said || (result?.kind === 'result' ? result.text : ''), ok: !failed };
+    };
+    if (!chat.info.busy) return Promise.resolve(outcome(true));
+    return new Promise((resolve) => {
+      const finish = (done: boolean) => {
+        clearTimeout(timer);
+        chat.listeners.delete(listen);
+        resolve(outcome(done));
+      };
+      const listen = (change: ChatChange) => {
+        if (change.type === 'info' && !change.info.busy) finish(true);
+      };
+      const timer = setTimeout(() => finish(false), ms);
+      timer.unref?.();
+      chat.listeners.add(listen);
+    });
   }
 
   /** Send a message, starting or resuming the session's process if needed. */
@@ -176,6 +240,10 @@ export class ChatManager {
 
     const now = Date.now() / 1000;
     this.push(chat, { kind: 'user', id: `u-${randomUUID()}`, t: now, text: message });
+    // Busy until this turn's result. Set on the parsed state too: the output's first lines
+    // (message_start) carry no busy signal, and copying the last turn's "done" from them
+    // would end this turn before it began.
+    chat.state = { ...chat.state, busy: true };
     chat.info.busy = true;
     chat.child!.stdin.write(
       JSON.stringify({
@@ -217,6 +285,7 @@ export class ChatManager {
     items: ChatItem[];
     allowedTools: string[];
     appendSystemPrompt: string | null;
+    mcpConfig: string | null;
   }): Chat {
     const chat: Chat = {
       info: {
@@ -236,6 +305,7 @@ export class ChatManager {
       listeners: new Set(),
       allowedTools: c.allowedTools,
       appendSystemPrompt: c.appendSystemPrompt,
+      mcpConfig: c.mcpConfig,
     };
     this.chats.set(c.id, chat);
     this.emitList();
@@ -260,6 +330,7 @@ export class ChatManager {
       ...(chat.fresh ? ['--session-id', chat.info.id, '--name', chat.info.name] : ['--resume', chat.info.id]),
       ...(chat.allowedTools.length ? ['--allowedTools', chat.allowedTools.join(',')] : []),
       ...(chat.appendSystemPrompt ? ['--append-system-prompt', chat.appendSystemPrompt] : []),
+      ...(chat.mcpConfig ? ['--mcp-config', chat.mcpConfig] : []),
     ];
     const child = this.opts.spawn(this.opts.claude, args, { cwd: chat.info.cwd, env: process.env });
     chat.child = child;

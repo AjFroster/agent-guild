@@ -115,3 +115,17 @@ test('loose ends list unpushed work, from sessions that left too', async ({ page
   await expect(page.getByTestId('hero-git')).toHaveText('Everything committed and pushed');
   expect(errors).toEqual([]);
 });
+
+test('a kingdom: the King, Knights in their colours, and parties following them', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=kingdom&t=20');
+  const roster = page.locator('.roster');
+  await expect(roster.locator('.hero-head strong').first()).toHaveText('Arthur'); // the King leads
+  await expect(page.getByTestId('hero-s-king')).toContainText('King');
+  await expect(page.getByTestId('hero-s-perc-1')).toContainText('Footsoldier');
+  await expect(page.getByTestId('hero-s-perc-2')).toContainText('Worker');
+  await capture(page, '14-kingdom');
+  await page.goto('/?demo=kingdom&t=20&select=hero:s-gaw-1');
+  await expect(page.getByTestId('hero-rank')).toContainText('Footsoldier');
+  expect(errors).toEqual([]);
+});

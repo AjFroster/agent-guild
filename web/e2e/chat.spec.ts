@@ -1,8 +1,9 @@
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { type Page, expect, test } from '@playwright/test';
 
-import { LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
+import { LIVE_DIR, LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
 
 /**
  * Chatting with sessions and the Town Crier, against the real server with
@@ -139,4 +140,94 @@ test('control routes refuse requests without the token', async ({ request }) => 
   }
   const stream = await request.get(`${LIVE}/api/chats/00000000-0000-4000-8000-000000000000/stream`);
   expect(stream.status()).toBe(401);
+});
+
+test('the King is crowned, raises a Knight, and gives it orders through the guild tools', async ({
+  page,
+}) => {
+  await openGuild(page);
+  await page.getByTestId('talk-to-king').click();
+  const crown = page.getByTestId('crown');
+  await crown.getByTestId('crown-message').fill(`raise Squire in ${PROJECT}: say hello`);
+  await crown.getByTestId('crown-start').click();
+
+  // The King's turn: a real raise_knight call through the MCP server and the guild routes,
+  // which starts a Knight whose answer comes back to the King.
+  const chat = page.getByTestId('chat');
+  await expect(chat.getByRole('heading', { name: 'King' })).toBeVisible();
+  await expect(chat.getByTestId('msg-tool').first()).toContainText('raise_knight');
+  await expect(chat.getByTestId('msg-assistant').last()).toHaveText(
+    'I raised Squire. It reports: You said: say hello',
+    {
+      timeout: 20_000,
+    },
+  );
+
+  // A second order goes to the same Knight, which keeps its session.
+  await chat.getByTestId('composer').fill('order Squire: report your progress');
+  await chat.getByTestId('composer').press('Enter');
+  await expect(chat.getByTestId('msg-assistant').last()).toHaveText(
+    'Squire reports: You said: report your progress',
+    {
+      timeout: 20_000,
+    },
+  );
+  await page.screenshot({ path: 'e2e-screenshots/15-king-chat.png', animations: 'disabled' });
+  await chat.getByRole('button', { name: 'Close chat' }).click();
+
+  // On the map the King leads the roster, crowned, and Squire serves him.
+  await expect(page.locator('.roster .hero-head strong').first()).toHaveText('King');
+  await expect(page.locator('.roster')).toContainText('Squire');
+  await page.locator('.roster').getByRole('button', { name: 'Open King' }).click();
+  await expect(page.getByTestId('hero-rank')).toContainText('King');
+  await page.getByTestId('back').click();
+  await page.screenshot({ path: 'e2e-screenshots/16-king-map.png', animations: 'disabled' });
+
+  // With a King crowned, the button opens his chat straight away.
+  await page.getByTestId('talk-to-king').click();
+  await expect(page.getByTestId('chat').getByRole('heading', { name: 'King' })).toBeVisible();
+});
+
+test('a Knight shows what it is working on, and "Talk" on the map opens its chat', async ({ page }) => {
+  // A session in a terminal: a quest in progress, then a question for the user.
+  const id = '5a1e0c2d-7b4f-4e8a-9c3d-1f2e3d4c5b6a';
+  const dir = join(LIVE_DIR, PROJECT.replace(/[^a-zA-Z0-9]/g, '-'));
+  await mkdir(dir, { recursive: true });
+  const at = new Date().toISOString();
+  const line = (o: object) => JSON.stringify({ ...o, cwd: PROJECT, sessionId: id, timestamp: at });
+  const todos = [
+    { content: 'Map the sync code', status: 'completed' },
+    { content: 'Fix the flaky sync test', status: 'in_progress' },
+  ];
+  await writeFile(
+    join(dir, `${id}.jsonl`),
+    [
+      line({ type: 'custom-title', customTitle: 'Bedivere' }),
+      line({
+        type: 'assistant',
+        message: { id: 'b1', content: [{ type: 'tool_use', name: 'TodoWrite', input: { todos } }] },
+      }),
+      line({
+        type: 'assistant',
+        message: { id: 'b2', content: [{ type: 'tool_use', name: 'AskUserQuestion', input: {} }] },
+      }),
+    ].join('\n') + '\n',
+  );
+
+  await openGuild(page);
+  // Waiting on the user, so its Talk button is already out, in red.
+  const talk = page.getByTestId(`talk-${id}`);
+  await expect(talk).toBeVisible();
+  await expect(talk).toHaveClass(/talk-urgent/);
+  await expect(page.getByRole('button', { name: 'Talk to Bedivere' })).toBeVisible();
+  await page.screenshot({ path: 'e2e-screenshots/17-talk-on-map.png', animations: 'disabled' });
+
+  // Its panel names the work.
+  await page.locator('.roster').getByRole('button', { name: 'Open Bedivere' }).click();
+  await expect(page.getByTestId('working-on')).toHaveText('Working on: Fix the flaky sync test');
+
+  await talk.click();
+  const chat = page.getByTestId('chat');
+  await expect(chat.getByRole('heading', { name: 'Bedivere' })).toBeVisible();
+  await page.screenshot({ path: 'e2e-screenshots/18-talk-opens-chat.png', animations: 'disabled' });
 });

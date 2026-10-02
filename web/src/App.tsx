@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
 import { type Api, type ChatInfo, api } from './api.ts';
-import { ChatDrawer, CrierCard, NewChatDialog, ReportDrawer } from './chat.tsx';
+import { ChatDrawer, CrierCard, CrownDialog, NewChatDialog, ReportDrawer } from './chat.tsx';
 import { type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
@@ -72,6 +72,8 @@ interface Control {
   crierVersion: number;
   /** The server offers "skip all permission checks". */
   allowBypass: boolean;
+  /** The King's session, once crowned. */
+  kingId: string | null;
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -127,6 +129,7 @@ function Live({ token }: { token: string }) {
               chats: announcements.chats,
               crierVersion: announcements.crierVersion,
               allowBypass: announcements.control.allowBypass === true,
+              kingId: announcements.king?.id ?? null,
             }
           : undefined
       }
@@ -200,6 +203,18 @@ function Guild({
           {control && (
             <button
               type="button"
+              className="send king-button"
+              onClick={() =>
+                openDrawer(control.kingId ? { kind: 'chat', id: control.kingId } : { kind: 'king' })
+              }
+              data-testid="talk-to-king"
+            >
+              ♛ Talk to the King
+            </button>
+          )}
+          {control && (
+            <button
+              type="button"
               className="send"
               onClick={() => openDrawer({ kind: 'new' })}
               data-testid="new-session"
@@ -217,6 +232,9 @@ function Guild({
           animate={live !== undefined}
           selected={selection}
           onSelect={select}
+          onTalk={control ? (id) => openDrawer({ kind: 'chat', id }) : undefined}
+          canTalk={(h) => h.parentId === null && SESSION_ID.test(h.id)}
+          clock={live === undefined ? now : undefined}
         />
         {showHint && <Hint onDismiss={dismissHint} />}
       </div>
@@ -250,6 +268,13 @@ function Guild({
       )}
       {control && drawer?.kind === 'report' && (
         <ReportDrawer api={control.api} date={drawer.date} onClose={() => openDrawer(null)} />
+      )}
+      {control && drawer?.kind === 'king' && (
+        <CrownDialog
+          api={control.api}
+          onCrowned={(id) => openDrawer({ kind: 'chat', id })}
+          onCancel={() => openDrawer(null)}
+        />
       )}
       {control && drawer?.kind === 'new' && (
         <NewChatDialog
