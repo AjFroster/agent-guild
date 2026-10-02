@@ -13,6 +13,8 @@ import { TownCrier } from './crier.ts';
 import { Court } from './king.ts';
 import { Forge, ForgeStore } from './forge.ts';
 import { forgeWaiting, registerForgeRoutes } from './forgeRoutes.ts';
+import { PortWatcher } from './ports.ts';
+import { portalStatus, registerPortalRoutes } from './portalRoutes.ts';
 import { Library } from './library.ts';
 import { registerKingRoutes } from './kingRoutes.ts';
 import { registerLibraryRoutes } from './libraryRoutes.ts';
@@ -40,6 +42,8 @@ import { TranscriptWatcher } from './watcher.ts';
  *   AGENT_GUILD_GIT           set to 0 to stop checking session folders for unpushed work
  *   CLAUDE_SKILLS_DIR         installed skills, compared against new ones (default ~/.claude/skills)
  *   CLAUDE_PLUGINS_DIR        plugins whose skills count as installed (default ~/.claude/plugins)
+ *   AGENT_GUILD_PORTALS       set to 0 to stop looking for services on local ports
+ *   AGENT_GUILD_PORT_POLL_MS  how often to look (default 3000)
  */
 
 const port = Number(process.env.AGENT_GUILD_PORT ?? 4747);
@@ -169,6 +173,24 @@ const archive = new Archive(join(dataDir, 'archive.json'));
 const announceSkills = () =>
   void archive.read().then(({ entries }) => announce('skills', { waiting: waitingForUser(entries).length }));
 
+// The Portal Keeper: services listening on local ports, by the Knight whose folder they run in.
+const ports =
+  process.env.AGENT_GUILD_PORTALS === '0'
+    ? null
+    : new PortWatcher({
+        dir: dataDir,
+        ownPort: port,
+        knights: () => [
+          ...chats.list().map((c) => ({ id: c.id, name: c.name, cwd: c.cwd })),
+          ...watcher.sessionFolders().map((f) => ({
+            id: f.session,
+            name: watcher.sessionOf(f.session)?.name ?? f.cwd.split('/').at(-1) ?? 'Knight',
+            cwd: f.cwd,
+          })),
+        ],
+        onChange: () => ports && announce('portals', portalStatus(ports)),
+      });
+
 // Unpushed commits and uncommitted files in the folders sessions ran in: counts only.
 const git =
   process.env.AGENT_GUILD_GIT === '0'
@@ -191,6 +213,7 @@ const server = createServer({
             extrasFor: (id) => (id === court.kingId ? court.extras() : undefined),
             knightExtras,
           });
+          if (ports) await registerPortalRoutes(scope, { isToken, ports });
           await registerForgeRoutes(scope, {
             isToken,
             store: forgeStore,
@@ -257,6 +280,10 @@ if (controlOn) {
 }
 watcher.start();
 git?.start();
+if (ports) {
+  await ports.load();
+  ports.start(Number(process.env.AGENT_GUILD_PORT_POLL_MS ?? 3000));
+}
 if (controlOn) {
   await crier.load();
   crier.start();
@@ -278,6 +305,7 @@ console.log(`Open: http://127.0.0.1:${port}/?token=${token}`);
 const shutdown = () => {
   watcher.stop();
   git?.stop();
+  ports?.stop();
   crier.stop();
   library.stop();
   chats.stopAll();

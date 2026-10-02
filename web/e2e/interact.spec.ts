@@ -102,9 +102,9 @@ test('everything on the map can be opened from the keyboard', async ({ page }) =
   await expect(page.getByTestId('panel-hero')).toContainText('Waiting for your answer');
 
   await page.keyboard.press('Escape');
-  await page.getByTestId('open-tower').focus();
+  await page.getByTestId('open-arena').focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByTestId('panel-building').getByRole('heading', { name: 'Tower' })).toBeVisible();
+  await expect(page.getByTestId('panel-building').getByRole('heading', { name: 'Arena' })).toBeVisible();
 });
 
 test('the beacon names are links to the waiting hero', async ({ page }) => {

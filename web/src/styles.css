@@ -1338,3 +1338,83 @@ h2.ts-ribbon {
   background: #e6d6a8;
   color: #3c2410;
 }
+
+/* --- the Tower page --------------------------------------------------- */
+
+.portal-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #281800;
+  vertical-align: middle;
+}
+
+.portal-dot.look-purple {
+  background: #a978eb;
+}
+
+.portal-dot.look-green {
+  background: #6ed796;
+}
+
+.portal-dot.look-blue {
+  background: #78b4fa;
+}
+
+.portal-dot.look-closed {
+  background: #3a3e48;
+}
+
+.portal-name {
+  font: inherit;
+  font-weight: 700;
+  width: min(100%, 220px);
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: #3c2410;
+}
+
+.portal-name:hover,
+.portal-name:focus {
+  border-color: #8a6a44;
+  background: #fff8e4;
+}
+
+.portal-actions {
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ts-button.portal-open {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  text-decoration: none;
+}
+
+/* The portal button beside a Knight on the map whose dev server is up. */
+.portal-pill {
+  position: absolute;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 2px solid #2a1450;
+  background: #a978eb;
+  color: #fff;
+  font:
+    700 12px system-ui,
+    sans-serif;
+  text-decoration: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.portal-pill:hover,
+.portal-pill:focus-visible {
+  filter: brightness(1.1);
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}

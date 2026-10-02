@@ -130,6 +130,29 @@ export interface ForgeOrder {
   error: string | null;
 }
 
+/** A service listening on a local port: a portal at the Tower. */
+export interface PortalInfo {
+  port: number;
+  command: string;
+  /** The last part of the folder it runs in. */
+  folder: string | null;
+  /** The Knight working in that folder, if any. */
+  knight: { id: string; name: string } | null;
+  /** Answers HTTP; null when the guild was told not to check. */
+  http: boolean | null;
+  status: number | null;
+  title: string | null;
+  name: string | null;
+  pinned: boolean;
+  since: number;
+}
+
+export interface PortalStatus {
+  portals: PortalInfo[];
+  hidden: number[];
+  probe: boolean;
+}
+
 export interface ForgeStatus {
   orders: ForgeOrder[];
   current: string | null;
@@ -168,6 +191,10 @@ export function api(token: string) {
     updateLibrary: (patch: Partial<LibrarySchedule>) => call<SkillsStatus>('PUT', '/api/library', patch),
     runLibrary: () => call<{ ok: true }>('POST', '/api/library/run'),
     forge: () => call<ForgeStatus>('GET', '/api/forge'),
+    portals: () => call<PortalStatus>('GET', '/api/portals'),
+    portalSettings: (patch: { probe: boolean }) => call<PortalStatus>('PUT', '/api/portals', patch),
+    updatePortal: (port: number, patch: { name?: string; hidden?: boolean; pinned?: boolean }) =>
+      call<PortalStatus>('POST', `/api/portals/${port}`, patch),
     commission: (body: { project: string; kind: PieceKind; need: string }) =>
       call<{ id: string }>('POST', '/api/forge/orders', body),
     installPiece: (id: string) =>

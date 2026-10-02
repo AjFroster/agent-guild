@@ -589,6 +589,8 @@ export interface VillageView {
   libraryWaiting?: number | undefined;
   /** Forged pieces waiting on the user: a badge on the Forge's door. */
   forgeWaiting?: number | undefined;
+  /** Services open on local ports: a blue count on the Tower's door. */
+  towerPortals?: number | undefined;
 }
 
 export function drawVillage(
@@ -704,6 +706,7 @@ export function drawVillage(
 
   drawSigns(ctx, 'library', librariansIn(state), nowMs, view.libraryWaiting ?? 0);
   drawSigns(ctx, 'forge', smithsIn(state), nowMs, view.forgeWaiting ?? 0);
+  if (view.towerPortals) doorBadge(ctx, 'tower', view.towerPortals, true);
 }
 
 /** The buildings whose workers live inside, shown as signs over the roof. */
@@ -764,25 +767,31 @@ function drawSigns(
     );
     label(ctx, hero.name, x, roof + 9, style.bg, state === 'needs_you' ? '#ffcc33' : '#f1efe6', 11);
   });
-  if (waiting > 0) {
-    const b = BUILDINGS[id];
-    const x = b.x + 30;
-    const y = b.y - 40;
-    ctx.save();
-    ctx.fillStyle = '#ffcc33';
-    ctx.strokeStyle = '#4a3200';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y, 12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = '#2a1c00';
-    ctx.font = '800 13px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(Math.min(waiting, 99)), x, y + 1);
-    ctx.restore();
-  }
+  if (waiting > 0) doorBadge(ctx, id, waiting);
+}
+
+/**
+ * A count on a building's door: gold for what waits on the user (skills, pieces), blue for
+ * the Tower's open portals.
+ */
+function doorBadge(ctx: CanvasRenderingContext2D, id: Location, count: number, blue = false): void {
+  const b = BUILDINGS[id];
+  const x = b.x + 30;
+  const y = b.y - 40;
+  ctx.save();
+  ctx.fillStyle = blue ? '#78b4fa' : '#ffcc33';
+  ctx.strokeStyle = blue ? '#14284a' : '#4a3200';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(x, y, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = blue ? '#0c1a30' : '#2a1c00';
+  ctx.font = '800 13px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(Math.min(count, 99)), x, y + 1);
+  ctx.restore();
 }
 
 /** A hero asleep: its sprite laid on its side, head to the left, with "zzz" over it. */

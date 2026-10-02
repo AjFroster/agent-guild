@@ -21,6 +21,7 @@ the license requires.
 
 `../props/` (the Library's bookshelves, books, scrolls, lectern and crystal orb; the Forge's
 hearth, anvil, bellows, trough, grindstone, weapon rack and weapons, repair bench, ore and
-ingots) are drawn for
+ingots; the Tower's portals, rune circle, telescope, scrying pool, scroll rack, floating
+books, crystal, star-chart desk, lens, alarm bell, wizard hats and staff) are drawn for
 agent-guild in the Tiny Swords style by `scripts/art/props.py`, which regenerates them.
 They are part of this project and under its license.

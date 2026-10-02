@@ -67,6 +67,8 @@ export default defineConfig({
         CLAUDE_SKILLS_DIR: LIVE_SKILLS,
         CLAUDE_PLUGINS_DIR: join(LIVE_HOME, '.claude', 'plugins'),
         AGENT_GUILD_SKILL_GIT_BASE: `file://${LIVE_REMOTES}/`,
+        // The Portal Keeper looks often, so a test's listener shows up at once.
+        AGENT_GUILD_PORT_POLL_MS: '500',
         // Where the fake Scout looks up the commit it "found".
         FAKE_SKILL_REPO: join(LIVE_REMOTES, 'acme-labs', 'agent-skills.git'),
       },
