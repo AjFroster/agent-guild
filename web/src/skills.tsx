@@ -10,7 +10,7 @@ import { ago } from './panels.tsx';
  * notes and the whole history.
  */
 
-const VERDICT: Record<Verdict, { label: string; tone: string }> = {
+export const VERDICT: Record<Verdict, { label: string; tone: string }> = {
   gap: { label: 'Fills a gap', tone: 'good' },
   better: { label: 'Better than what you have', tone: 'good' },
   duplicate: { label: 'Duplicate', tone: 'plain' },
@@ -163,8 +163,12 @@ export function SkillsPanel({ api, version, now }: { api: Api; version: number; 
         </summary>
         <ul className="plain small">
           {status.installed.map((s) => (
-            <li key={`${s.source}:${s.path}`}>
-              <strong>{s.name}</strong> <span className="muted">· {s.source}</span>
+            <li key={`${s.source}:${s.project ?? ''}:${s.path}`}>
+              <strong>{s.name}</strong>{' '}
+              <span className="muted">
+                · {s.source}
+                {s.project ? `: ${s.project}` : ''}
+              </span>
               {s.description && <div className="muted">{s.description}</div>}
             </li>
           ))}
@@ -203,7 +207,7 @@ export function SkillsPanel({ api, version, now }: { api: Api; version: number; 
   );
 }
 
-function SkillHead({ entry: e, compact = false }: { entry: ArchiveEntry; compact?: boolean }) {
+export function SkillHead({ entry: e, compact = false }: { entry: ArchiveEntry; compact?: boolean }) {
   return (
     <div className="skill-head">
       <strong>{e.name}</strong>{' '}

@@ -144,6 +144,7 @@ test('the Forge: a Knight asks for equipment, and the Blacksmith works inside', 
   const errors = watchForErrors(page);
   await page.goto('/?demo=forge&t=20');
   // On the map: Percival walked to the Forge to ask; a hammer sign for the Blacksmith at work.
+  // Lancelot got a raven from the Forge: a letter over its head, no walk to the throne.
   await capture(page, '17-forge-signs');
   await expect(page.getByTestId('hero-s-smith')).toContainText('Smith');
   await page.getByTestId('open-forge').click();

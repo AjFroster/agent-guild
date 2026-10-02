@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process';
-import { mkdir, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -23,6 +22,8 @@ import { installSkill } from './install.ts';
 import { installedSkills } from './skills.ts';
 import { loadToken } from './token.ts';
 import { TranscriptWatcher } from './watcher.ts';
+import { writeMcpConfig } from './mcpConfig.ts';
+import { type Run, type Utility, RunLog, failedRuns, registerRunRoutes } from './runs.ts';
 
 /**
  * `npm start`: serve the guild, follow ~/.claude/projects, and run chats and the Town
@@ -105,20 +106,7 @@ const open = sessionOpener(
 // Every Knight the guild starts may ask the Forge for equipment: one MCP config, role
 // "knight"; the guild tells Knights apart by the folder they work in.
 const knightMcpFile = join(dataDir, 'knight-mcp.json');
-await mkdir(dataDir, { recursive: true });
-await writeFile(
-  knightMcpFile,
-  JSON.stringify({
-    mcpServers: {
-      guild: {
-        command: process.execPath,
-        args: [resolve(import.meta.dirname, 'kingMcp.ts')],
-        env: { GUILD_URL: `http://127.0.0.1:${port}`, GUILD_TOKEN: token, GUILD_ROLE: 'knight' },
-      },
-    },
-  }),
-  { mode: 0o600 },
-);
+await writeMcpConfig(knightMcpFile, { guildUrl: `http://127.0.0.1:${port}`, token, role: 'knight' });
 const knightExtras = () => ({
   mcpConfig: knightMcpFile,
   allowedTools: ['mcp__guild__request_equipment', 'mcp__guild__check_equipment'],
@@ -140,6 +128,19 @@ const court = new Court({
 kingId = () => court.kingId;
 commanded = (id) => court.commanded.has(id);
 
+// Each utility's runs: when, how long, and whether they worked.
+const runLog = new RunLog(join(dataDir, 'runs.json'));
+const announceRuns = () =>
+  void runLog.runs().then((runs) => {
+    const last = runs.find((r) => !r.ok);
+    announce('runs', {
+      failed: failedRuns(runs),
+      last: last ? { utility: last.utility, detail: last.detail } : null,
+    });
+  });
+const logRun = (utility: Utility) => (run: Omit<Run, 'utility'>) =>
+  void runLog.add({ utility, ...run }).then(announceRuns);
+
 // The librarians: the Scout and the Reviewer, once a day when the user turns them on.
 const library = new Library({
   dir: dataDir,
@@ -149,6 +150,7 @@ const library = new Library({
   onChange: () => announceSkills(),
   onLibrarian: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'librarian' }]),
   onError: (message) => void archive.addNote('Library', message).then(announceSkills),
+  onRun: logRun('library'),
 });
 // The Forge: equipment made to order by the Blacksmith, reviewed by the Library's Reviewer.
 const forgeStore = new ForgeStore(join(dataDir, 'forge.json'));
@@ -164,6 +166,7 @@ const forge = new Forge({
   onReviewer: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'librarian' }]),
   onChange: announceForge,
   onError: (message) => void archive.addNote('Forge', message).then(announceSkills),
+  onRun: logRun('forge'),
 });
 isLibrarian = (id) => library.config.sessions.includes(id) || forge.isReviewer(id);
 isSmith = (id) => forge.isSmith(id);
@@ -172,6 +175,15 @@ isSmith = (id) => forge.isSmith(id);
 const archive = new Archive(join(dataDir, 'archive.json'));
 const announceSkills = () =>
   void archive.read().then(({ entries }) => announce('skills', { waiting: waitingForUser(entries).length }));
+
+// Every installed skill: the user's, plugins', and those in the projects Knights work in
+// (where the Forge installs), so the Library, the King and "Your skills" all see them.
+const allSkills = async () =>
+  installedSkills(skillsDir, pluginsDir, [
+    ...chats.list().map((c) => c.cwd),
+    ...watcher.sessionFolders().map((f) => f.cwd),
+    ...(await forgeStore.read()).orders.map((o) => o.project),
+  ]);
 
 // The Portal Keeper: services listening on local ports, by the Knight whose folder they run in.
 const ports =
@@ -214,12 +226,14 @@ const server = createServer({
             knightExtras,
           });
           if (ports) await registerPortalRoutes(scope, { isToken, ports });
+          await registerRunRoutes(scope, { isToken, log: runLog });
           await registerForgeRoutes(scope, {
             isToken,
             store: forgeStore,
             forge,
             chats,
             onChange: announceForge,
+            onRaven: (id) => publishEvents([{ t: Date.now() / 1000, session: id, type: 'raven' }]),
             resolveKnight: (knight) => {
               const hero = court.resolve(knight);
               const cwd =
@@ -233,7 +247,7 @@ const server = createServer({
             archive: async () => {
               const { entries, notes } = await archive.read();
               return {
-                installed: (await installedSkills(skillsDir, pluginsDir)).map((s) => ({
+                installed: (await allSkills()).map((s) => ({
                   name: s.name,
                   description: s.description,
                 })),
@@ -250,7 +264,7 @@ const server = createServer({
           await registerLibraryRoutes(scope, {
             isToken,
             archive,
-            installed: () => installedSkills(skillsDir, pluginsDir),
+            installed: () => allSkills(),
             onChange: announceSkills,
             library,
             install: (entry) =>
@@ -291,6 +305,7 @@ if (controlOn) {
   announce('king', { id: court.kingId });
   announceSkills();
   announceForge();
+  announceRuns();
   // Orders taken before a restart are picked up again.
   void forge.kick();
 }

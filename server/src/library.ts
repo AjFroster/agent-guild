@@ -1,8 +1,9 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 
 import type { ChatManager, StartRequest } from './chats.ts';
 import { type Schedule, isDue, localDate, nextRun } from './crier.ts';
+import { writeMcpConfig } from './mcpConfig.ts';
 
 /**
  * The librarians: two Claude Code sessions the guild starts once a day (when the user has
@@ -108,6 +109,8 @@ export interface LibraryOptions {
   onLibrarian?: (id: string) => void;
   /** A run failed: said where the user will see it (the Archive's notes). */
   onError?: (message: string) => void;
+  /** A run ended, well or not: for the run log on the Library's page. */
+  onRun?: (run: { startedAt: number; endedAt: number; ok: boolean; detail: string }) => void;
 }
 
 export class Library {
@@ -188,13 +191,26 @@ export class Library {
     // Recorded first, so a failing run is not retried every minute.
     this.config = { ...this.config, lastRunDate: date };
     await this.save();
+    const startedAt = this.now().getTime() / 1000;
+    const ran = (ok: boolean, detail: string) =>
+      this.opts.onRun?.({ startedAt, endedAt: this.now().getTime() / 1000, ok, detail });
     try {
       await mkdir(this.folder, { recursive: true });
       const scout = await this.librarian('scout', 'Scout', scoutPrompt(this.config, date), SCOUT_TOOLS);
-      await this.opts.chats.waitForTurn(scout, TURN_LIMIT_MS);
+      const found = await this.opts.chats.waitForTurn(scout, TURN_LIMIT_MS);
       const reviewer = await this.librarian('reviewer', 'Reviewer', reviewerPrompt(date), REVIEWER_TOOLS);
-      await this.opts.chats.waitForTurn(reviewer, TURN_LIMIT_MS);
+      const reviewed = await this.opts.chats.waitForTurn(reviewer, TURN_LIMIT_MS);
+      const failed = [found, reviewed].find((t) => !t.done || !t.ok);
+      ran(
+        !failed,
+        failed
+          ? failed.done
+            ? `A librarian's turn ended in an error: ${failed.reply.slice(0, 200) || 'no reply'}`
+            : 'A librarian ran out of time.'
+          : 'The Scout and the Reviewer finished.',
+      );
     } catch (err) {
+      ran(false, (err as Error).message);
       this.opts.onError?.(`The librarians could not finish today's run: ${(err as Error).message}`);
       throw err;
     } finally {
@@ -212,6 +228,7 @@ export class Library {
       message,
       allowedTools: tools,
       mcpConfig: this.mcpConfigFile(role),
+      helper: true,
     };
     const info = await this.opts.chats.start(request);
     this.config = { ...this.config, sessions: [info.id, ...this.config.sessions].slice(0, 40) };
@@ -222,17 +239,11 @@ export class Library {
 
   /** Each librarian's MCP config: the guild's address, the token and its role, readable by the user only. */
   private async writeMcpConfig(role: 'scout' | 'reviewer'): Promise<void> {
-    await mkdir(this.opts.dir, { recursive: true });
-    const config = {
-      mcpServers: {
-        guild: {
-          command: process.execPath,
-          args: [resolve(import.meta.dirname, 'kingMcp.ts')],
-          env: { GUILD_URL: this.opts.guildUrl, GUILD_TOKEN: this.opts.token, GUILD_ROLE: role },
-        },
-      },
-    };
-    await writeFile(this.mcpConfigFile(role), JSON.stringify(config, null, 2) + '\n', { mode: 0o600 });
+    await writeMcpConfig(this.mcpConfigFile(role), {
+      guildUrl: this.opts.guildUrl,
+      token: this.opts.token,
+      role,
+    });
   }
 
   private now(): Date {

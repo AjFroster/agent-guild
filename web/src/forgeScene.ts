@@ -7,7 +7,18 @@ import {
   smithsIn,
 } from '@agent-guild/core';
 
-import { type Art, type Rect, FRAMES, frameAt, grass, inside, put, ribbon, terrain } from './scene.ts';
+import {
+  type Art,
+  type Rect,
+  FRAMES,
+  frameAt,
+  grass,
+  highlight,
+  inside,
+  put,
+  ribbon,
+  terrain,
+} from './scene.ts';
 import { bubble } from './village.ts';
 
 /**
@@ -284,14 +295,4 @@ function drawRack(
     }
     if (hovered?.kind === 'piece' && hovered.id === piece.id) highlight(ctx, slot);
   });
-}
-
-function highlight(ctx: CanvasRenderingContext2D, r: Rect): void {
-  ctx.save();
-  ctx.strokeStyle = '#ffcc33';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.roundRect(r.x - 4, r.y - 4, r.w + 8, r.h + 8, 10);
-  ctx.stroke();
-  ctx.restore();
 }

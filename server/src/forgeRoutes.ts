@@ -1,9 +1,10 @@
 import { basename } from 'node:path';
 
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { type ChatManager, ChatError } from './chats.ts';
 import { type Forge, type ForgeStore, type Order, installPiece, pieceDestination } from './forge.ts';
+import { guard } from './routes.ts';
 
 /**
  * The Forge's routes, all behind the token. `/api/forge` and `/api/forge/orders...` serve
@@ -18,6 +19,8 @@ export interface ForgeRouteOptions {
   forge: Forge;
   chats: ChatManager;
   onChange: () => void;
+  /** The Forge sent a Knight a message: a raven with news, not an order (the map shows it so). */
+  onRaven?: (knightId: string) => void;
   /** A Knight by name or id, for the King's commissions: its session and folder. */
   resolveKnight?: (knight: string) => { id: string; name: string; cwd: string | null };
 }
@@ -28,20 +31,7 @@ export const forgeWaiting = (orders: Order[]) => orders.filter((o) => o.status =
 export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRouteOptions): Promise<void> {
   const { store, forge, chats } = opts;
 
-  const guarded =
-    (handler: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>) =>
-    async (req: FastifyRequest, reply: FastifyReply) => {
-      const header = req.headers.authorization ?? '';
-      if (!opts.isToken(header.startsWith('Bearer ') ? header.slice(7) : undefined)) {
-        return reply.code(401).send({ error: 'Missing or wrong token.' });
-      }
-      try {
-        return await handler(req, reply);
-      } catch (err) {
-        if (err instanceof ChatError) return reply.code(err.status).send({ error: err.message });
-        throw err;
-      }
-    };
+  const guarded = guard(opts.isToken);
   const changed = <T>(value: T): T => {
     opts.onChange();
     return value;
@@ -127,9 +117,24 @@ export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRoute
       order.kind === 'skill'
         ? `Read its SKILL.md there and use it whenever it fits.`
         : `Run it as /${order.piece.name}.`;
+    opts.onRaven?.(knight.id);
     chats.send(
       knight.id,
       `The Forge: the ${order.kind} you asked for, "${order.piece.name}", was reviewed and the user installed it at ${dest}. ${how}`,
+    );
+  };
+
+  /** Nothing was forged: the Knight is told what it already has. */
+  const tellKnightExisting = (order: Order) => {
+    const knight = order.knightId ? chats.list().find((c) => c.id === order.knightId) : undefined;
+    if (!knight || knight.busy || !order.existing) return;
+    const { name, where, reason } = order.existing;
+    opts.onRaven?.(knight.id);
+    chats.send(
+      knight.id,
+      where === 'archive'
+        ? `The Forge: nothing was forged. The Library already has "${name}" (${reason}); it waits for the user to install it.`
+        : `The Forge: nothing was forged. You already have the skill "${name}" (${where}): ${reason}`,
     );
   };
 
@@ -230,6 +235,15 @@ export async function registerForgeRoutes(app: FastifyInstance, opts: ForgeRoute
     guarded(async (req) => {
       const order = await store.submitPiece(body(req) as never);
       return changed({ id: order.id, status: order.status, name: order.piece?.name });
+    }),
+  );
+
+  app.post(
+    '/api/forge/existing',
+    guarded(async (req) => {
+      const order = await store.alreadyExists(body(req) as never);
+      tellKnightExisting(order);
+      return changed({ id: order.id, status: order.status });
     }),
   );
 

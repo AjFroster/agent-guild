@@ -2,7 +2,6 @@ import { useRef } from 'react';
 
 import type { Settings } from './settings.ts';
 import type { Toast } from './useNotices.ts';
-import type { Selection } from './village.ts';
 
 /** Page furniture around the map: toasts, the settings dialog, the first-run hint. */
 
@@ -12,7 +11,8 @@ export function Toasts({
   onDismiss,
 }: {
   toasts: Toast[];
-  onOpen: (s: Selection) => void;
+  /** Open what a toast is about: its hero, a building's page, or the inbox for a decision. */
+  onOpen: (t: Toast) => void;
   onDismiss: (key: string) => void;
 }) {
   if (toasts.length === 0) return null;
@@ -24,7 +24,7 @@ export function Toasts({
             type="button"
             className="toast-body"
             onClick={() => {
-              onOpen({ kind: 'hero', id: t.heroId });
+              onOpen(t);
               onDismiss(t.key);
             }}
           >

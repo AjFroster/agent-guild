@@ -63,6 +63,11 @@ export interface ChatOptions {
   /** Close an idle process after this long; the next message resumes it. */
   idleMs?: number;
   maxRunning?: number;
+  /**
+   * How many helper processes (librarians, smiths, the Town Crier) may run at once. They
+   * have their own pool, so a helper never closes a Knight's process to make room.
+   */
+  maxHelpers?: number;
   /** Allow "bypassPermissions". Off unless the guild was started with it on. */
   allowBypass?: boolean;
   onList?: (chats: ChatInfo[]) => void;
@@ -78,6 +83,11 @@ export interface StartRequest {
   appendSystemPrompt?: string;
   /** Path of an MCP config file whose servers this session gets. */
   mcpConfig?: string;
+  /**
+   * A utility's session rather than a Knight's: it runs in the helpers' own pool and its
+   * process closes as soon as its turn ends (a later message resumes it).
+   */
+  helper?: boolean;
 }
 
 /** What a special session keeps when it is adopted again, e.g. after a restart. */
@@ -105,6 +115,7 @@ interface Chat {
   allowedTools: string[];
   appendSystemPrompt: string | null;
   mcpConfig: string | null;
+  helper: boolean;
 }
 
 export class ChatError extends Error {
@@ -151,6 +162,7 @@ export class ChatManager {
       allowedTools: req.allowedTools ?? [],
       appendSystemPrompt: req.appendSystemPrompt ?? null,
       mcpConfig: req.mcpConfig ?? null,
+      helper: req.helper === true,
     });
     this.send(chat.info.id, req.message);
     return { ...chat.info };
@@ -288,6 +300,7 @@ export class ChatManager {
     allowedTools: string[];
     appendSystemPrompt: string | null;
     mcpConfig: string | null;
+    helper?: boolean;
   }): Chat {
     const chat: Chat = {
       info: {
@@ -309,6 +322,7 @@ export class ChatManager {
       allowedTools: c.allowedTools,
       appendSystemPrompt: c.appendSystemPrompt,
       mcpConfig: c.mcpConfig,
+      helper: c.helper === true,
     };
     this.chats.set(c.id, chat);
     this.emitList();
@@ -316,12 +330,20 @@ export class ChatManager {
   }
 
   private launch(chat: Chat): void {
-    const running = [...this.chats.values()].filter((c) => c.child);
-    if (running.length >= (this.opts.maxRunning ?? 6)) {
+    // Knights and helpers each have their own pool: neither closes the other's processes.
+    const running = [...this.chats.values()].filter((c) => c.child && c.helper === chat.helper);
+    const cap = chat.helper ? (this.opts.maxHelpers ?? 2) : (this.opts.maxRunning ?? 6);
+    if (running.length >= cap) {
       // Make room by closing the process that has sat idle longest: its session is kept and
       // its next message resumes it. Only when every process is mid-turn is there no room.
       const idle = running.filter((c) => !c.info.busy).sort((a, b) => a.lastActiveMs - b.lastActiveMs)[0];
-      if (!idle) throw new ChatError(429, 'Too many sessions are working at once. Stop one first.');
+      if (!idle)
+        throw new ChatError(
+          429,
+          chat.helper
+            ? "The guild's helpers are all at work. Try again when one finishes."
+            : 'Too many sessions are working at once. Stop one first.',
+        );
       this.close(idle);
       this.emitInfo(idle);
     }
@@ -353,6 +375,7 @@ export class ChatManager {
         return;
       }
       const before = chat.state.items;
+      const wasBusy = chat.info.busy;
       chat.state = applyStreamLine(chat.state, line, Date.now() / 1000);
       chat.info.busy = chat.state.busy;
       chat.info.loginRequired = chat.state.loginRequired;
@@ -364,6 +387,8 @@ export class ChatManager {
         if (!kept.has(item.id)) this.notify(chat, { type: 'remove', id: item.id });
       }
       this.touch(chat);
+      // A helper's work is one turn at a time: free its slot as soon as the turn ends.
+      if (chat.helper && wasBusy && !chat.info.busy) this.close(chat);
       this.emitInfo(chat);
     });
 

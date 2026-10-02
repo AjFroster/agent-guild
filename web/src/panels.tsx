@@ -14,6 +14,7 @@ import {
   rankOf,
   roster,
   toolsFor,
+  tokensByUtility,
   totalTokens,
 } from '@agent-guild/core';
 import type { ReactNode } from 'react';
@@ -233,9 +234,15 @@ function LooseEnds({ state, onSelect }: { state: GuildState; onSelect: Select })
 function GuildTotal({ state }: { state: GuildState }) {
   const total = totalTokens(guildTokens(state));
   if (total === 0) return null;
+  const by = tokensByUtility(state);
+  const helpers = [
+    by.library > 0 && `the Library ${compact(by.library)}`,
+    by.forge > 0 && `the Forge ${compact(by.forge)}`,
+  ].filter(Boolean);
   return (
     <p className="muted small" data-testid="guild-tokens">
-      The guild has used {compact(total)} tokens.
+      The guild has used {compact(total)} tokens
+      {helpers.length > 0 ? `: the Knights ${compact(by.knights)}, ${helpers.join(', ')}.` : '.'}
     </p>
   );
 }

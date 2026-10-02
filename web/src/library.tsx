@@ -20,8 +20,9 @@ import {
   samePick,
 } from './libraryScene.ts';
 import { ago } from './panels.tsx';
-import { SceneCanvas } from './SceneCanvas.tsx';
 import { type SkillSort, nextSort, skillRows, sortSkills } from './skillList.ts';
+import { BuildingPage } from './BuildingPage.tsx';
+import { UtilityHealth } from './health.tsx';
 
 /**
  * The Library page, reached by clicking the Library on the map. On top, the Library's
@@ -50,6 +51,8 @@ export interface LibraryControl {
   version: number;
   onTalk: (id: string) => void;
   onOpenSkills: () => void;
+  /** Ticks when a utility's run ends. */
+  runsVersion?: number;
 }
 
 /** What the scene needs from the Archive. */
@@ -114,33 +117,40 @@ export function LibraryPage({
   };
 
   return (
-    <section className="library-page" data-testid="library-page" aria-label="The Library">
-      <div className="library-head">
-        <button type="button" className="ts-button" onClick={onBack} data-testid="library-back">
-          ← Back to the village
-        </button>
-        <h2 className="ts-ribbon ts-ribbon-yellow">The Library</h2>
-      </div>
-      <SceneCanvas
-        model={model}
-        animate={animate}
-        draw={drawLibraryScene}
-        pick={libraryPick}
-        same={samePick}
-        onPick={onPick}
-        label={describeScene(model)}
-        testId="library-scene"
-      />
-      <p className="muted small library-hint">
-        Click a librarian to {control ? 'open its chat' : 'see its session'}
-        {control ? ', or the Archive board to review skills.' : '.'}
-      </p>
+    <BuildingPage
+      id="library"
+      title="The Library"
+      ribbon="yellow"
+      onBack={onBack}
+      scene={{
+        model,
+        animate,
+        draw: drawLibraryScene,
+        pick: libraryPick,
+        same: samePick,
+        onPick,
+        label: describeScene(model),
+      }}
+      hint={
+        <>
+          Click a librarian to {control ? 'open its chat' : 'see its session'}
+          {control ? ', or the Archive board to review skills.' : '.'}
+        </>
+      }
+    >
       {status && <YourSkills status={status} />}
       <ul className="plain library-desks" aria-label="Librarians">
         {desks.map((d) => (
           <Desk key={d.hero?.id ?? d.name} {...d} now={now} onTalk={control?.onTalk} />
         ))}
       </ul>
+      <UtilityHealth
+        utility="library"
+        state={state}
+        now={now}
+        api={control?.api}
+        version={control?.runsVersion}
+      />
       {control && <LibraryCards control={control} status={status} error={error} now={now} onChanged={load} />}
       <div className="ts-card" data-testid="library-readers">
         <h3 className="ts-ribbon ts-ribbon-blue">Reading at the door</h3>
@@ -164,7 +174,7 @@ export function LibraryPage({
           </ul>
         )}
       </div>
-    </section>
+    </BuildingPage>
   );
 }
 
@@ -315,7 +325,7 @@ function LibraryCards({
   );
 }
 
-const SOURCE_LABEL = { personal: 'Yours', synced: 'Synced', plugin: 'Plugin' } as const;
+const SOURCE_LABEL = { personal: 'Yours', synced: 'Synced', plugin: 'Plugin', project: 'Project' } as const;
 
 /** Every skill the user has, sortable by stars (known for skills installed from the Archive) or name. */
 function YourSkills({ status }: { status: SkillsStatus }) {
@@ -357,7 +367,7 @@ function YourSkills({ status }: { status: SkillsStatus }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={`${r.source}:${r.name}`} data-testid={`your-skill-${r.name}`}>
+                <tr key={`${r.source}:${r.project ?? ''}:${r.name}`} data-testid={`your-skill-${r.name}`}>
                   <td>
                     <strong>{r.name}</strong>
                     {r.description && <div className="muted small">{r.description}</div>}
@@ -369,7 +379,7 @@ function YourSkills({ status }: { status: SkillsStatus }) {
                         {r.repo}
                       </a>
                     ) : (
-                      SOURCE_LABEL[r.source]
+                      `${SOURCE_LABEL[r.source]}${r.project ? `: ${r.project}` : ''}`
                     )}
                   </td>
                 </tr>

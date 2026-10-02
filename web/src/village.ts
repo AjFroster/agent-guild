@@ -1,6 +1,7 @@
 import type { GuildState, Hero, Location, Rank } from '@agent-guild/core';
 import {
   currentQuest,
+  hasRaven,
   inAudience,
   librarianState,
   librariansIn,
@@ -701,6 +702,7 @@ export function drawVillage(
       picked || hovered,
       fighting,
       p.hearing,
+      view.clock !== undefined && hasRaven(p.hero, view.clock),
     );
   }
 
@@ -1075,6 +1077,8 @@ function drawUnit(
   fighting: boolean,
   /** Before the throne hearing an order: awake, whatever its status says. */
   hearing = false,
+  /** A raven just brought it news: a letter instead of its usual bubble. */
+  raven = false,
 ): void {
   const rank = rankOf(hero);
   const k = RANK_SCALE[rank];
@@ -1107,7 +1111,7 @@ function drawUnit(
   if (rank === 'king') crown(ctx, x, y - 56 * k);
   if (rank === 'librarian') book(ctx, x, y - 50 * k);
   // Beside the head rather than above it, where it would cover the building name.
-  const mark = bubbleFor(hero);
+  const mark = raven && hero.status !== 'needs_you' ? 'letter' : bubbleFor(hero);
   if (mark && !(hearing && mark === 'sleep')) bubble(ctx, x + 30 * k, y - 30 * k, mark, k, nowMs);
 
   const fg = hero.status === 'needs_you' ? '#ffcc33' : '#f1efe6';
@@ -1253,7 +1257,7 @@ export function bubble(
   ctx: CanvasRenderingContext2D,
   x: number,
   top: number,
-  kind: 'alert' | 'sleep' | 'work' | 'hammer',
+  kind: 'alert' | 'sleep' | 'work' | 'hammer' | 'letter',
   k: number,
   nowMs: number,
 ): void {
@@ -1270,11 +1274,17 @@ export function bubble(
       ? '#d93a3a'
       : kind === 'work'
         ? '#e6d6f4'
-        : kind === 'hammer'
+        : kind === 'hammer' || kind === 'letter'
           ? '#ffe2aa'
           : 'rgba(236, 240, 250, 0.92)';
   ctx.strokeStyle =
-    kind === 'alert' ? '#4a0b0b' : kind === 'work' ? '#4b2466' : kind === 'hammer' ? '#783c14' : '#3a4256';
+    kind === 'alert'
+      ? '#4a0b0b'
+      : kind === 'work'
+        ? '#4b2466'
+        : kind === 'hammer' || kind === 'letter'
+          ? '#783c14'
+          : '#3a4256';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(bx, by, w, h, 7 * s);
@@ -1297,6 +1307,26 @@ export function bubble(
   } else if (kind === 'work') {
     // An open book, its pages lifting as the librarian reads.
     book(ctx, x, by + h / 2 + 7 * s, Math.sin(nowMs / 180) * 2);
+  } else if (kind === 'letter') {
+    // A sealed letter: news a raven brought from one of the guild's utilities.
+    const lw = 18 * s;
+    const lh = 12 * s;
+    const lx = x - lw / 2;
+    const ly = by + (h - lh) / 2;
+    ctx.fillStyle = '#fffaf0';
+    ctx.strokeStyle = '#783c14';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(lx, ly, lw, lh);
+    ctx.strokeRect(lx, ly, lw, lh);
+    ctx.beginPath();
+    ctx.moveTo(lx, ly);
+    ctx.lineTo(x, ly + lh * 0.6);
+    ctx.lineTo(lx + lw, ly);
+    ctx.stroke();
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath();
+    ctx.arc(x, ly + lh * 0.6, 2.5 * s, 0, Math.PI * 2);
+    ctx.fill();
   } else if (kind === 'alert') {
     ctx.fillStyle = '#ffffff';
     ctx.font = `900 ${Math.round(18 * s)}px system-ui, sans-serif`;

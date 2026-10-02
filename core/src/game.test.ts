@@ -10,6 +10,8 @@ import {
   applyEvent,
   currentQuest,
   depthOf,
+  hasRaven,
+  tokensByUtility,
   inAudience,
   librarianDoing,
   librarianState,
@@ -398,6 +400,32 @@ describe('orders and the Throne Room', () => {
     ]).heroes.l!;
     expect(inAudience(librarian, 101)).toBe(false); // sent by the schedule, not the King
   });
+
+  it('reads news a raven brought where it stands: no walk to the throne', () => {
+    for (const events of [
+      [
+        { t: 100, session: 'a', type: 'raven' },
+        { t: 101, session: 'a', type: 'ordered' },
+      ],
+      // The raven's own event can come in after the message it brought.
+      [
+        { t: 101, session: 'a', type: 'ordered' },
+        { t: 102, session: 'a', type: 'raven' },
+      ],
+    ] satisfies GuildEvent[][]) {
+      const hero = events.reduce(applyEvent, asleep).heroes.a!;
+      expect(hero.status).toBe('working');
+      expect(inAudience(hero, 103)).toBe(false);
+      expect(hasRaven(hero, 103)).toBe(true);
+      expect(hasRaven(hero, 115)).toBe(false);
+    }
+    // An order long after a raven is the King's again.
+    const later = [
+      { t: 100, session: 'a', type: 'raven' },
+      { t: 200, session: 'a', type: 'ordered' },
+    ] satisfies GuildEvent[];
+    expect(inAudience(later.reduce(applyEvent, asleep).heroes.a!, 201)).toBe(true);
+  });
 });
 
 describe('the librarians', () => {
@@ -460,5 +488,34 @@ describe('workers of the same role', () => {
     ]);
     expect(roleName('Reviewer 2')).toBe('Reviewer');
     expect(librariansIn(state).map((h) => h.id)).toEqual(['r2', 's']);
+  });
+});
+
+describe('tokens by utility', () => {
+  it('counts each session, sub-agents included, for the utility its root works for', () => {
+    const use = (session: string, t: number, input: number): GuildEvent => ({
+      t,
+      session,
+      type: 'usage',
+      input,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+    });
+    const state = replay([
+      start('k'),
+      use('k', 1, 100),
+      { t: 2, session: 'k1', type: 'subagent_start', parent: 'k', name: 'Explore' },
+      use('k1', 3, 50),
+      { t: 10, session: 'scout', type: 'session_start', name: 'Scout' },
+      { t: 10, session: 'scout', type: 'librarian' },
+      use('scout', 11, 30),
+      { t: 20, session: 'smith', type: 'session_start', name: 'Blacksmith' },
+      { t: 20, session: 'smith', type: 'smith' },
+      use('smith', 21, 7),
+    ]);
+    expect(tokensByUtility(state)).toEqual({ knights: 150, library: 30, forge: 7 });
+    // Only sessions started since then: this week's runs, say.
+    expect(tokensByUtility(state, 10)).toEqual({ knights: 0, library: 30, forge: 7 });
   });
 });

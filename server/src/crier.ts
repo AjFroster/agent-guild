@@ -175,6 +175,7 @@ export class TownCrier {
         mode: 'acceptEdits',
         message: crierPrompt(this.config, date),
         allowedTools: ['WebSearch', 'WebFetch'],
+        helper: true,
       });
       this.config = { ...this.config, lastChatId: info.id };
       await this.save();
