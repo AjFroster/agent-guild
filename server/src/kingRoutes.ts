@@ -10,7 +10,12 @@ import type { Court, RaiseOrder } from './king.ts';
  */
 export async function registerKingRoutes(
   app: FastifyInstance,
-  opts: { isToken: (given: unknown) => boolean; court: Court },
+  opts: {
+    isToken: (given: unknown) => boolean;
+    court: Court;
+    /** What the Archive tells the King: the skills Knights can use, and the latest notes. */
+    archive?: () => Promise<unknown>;
+  },
 ): Promise<void> {
   const { court } = opts;
 
@@ -51,6 +56,14 @@ export async function registerKingRoutes(
       return court.speak(text);
     }),
   );
+
+  const archive = opts.archive;
+  if (archive) {
+    app.get(
+      '/api/king/archive',
+      guarded(async () => archive()),
+    );
+  }
 
   app.get(
     '/api/king/knights',

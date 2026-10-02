@@ -1,9 +1,9 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { type Page, expect, test } from '@playwright/test';
 
-import { LIVE_DIR, LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
+import { LIVE_DIR, LIVE_HOME, LIVE_PORT, LIVE_SKILLS, LIVE_TOKEN } from '../playwright.config.ts';
 
 /**
  * Chatting with sessions and the Town Crier, against the real server with
@@ -230,4 +230,85 @@ test('a Knight shows what it is working on, and "Talk" on the map opens its chat
   const chat = page.getByTestId('chat');
   await expect(chat.getByRole('heading', { name: 'Bedivere' })).toBeVisible();
   await page.screenshot({ path: 'e2e-screenshots/18-talk-opens-chat.png', animations: 'disabled' });
+});
+
+test('the librarians find and review a skill, and the user installs it from the Skills tab', async ({
+  page,
+}) => {
+  await openGuild(page);
+  await page.getByTestId('tab-skills').click();
+  const panel = page.getByTestId('skills-panel');
+  await expect(panel.getByTestId('nothing-to-review')).toBeVisible();
+  await expect(panel.getByTestId('librarians')).toContainText('Paused');
+  await expect(panel.getByTestId('librarians-min-stars')).toHaveValue('5000');
+
+  // Run now: the Scout (fake CLI over the real MCP server) adds a candidate pinned to a
+  // commit, then the Reviewer records its verdict.
+  await panel.getByTestId('librarians-run').click();
+  const card = panel.getByTestId('skill-csv-wrangler');
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toContainText('Fills a gap');
+  await expect(card).toContainText('Nothing installed handles plain CSV files.');
+  await expect(page.getByTestId('tab-skills')).toContainText('1');
+  await expect(panel).toContainText('Scout Librarian');
+  // The threshold holds: the Archive refused the Scout's 340-star find.
+  await expect(panel).toContainText('tiny-helper had too few stars.');
+  await expect(panel.getByTestId('archive')).not.toContainText('tiny-helper');
+  await page.screenshot({ path: 'e2e-screenshots/19-skills-to-review.png', animations: 'disabled' });
+
+  // The user's decision: installed at the reviewed commit, into the skills folder.
+  await card.getByTestId('install-csv-wrangler').click();
+  await expect(panel.getByTestId('nothing-to-review')).toBeVisible({ timeout: 20_000 });
+  await expect(panel.getByTestId('archive')).toContainText('Installed');
+  expect(await readFile(join(LIVE_SKILLS, 'csv-wrangler', 'SKILL.md'), 'utf8')).toContain(
+    'name: csv-wrangler',
+  );
+  await expect(page.getByTestId('tab-skills')).not.toContainText('1');
+  await page.screenshot({ path: 'e2e-screenshots/20-skill-installed.png', animations: 'disabled' });
+
+  // The librarians are inside the Library: its page shows them at their desks.
+  await page.getByTestId('tab-guild').click();
+  await page.locator('.roster').getByRole('button', { name: 'Open Reviewer' }).click();
+  await expect(page.getByTestId('hero-rank')).toContainText('Librarian');
+  await page.getByTestId('back').click();
+  // A skill the user wrote: no stars, so it sorts after the Archive's.
+  await mkdir(join(LIVE_SKILLS, 'zebra-notes'), { recursive: true });
+  await writeFile(
+    join(LIVE_SKILLS, 'zebra-notes', 'SKILL.md'),
+    '---\nname: zebra-notes\ndescription: Keep notes.\n---\n',
+  );
+  await page.getByTestId('open-library').click();
+  const library = page.getByTestId('library-page');
+  // Every skill the user has, sortable by stars.
+  const yours = library.getByTestId('your-skills');
+  const order = () => yours.locator('tbody tr strong').allTextContents();
+  await expect(yours.getByTestId('your-skill-csv-wrangler')).toContainText('★ 6,400');
+  await expect(yours.getByTestId('your-skill-csv-wrangler')).toContainText('acme-labs/agent-skills');
+  await expect(yours.getByTestId('your-skill-zebra-notes')).toContainText('—');
+  expect(await order()).toEqual(['csv-wrangler', 'zebra-notes']);
+  await yours.getByTestId('sort-name').click();
+  await yours.getByTestId('sort-name').click();
+  expect(await order()).toEqual(['zebra-notes', 'csv-wrangler']);
+  await yours.getByTestId('sort-stars').click();
+  expect(await order()).toEqual(['csv-wrangler', 'zebra-notes']);
+  await yours.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'e2e-screenshots/22-your-skills.png', animations: 'disabled' });
+  await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
+  await expect(library.getByTestId('library-min-stars')).toHaveText('★ 5,000');
+  await expect(library.getByTestId('library-archive')).toContainText('1 installed');
+  const scene = page.locator('[data-testid="library-scene"][data-ready="true"]');
+  await expect(scene).toHaveAttribute('aria-label', /0 skills wait for you on the Archive board/);
+  await page.screenshot({ path: 'e2e-screenshots/21-library-page-live.png', animations: 'disabled' });
+  // The Archive board in the scene leads to the Skills tab.
+  const box = (await scene.boundingBox())!;
+  await scene.click({ position: { x: (560 / 1120) * box.width, y: (640 / 720) * box.height } });
+  await expect(page.getByTestId('skills-panel')).toBeVisible();
+  await page.getByTestId('tab-guild').click();
+
+  // The King learns of it from the Archive.
+  await page.getByTestId('talk-to-king').click();
+  const chat = page.getByTestId('chat');
+  await chat.getByTestId('composer').fill('consult the archive');
+  await chat.getByTestId('composer').press('Enter');
+  await expect(chat.getByTestId('msg-assistant').last()).toContainText('csv-wrangler', { timeout: 20_000 });
 });

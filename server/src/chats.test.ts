@@ -196,6 +196,36 @@ describe('ChatManager streaming and lifecycle', () => {
     await expect(m.start({ cwd: project, message: 'b' })).rejects.toMatchObject({ status: 429 });
   });
 
+  it('makes room by closing the longest-idle process, which resumes on its next message', async () => {
+    const spawned: FakeChild[] = [];
+    const m = new ChatManager({
+      claude: 'claude',
+      home,
+      maxRunning: 2,
+      spawn: (cmd, args, o) => {
+        const c = new FakeChild(cmd, args, o.cwd);
+        spawned.push(c);
+        return c as unknown as ChildLike;
+      },
+    });
+    const finish = (c: FakeChild) => c.emitLine({ type: 'result', subtype: 'success', result: 'ok' });
+    const a = await m.start({ cwd: project, message: 'a' });
+    finish(spawned[0]!);
+    await tick();
+    await new Promise((r) => setTimeout(r, 5));
+    const b = await m.start({ cwd: project, message: 'b' });
+    finish(spawned[1]!);
+    await tick();
+
+    // Both idle and the cap reached: a third closes the one idle longest, a.
+    await m.start({ cwd: project, message: 'c' });
+    expect(m.get(a.id)!.info.running).toBe(false);
+    expect(m.get(b.id)!.info.running).toBe(true);
+    // a is not lost: its next message resumes it (closing b, now the longest idle).
+    m.send(a.id, 'again');
+    expect(spawned.at(-1)!.args.join(' ')).toContain(`--resume ${a.id}`);
+  });
+
   it('tells subscribers when an item is dropped, such as a duplicated login reply', async () => {
     const m = manager();
     const info = await m.start({ cwd: project, message: 'Hi' });

@@ -35,6 +35,7 @@ MCP tool.
 | Multiple `~/.claude*` directories                           | AQ                    | next                                               |
 | Consent-gated hooks installer; exact permission-wait signal | PA                    | planned                                            |
 | Agent teams (lead + teammates)                              | PA                    | done: the King commands Knights                    |
+| Skills Archive: librarians find and review, user installs   | none                  | done                                               |
 | Village editor, saved layouts, project districts            | PA, AQ                | planned                                            |
 | Codex sessions                                              | AQ                    | planned                                            |
 | Start, chat with, stop and resume sessions from the UI      | PA (VS Code), PA #347 | done (as chat)                                     |

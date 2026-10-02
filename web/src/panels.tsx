@@ -63,6 +63,7 @@ const RANK_ABOUT: Record<ReturnType<typeof rankOf>, string> = {
   knight: 'A Claude Code session: takes a task and leads a party to finish it.',
   footsoldier: 'A sub-agent that changes things: it has edited files or run commands.',
   worker: 'A sub-agent that so far only reads and searches, gathering what its leader needs.',
+  librarian: 'Keeps the Archive: finds new skills on GitHub or reviews them for you. Installs nothing.',
 };
 
 /** A dot in the hero's team colour, matching its unit on the map. */
@@ -417,11 +418,14 @@ export function BuildingPanel({
   location,
   now,
   onSelect,
+  onOpenArchive,
 }: {
   state: GuildState;
   location: Location;
   now: number;
   onSelect: Select;
+  /** The Library keeps the Archive of reviewed skills: open it in the Skills tab. */
+  onOpenArchive?: (() => void) | undefined;
 }) {
   const heroes = roster(state);
   const here = heroes.filter((h) => h.location === location);
@@ -440,6 +444,11 @@ export function BuildingPanel({
       </header>
       <p className="doing">{ABOUT[location]}</p>
       {tools.length > 0 && <p className="muted small">Tools: {tools.join(', ')}</p>}
+      {onOpenArchive && (
+        <button type="button" className="send open-chat" onClick={onOpenArchive} data-testid="open-archive">
+          Open the Archive
+        </button>
+      )}
 
       <h3>Here now</h3>
       {here.length === 0 ? (

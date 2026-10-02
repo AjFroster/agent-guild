@@ -1,0 +1,82 @@
+[
+  {
+    "t": 0,
+    "session": "s-perc",
+    "type": "session_start",
+    "name": "Percival"
+  },
+  {
+    "t": 0.5,
+    "session": "s-perc",
+    "type": "tool",
+    "tool": "Edit"
+  },
+  {
+    "t": 1,
+    "session": "s-gaw",
+    "type": "session_start",
+    "name": "Gawain"
+  },
+  {
+    "t": 1.5,
+    "session": "s-gaw",
+    "type": "tool",
+    "tool": "Read"
+  },
+  {
+    "t": 2,
+    "session": "s-gaw",
+    "type": "stop"
+  },
+  {
+    "t": 3,
+    "session": "s-scout",
+    "type": "session_start",
+    "name": "Scout"
+  },
+  {
+    "t": 3,
+    "session": "s-scout",
+    "type": "librarian"
+  },
+  {
+    "t": 4,
+    "session": "s-scout",
+    "type": "tool",
+    "tool": "mcp__guild__list_archive"
+  },
+  {
+    "t": 6,
+    "session": "s-scout",
+    "type": "tool",
+    "tool": "WebSearch"
+  },
+  {
+    "t": 7,
+    "session": "s-rev",
+    "type": "session_start",
+    "name": "Reviewer"
+  },
+  {
+    "t": 7,
+    "session": "s-rev",
+    "type": "librarian"
+  },
+  {
+    "t": 8,
+    "session": "s-rev",
+    "type": "tool",
+    "tool": "mcp__guild__record_review"
+  },
+  {
+    "t": 9,
+    "session": "s-rev",
+    "type": "stop"
+  },
+  {
+    "t": 10,
+    "session": "s-perc",
+    "type": "tool",
+    "tool": "Bash"
+  }
+]

@@ -58,8 +58,9 @@ a {
 .topbar {
   grid-column: 1 / -1;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 16px;
+  gap: 10px 16px;
 }
 
 .beacon {
@@ -873,4 +874,339 @@ kbd {
 .king-button {
   background: linear-gradient(#ffd75e, #e0a91c);
   color: #2b2000;
+}
+
+/* Side-panel tabs: the guild, and the skills waiting for review. */
+.panel-tabs {
+  display: flex;
+  gap: 6px;
+  margin: -4px 0 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.panel-tab {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--muted);
+  font:
+    600 14px system-ui,
+    sans-serif;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.panel-tab[aria-selected='true'] {
+  color: var(--ink);
+  border-color: var(--line);
+  background: rgba(241, 239, 230, 0.06);
+}
+
+.tab-badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #d93a3a;
+  color: #fff;
+  font-size: 12px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.skill-cards > li {
+  margin-bottom: 12px;
+}
+
+.skill-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  line-height: 1.45;
+}
+
+.skill-head a {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.verdict {
+  display: inline-block;
+  margin: 6px 0 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.verdict-good {
+  background: rgba(76, 175, 80, 0.2);
+  color: #8fd694;
+}
+
+.verdict-plain {
+  background: rgba(241, 239, 230, 0.1);
+  color: var(--muted);
+}
+
+.verdict-bad {
+  background: rgba(217, 58, 58, 0.22);
+  color: #ff9a8f;
+}
+
+.risks {
+  margin: 4px 0;
+  padding-left: 18px;
+  color: #ff9a8f;
+}
+
+.skill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.skills-installed summary {
+  cursor: pointer;
+}
+
+.skills-installed summary h3 {
+  display: inline;
+}
+
+.archive li,
+.notes li {
+  margin-bottom: 8px;
+}
+
+.archive-status {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.archive-status.status-installed {
+  color: #8fd694;
+}
+
+.archive-status.status-reviewed {
+  color: var(--accent);
+}
+
+/* --- the Library page, in Tiny Swords frames ------------------------- */
+
+.library-page {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  max-width: 1120px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.library-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.library-head h2 {
+  margin: 0 auto;
+}
+
+.library-hint {
+  margin: -6px 0 0;
+}
+
+/* A ribbon from the pack (192x64, 3-slice), behind a heading. */
+.ts-ribbon {
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: 160px;
+  margin: 0 0 6px;
+  padding: 0 4px;
+  height: 48px;
+  line-height: 40px;
+  text-align: center;
+  font-size: 17px;
+  white-space: nowrap;
+  border-style: solid;
+  border-width: 0 34px;
+  border-image: url('/assets/tiny-swords/ui/Ribbon_Blue_3Slides.png') 0 64 fill / 0 34px stretch;
+  image-rendering: pixelated;
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+h2.ts-ribbon {
+  min-width: 260px;
+  height: 64px;
+  line-height: 54px;
+  font-size: 22px;
+  border-width: 0 44px;
+  border-image-width: 0 44px;
+}
+
+.ts-ribbon-yellow {
+  border-image-source: url('/assets/tiny-swords/ui/Ribbon_Yellow_3Slides.png');
+  color: #2a1800;
+  text-shadow: none;
+}
+
+.ts-ribbon-red {
+  border-image-source: url('/assets/tiny-swords/ui/Ribbon_Red_3Slides.png');
+}
+
+/* A parchment card: the pack's horizontal banner as a 9-slice frame. */
+.ts-card {
+  box-sizing: border-box;
+  padding: 10px 26px 24px;
+  border-style: solid;
+  border-width: 30px 22px;
+  border-image: url('/assets/tiny-swords/ui/Banner_Horizontal.png') 64 fill / 30px 22px stretch;
+  image-rendering: pixelated;
+  color: #3c2410;
+  font-size: 15px;
+}
+
+.ts-card p {
+  margin: 0 0 8px;
+}
+
+.ts-card .muted {
+  color: #6f5a3e;
+}
+
+.ts-card .link {
+  color: #7a2e12;
+}
+
+.ts-card .notes li + li {
+  margin-top: 6px;
+}
+
+/* The pack's blue button (3-slice), pressed when clicked. */
+.ts-button {
+  box-sizing: border-box;
+  height: 52px;
+  padding: 0 6px 6px;
+  border-style: solid;
+  border-width: 0 24px;
+  border-image: url('/assets/tiny-swords/ui/Button_Blue_3Slides.png') 0 64 fill / 0 24px stretch;
+  image-rendering: pixelated;
+  background: none;
+  color: #10303f;
+  font:
+    700 15px system-ui,
+    sans-serif;
+  cursor: pointer;
+}
+
+.ts-button:active {
+  border-image-source: url('/assets/tiny-swords/ui/Button_Blue_3Slides_Pressed.png');
+  padding-top: 4px;
+}
+
+.ts-button:disabled {
+  filter: grayscale(1) brightness(0.8);
+  cursor: default;
+}
+
+.ts-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ts-button-red {
+  filter: hue-rotate(165deg) saturate(2.2) brightness(0.85);
+  color: #2a0505;
+}
+
+.library-desks,
+.library-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+}
+
+.library-desk {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.desk-state {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #d8c79a;
+  color: #4a3a22;
+}
+
+.desk-state.state-working {
+  background: #4b2466;
+  color: #f1e6fa;
+}
+
+.desk-state.state-needs_you {
+  background: #d93a3a;
+  color: #fff;
+}
+
+.library-waiting {
+  font-size: 18px;
+}
+
+.library-waiting strong {
+  color: #b22828;
+  font-size: 26px;
+}
+
+.skills-table-wrap {
+  overflow-x: auto;
+}
+
+.skills-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.skills-table th,
+.skills-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(60, 36, 16, 0.18);
+}
+
+.skills-table td.stars {
+  white-space: nowrap;
+  font-weight: 700;
+  color: #8a5a00;
+}
+
+.skills-table a {
+  color: #7a2e12;
+}
+
+.skills-table .sort {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 800;
+  color: #3c2410;
+  cursor: pointer;
+}
+
+.skills-table .sort:focus-visible {
+  outline: 2px solid #7a2e12;
+  outline-offset: 2px;
 }

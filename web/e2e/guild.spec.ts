@@ -116,6 +116,30 @@ test('loose ends list unpushed work, from sessions that left too', async ({ page
   expect(errors).toEqual([]);
 });
 
+test('the librarians work inside the Library, and its signs show what each is doing', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=library&t=20');
+  // On the map: a book over the roof for the Scout at work, "zzz" for the resting Reviewer.
+  await capture(page, '15-library-signs');
+  await page.getByTestId('open-library').click();
+  const library = page.getByTestId('library-page');
+  await expect(library.getByTestId('desk-Scout')).toHaveAttribute('data-state', 'working');
+  await expect(library.getByTestId('desk-Scout-doing')).toHaveText('Searching the web…');
+  await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
+  await expect(library.getByTestId('desk-Reviewer-doing')).toContainText('last: writing a review');
+  // The Library's grounds: the Scout at its glowing orb, the Reviewer asleep at its lectern.
+  const scene = page.locator('[data-testid="library-scene"][data-ready="true"]');
+  await expect(scene).toHaveCount(1);
+  await expect(scene).toHaveAttribute('aria-label', /the Scout is at work, the Reviewer is resting/);
+  await page.screenshot({ path: `${SHOTS}/16-library-page.png`, animations: 'disabled', fullPage: true });
+  // Clicking a librarian in the scene opens its session (demo mode has no chats).
+  const box = (await scene.boundingBox())!;
+  await scene.click({ position: { x: (300 / 1120) * box.width, y: (360 / 720) * box.height } });
+  await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'Scout' })).toBeVisible();
+  await expect(page.getByTestId('village')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('a kingdom: the King, Knights in their colours, and parties following them', async ({ page }) => {
   const errors = watchForErrors(page);
   await page.goto('/?demo=kingdom&t=20');

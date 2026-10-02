@@ -40,6 +40,7 @@ export const KING_PROMPT = [
   '- Write each order as a complete instruction: the goal, what done looks like, and what to report back.',
   '- Independent orders can run at once: send them with wait_seconds 0, then follow up with read_knight.',
   '- You do not edit files or run commands yourself. You may read files to understand a request.',
+  '- Call consult_archive when planning: if an installed skill fits an order, name it in the order so the Knight uses it.',
   '- Check each answer against its order. Report to the user briefly: what each Knight did, what is left, and anything that needs their decision.',
   '- Never order a Knight to push to a protected branch, delete work, or skip permission checks without the user saying so.',
 ].join('\n');
