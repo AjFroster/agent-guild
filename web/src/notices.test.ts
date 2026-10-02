@@ -1,7 +1,7 @@
 import { type GuildEvent, replay } from '@agent-guild/core';
 import { describe, expect, it } from 'vitest';
 
-import { diffNotices } from './notices.ts';
+import { diffNotices, diffWaiting } from './notices.ts';
 
 const base: GuildEvent[] = [
   { t: 0, session: 'a', type: 'session_start', name: 'Ada' },
@@ -37,6 +37,17 @@ describe('diffNotices', () => {
     expect(kinds(before, after)).toEqual(['finished:a']);
   });
 
+  it("stays quiet about the guild's helpers coming, going and finishing", () => {
+    const helper: GuildEvent[] = [
+      { t: 3, session: 'lib', type: 'session_start', name: 'Reviewer' },
+      { t: 3, session: 'lib', type: 'librarian' },
+    ];
+    const before = at(helper.slice(1, 1));
+    const arrived = at(helper);
+    expect(kinds(before, arrived)).toEqual([]);
+    expect(kinds(arrived, at([...helper, { t: 4, session: 'lib', type: 'stop' }]))).toEqual([]);
+  });
+
   it('raises arrivals and departures of leaders only', () => {
     const before = at([]);
     const after = at([
@@ -65,3 +76,39 @@ function resumedEvents(): GuildEvent[] {
     { t: 4, session: 'a', type: 'tool', tool: 'Bash' },
   ];
 }
+
+describe('diffWaiting', () => {
+  const w = (skills: number, sv: number, forge: number, fv: number) => ({
+    skills: { waiting: skills, version: sv },
+    forge: { waiting: forge, version: fv },
+  });
+
+  it('takes the counts announced on connecting as history', () => {
+    expect(diffWaiting(null, w(2, 1, 1, 1))).toEqual([]);
+    expect(diffWaiting(w(0, 0, 0, 0), w(2, 1, 1, 1))).toEqual([]);
+  });
+
+  it('raises a notice when a skill or a piece newly waits', () => {
+    const notices = diffWaiting(w(0, 1, 0, 1), w(2, 2, 1, 2));
+    expect(notices.map((n) => [n.kind, n.heroId, n.text])).toEqual([
+      ['skill_ready', null, '2 reviewed skills wait for your approval'],
+      ['piece_ready', null, 'A forged piece is ready to install'],
+    ]);
+  });
+
+  it('raises a notice, leading to its page, when a utility fails a run', () => {
+    const runs = (failed: number, version: number) => ({
+      ...w(0, 1, 0, 1),
+      runs: { failed, last: failed ? { utility: 'forge' as const, detail: 'no piece' } : null, version },
+    });
+    expect(diffWaiting(runs(0, 0), runs(1, 1))).toEqual([]); // announced on connecting
+    expect(diffWaiting(runs(0, 1), runs(1, 2)).map((n) => [n.kind, n.page, n.text])).toEqual([
+      ['run_failed', 'forge', 'The Forge failed a run: no piece'],
+    ]);
+    expect(diffWaiting(runs(1, 2), runs(1, 3))).toEqual([]); // a run that worked
+  });
+
+  it('stays quiet when a decision is made', () => {
+    expect(diffWaiting(w(2, 2, 1, 2), w(1, 3, 0, 3))).toEqual([]);
+  });
+});

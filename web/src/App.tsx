@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fixtures, readDemoRequest } from './demo.ts';
 import { type Api, type ChatInfo, type PortalStatus, api } from './api.ts';
 import { ChatDrawer, CrierCard, CrownDialog, NewChatDialog, ReportDrawer } from './chat.tsx';
-import { type LiveStatus, useLiveEvents } from './live.ts';
+import { type Announcements, type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
 import { BuildingPanel, GuildPanel, HeroPanel } from './panels.tsx';
+import { waitingCount } from './decisions.ts';
 import { ForgePage } from './forge.tsx';
+import { InboxPanel } from './inbox.tsx';
 import { TowerPage } from './tower.tsx';
 import { LibraryPage } from './library.tsx';
 import { resolveSelection, useDrawer, usePage, usePanelTab, useSelection } from './selection.ts';
@@ -85,6 +87,8 @@ interface Control {
   forge: { waiting: number; version: number };
   /** Services on local ports, from the Portal Keeper. */
   portals: PortalStatus | null;
+  /** The utilities' runs: how many failed, and a counter that ticks when one ends. */
+  runs: Announcements['runs'];
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -144,6 +148,7 @@ function Live({ token }: { token: string }) {
               skills: announcements.skills,
               forge: announcements.forge,
               portals: announcements.portals,
+              runs: announcements.runs,
             }
           : undefined
       }
@@ -192,7 +197,12 @@ function Guild({
   const [settings, updateSettings] = useSettings();
   const [showHint, dismissHint] = useHint();
   // Notices are about things happening now, so only live mode raises them.
-  const { toasts, dismiss } = useNotices(state, connected, settings);
+  const waitingAnnounced = useMemo(
+    () => (control ? { skills: control.skills, forge: control.forge, runs: control.runs } : undefined),
+    [control?.skills, control?.forge, control?.runs], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const { toasts, dismiss } = useNotices(state, connected, settings, waitingAnnounced);
+  const inboxCount = control ? waitingCount(state, control.skills.waiting, control.forge.waiting) : 0;
   const [drawer, openDrawer] = useDrawer();
   const [projects, setProjects] = useState<string[]>([]);
   useEffect(() => {
@@ -276,6 +286,7 @@ function Guild({
               api: control.api,
               version: control.forge.version,
               onTalk: (id) => openDrawer({ kind: 'chat', id }),
+              runsVersion: control.runs.version,
             }
           }
         />
@@ -290,6 +301,7 @@ function Guild({
             control && {
               api: control.api,
               version: control.skills.version,
+              runsVersion: control.runs.version,
               onTalk: (id) => openDrawer({ kind: 'chat', id }),
               onOpenSkills: () => {
                 openTab('skills');
@@ -316,7 +328,15 @@ function Guild({
             />
             {showHint && <Hint onDismiss={dismissHint} />}
           </div>
-          <Toasts toasts={toasts} onOpen={select} onDismiss={dismiss} />
+          <Toasts
+            toasts={toasts}
+            onOpen={(t) => {
+              if (t.heroId) select({ kind: 'hero', id: t.heroId });
+              else if (t.page) openPage(t.page);
+              else openTab('inbox');
+            }}
+            onDismiss={dismiss}
+          />
           <aside className="panel" aria-label="Guild details">
             {control && (
               <div className="panel-tabs" role="tablist" aria-label="Side panel">
@@ -329,6 +349,21 @@ function Guild({
                   data-testid="tab-guild"
                 >
                   Guild
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className="panel-tab"
+                  aria-selected={tab === 'inbox'}
+                  onClick={() => openTab('inbox')}
+                  data-testid="tab-inbox"
+                >
+                  Needs you
+                  {inboxCount > 0 && (
+                    <span className="tab-badge" aria-label={`${inboxCount} waiting on you`}>
+                      {inboxCount}
+                    </span>
+                  )}
                 </button>
                 <button
                   type="button"
@@ -347,7 +382,24 @@ function Guild({
                 </button>
               </div>
             )}
-            {control && tab === 'skills' ? (
+            {control && tab === 'inbox' ? (
+              <InboxPanel
+                state={state}
+                now={now}
+                control={{
+                  api: control.api,
+                  skillsVersion: control.skills.version,
+                  forgeVersion: control.forge.version,
+                  onAnswer: (id) => {
+                    const h = state.heroes[id];
+                    if (h && h.parentId === null && SESSION_ID.test(id)) openDrawer({ kind: 'chat', id });
+                    else select({ kind: 'hero', id: h?.parentId ?? id });
+                  },
+                  onOpenSkills: () => openTab('skills'),
+                  onOpenForge: () => openPage('forge'),
+                }}
+              />
+            ) : control && tab === 'skills' ? (
               <SkillsPanel api={control.api} version={control.skills.version} now={now} />
             ) : hero ? (
               <HeroPanel

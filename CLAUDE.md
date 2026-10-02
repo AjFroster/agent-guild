@@ -49,8 +49,18 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   with a GET whether each is a website, and sends the page the port, program, folder name
   and Knight only; `portalRoutes.ts` holds its routes. `web/src/tower.tsx` and
   `towerScene.ts` are its page.
+- Shared foundations for every utility (docs/BUILDING-PAGES.md, "Adding a utility"):
+  `server/src/routes.ts` (`guard`: the token check on every control route),
+  `mcpConfig.ts` (`writeMcpConfig` for each MCP role), `jsonStore.ts` (the queued, atomic,
+  private JSON file behind the Archive and the Forge). Helper sessions start with
+  `helper: true` (their own pool; closed after each turn). `web/src/decisions.ts` and
+  `inbox.tsx` are the Needs-you tab: everything waiting on the user in one list.
+- `npm run rehearse` (`scripts/rehearse.ts`): a free preflight of the CLI flags and MCP
+  roles; `-- --live` runs each utility once on the real `claude` (the user runs it: it
+  spends usage). Never from CI or tests.
 - Building pages: `web/src/scene.ts` is the shared kit (art list `ART`, `put`, `terrain`,
-  `nine`, `ribbon`), `SceneCanvas.tsx` draws any scene and hit-tests clicks. A scene module
+  `nine`, `ribbon`, `plate`, `highlight`), `BuildingPage.tsx` is every page's shell, and
+  `SceneCanvas.tsx` draws any scene and hit-tests clicks. A scene module
   keeps a pure model and pick function (unit-tested) beside its draw function. Art comes
   from Tiny Swords (`web/public/assets/tiny-swords/`, CC0, see its CREDITS) or, for what the
   pack lacks, the guild's own props drawn in its style by `scripts/art/props.py`

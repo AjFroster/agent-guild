@@ -170,16 +170,18 @@ const writeNote: Tool = {
     text(await call('POST', '/api/library/notes', { by: String(args.by ?? ''), text: args.text })),
 };
 
+const listArchive: Tool = {
+  name: 'list_archive',
+  description:
+    'Every skill already in the Archive (any status: a candidate, reviewed and waiting for the user, installed or dismissed), so you do not add or forge one twice.',
+  inputSchema: { type: 'object', properties: {} },
+  run: async (_, call) => text(await call('GET', '/api/library/archive')),
+};
+
 /** The Scout: finds skills, records them as candidates. Cannot review or install. */
 export const SCOUT_TOOLS: Tool[] = [
   listInstalled,
-  {
-    name: 'list_archive',
-    description:
-      'Every skill already in the Archive (any status), so you do not add one twice at the same commit.',
-    inputSchema: { type: 'object', properties: {} },
-    run: async (_, call) => text(await call('GET', '/api/library/archive')),
-  },
+  listArchive,
   {
     name: 'add_candidate',
     description:
@@ -279,8 +281,33 @@ export const KNIGHT_TOOLS: Tool[] = [
   },
 ];
 
-/** The Blacksmith: reads its order, hangs its piece. Cannot install. */
+/**
+ * The Blacksmith: reads its order, asks the Library whether it already exists, hangs its
+ * piece. Cannot install.
+ */
 export const SMITH_TOOLS: Tool[] = [
+  listInstalled,
+  listArchive,
+  {
+    name: 'already_exists',
+    description:
+      'Instead of forging: a skill the user already has, or one in the Archive, does what the order needs. The user is told to use or install that one.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: "The order's id from read_order." },
+        name: { type: 'string', description: 'The existing skill.' },
+        where: {
+          type: 'string',
+          description:
+            'Where it is: its source from list_installed_skills, or "archive" for one in the Archive.',
+        },
+        reason: { type: 'string', description: 'Why it fits the order, in a sentence.' },
+      },
+      required: ['id', 'name', 'where', 'reason'],
+    },
+    run: async (args, call) => text(await call('POST', '/api/forge/existing', args)),
+  },
   {
     name: 'read_order',
     description: 'The order on the anvil: what kind of piece, what is needed, and who asked.',

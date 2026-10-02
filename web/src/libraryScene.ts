@@ -7,7 +7,19 @@ import {
   roleName,
 } from '@agent-guild/core';
 
-import { type Art, type Rect, FRAMES, frameAt, grass, inside, nine, put, ribbon, terrain } from './scene.ts';
+import {
+  type Art,
+  type Rect,
+  FRAMES,
+  frameAt,
+  grass,
+  highlight,
+  inside,
+  nine,
+  put,
+  ribbon,
+  terrain,
+} from './scene.ts';
 import { bubble } from './village.ts';
 
 /**
@@ -312,14 +324,4 @@ function drawBoard(
     const pick = 'more' in note ? null : note.id;
     if (pick && hovered?.kind === 'skill' && hovered.id === pick) highlight(ctx, r);
   });
-}
-
-function highlight(ctx: CanvasRenderingContext2D, r: Rect): void {
-  ctx.save();
-  ctx.strokeStyle = '#ffcc33';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.roundRect(r.x - 4, r.y - 4, r.w + 8, r.h + 8, 10);
-  ctx.stroke();
-  ctx.restore();
 }

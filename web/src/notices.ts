@@ -5,18 +5,24 @@ import type { GuildState, Hero } from '@agent-guild/core';
  * Pure, so it can be tested without a browser; useNotices() turns the result into toasts,
  * sounds and desktop notifications.
  *
- * Only leaders (main sessions) raise "finished", "arrived" and "left". Sub-agents finish
- * constantly as part of their leader's work and would bury the notices that matter.
+ * Only leaders (main sessions) raise "finished", "arrived" and "left", and not the guild's
+ * own helpers (librarians, smiths). Sub-agents and helpers finish constantly as part of
+ * their work and would bury the notices that matter; a helper's result reaches the user as
+ * a decision (skill_ready, piece_ready) instead.
  * "Needs you" is raised for anyone, since a waiting sub-agent blocks its leader too.
  */
 
-export type NoticeKind = 'needs_you' | 'finished' | 'arrived' | 'left';
+export type NoticeKind =
+  'needs_you' | 'finished' | 'arrived' | 'left' | 'skill_ready' | 'piece_ready' | 'run_failed';
 
 export interface Notice {
   /** Stable for one occurrence, so the same change never toasts twice. */
   key: string;
   kind: NoticeKind;
-  heroId: string;
+  /** The hero it is about; null for a decision in the inbox (a skill or a piece). */
+  heroId: string | null;
+  /** For a failed run: the building whose page shows it. */
+  page?: 'library' | 'forge';
   text: string;
 }
 
@@ -30,7 +36,7 @@ export function diffNotices(prev: GuildState | null, next: GuildState): Notice[]
   for (const id of next.order) {
     const before = prev.heroes[id];
     const after = next.heroes[id]!;
-    const leader = after.parentId === null;
+    const leader = after.parentId === null && !after.librarian && !after.smith;
 
     if (present(after) && after.status === 'needs_you' && before?.status !== 'needs_you') {
       notices.push({
@@ -71,6 +77,58 @@ export function diffNotices(prev: GuildState | null, next: GuildState): Notice[]
         text: `${after.name} finished a turn`,
       });
     }
+  }
+  return notices;
+}
+
+/** What the server announces waits on the user, and how often it has announced. */
+export interface Waiting {
+  skills: { waiting: number; version: number };
+  forge: { waiting: number; version: number };
+  runs?: { failed: number; last: { utility: 'library' | 'forge'; detail: string } | null; version: number };
+}
+
+const UTILITY_NAME = { library: 'The librarians', forge: 'The Forge' } as const;
+
+/**
+ * A reviewed skill or a forged piece newly waiting on the user. The server announces its
+ * counts once on connecting (version 1), which is history; after that, a count going up is
+ * news.
+ */
+export function diffWaiting(prev: Waiting | null, next: Waiting): Notice[] {
+  if (prev === null) return [];
+  const notices: Notice[] = [];
+  const grew = (a: Waiting['skills'], b: Waiting['skills']) => a.version > 0 && b.waiting > a.waiting;
+  if (grew(prev.skills, next.skills)) {
+    const n = next.skills.waiting - prev.skills.waiting;
+    notices.push({
+      key: `skill_ready:${next.skills.version}`,
+      kind: 'skill_ready',
+      heroId: null,
+      text:
+        n === 1 ? 'A reviewed skill waits for your approval' : `${n} reviewed skills wait for your approval`,
+    });
+  }
+  if (grew(prev.forge, next.forge)) {
+    const n = next.forge.waiting - prev.forge.waiting;
+    notices.push({
+      key: `piece_ready:${next.forge.version}`,
+      kind: 'piece_ready',
+      heroId: null,
+      text: n === 1 ? 'A forged piece is ready to install' : `${n} forged pieces are ready to install`,
+    });
+  }
+  // A run that failed: never only a note somewhere.
+  const before = prev.runs;
+  const after = next.runs;
+  if (before && after?.last && before.version > 0 && after.failed > before.failed) {
+    notices.push({
+      key: `run_failed:${after.version}`,
+      kind: 'run_failed',
+      heroId: null,
+      page: after.last.utility,
+      text: `${UTILITY_NAME[after.last.utility]} failed a run: ${after.last.detail}`,
+    });
   }
   return notices;
 }

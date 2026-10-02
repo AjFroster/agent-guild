@@ -20,7 +20,8 @@
     "build": "npm run build -w web",
     "dev": "npm run dev -w web",
     "e2e": "npm run e2e -w web",
-    "start": "npm run build -w web && node server/src/cli.ts"
+    "start": "npm run build -w web && node server/src/cli.ts",
+    "rehearse": "node scripts/rehearse.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

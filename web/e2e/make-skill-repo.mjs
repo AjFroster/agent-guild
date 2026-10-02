@@ -24,9 +24,14 @@ writeFileSync(
   join(work, 'skills', 'csv-wrangler', 'SKILL.md'),
   '---\nname: csv-wrangler\ndescription: Clean, join and summarise CSV files.\n---\n\n# CSV wrangler\n\nA test skill.\n',
 );
+mkdirSync(join(work, 'skills', 'md-tables'), { recursive: true });
+writeFileSync(
+  join(work, 'skills', 'md-tables', 'SKILL.md'),
+  '---\nname: md-tables\ndescription: Format Markdown tables.\n---\n\n# Markdown tables\n\nA test skill.\n',
+);
 writeFileSync(join(work, 'README.md'), '# Agent skills (test)\n');
 git(work, 'add', '-A');
-git(work, 'commit', '-q', '-m', 'Add csv-wrangler');
+git(work, 'commit', '-q', '-m', 'Add two skills');
 
 const bare = join(dir, 'acme-labs', 'agent-skills.git');
 rmSync(bare, { recursive: true, force: true });

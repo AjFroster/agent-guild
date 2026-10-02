@@ -68,8 +68,10 @@ export interface ArchiveEntry {
 export interface InstalledSkill {
   name: string;
   description: string;
-  source: 'personal' | 'synced' | 'plugin';
+  source: 'personal' | 'synced' | 'plugin' | 'project';
   path: string;
+  /** For a project's own skill: the project's folder name. */
+  project?: string;
 }
 
 export interface LibrarySchedule {
@@ -103,7 +105,7 @@ export class ApiError extends Error {
 
 export type PieceKind = 'skill' | 'command';
 export type OrderStatus =
-  'requested' | 'forging' | 'forged' | 'reviewed' | 'installed' | 'dismissed' | 'failed';
+  'requested' | 'forging' | 'forged' | 'reviewed' | 'installed' | 'dismissed' | 'failed' | 'exists';
 
 export interface ForgeOrder {
   id: string;
@@ -128,6 +130,8 @@ export interface ForgeOrder {
   createdAt: number;
   installedAt: number | null;
   error: string | null;
+  /** The Blacksmith found something that already does this, so nothing was forged. */
+  existing?: { name: string; where: string; reason: string } | null;
 }
 
 /** A service listening on a local port: a portal at the Tower. */
@@ -157,6 +161,15 @@ export interface ForgeStatus {
   orders: ForgeOrder[];
   current: string | null;
   waiting: number;
+}
+
+/** One run of a utility: when, how long, and whether it worked. */
+export interface UtilityRun {
+  utility: 'library' | 'forge';
+  startedAt: number;
+  endedAt: number;
+  ok: boolean;
+  detail: string;
 }
 
 export function api(token: string) {
@@ -191,6 +204,7 @@ export function api(token: string) {
     updateLibrary: (patch: Partial<LibrarySchedule>) => call<SkillsStatus>('PUT', '/api/library', patch),
     runLibrary: () => call<{ ok: true }>('POST', '/api/library/run'),
     forge: () => call<ForgeStatus>('GET', '/api/forge'),
+    runs: () => call<{ runs: UtilityRun[]; failed: number }>('GET', '/api/runs'),
     portals: () => call<PortalStatus>('GET', '/api/portals'),
     portalSettings: (patch: { probe: boolean }) => call<PortalStatus>('PUT', '/api/portals', patch),
     updatePortal: (port: number, patch: { name?: string; hidden?: boolean; pinned?: boolean }) =>

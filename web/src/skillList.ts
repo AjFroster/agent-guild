@@ -9,6 +9,8 @@ export interface SkillRow {
   name: string;
   description: string;
   source: InstalledSkill['source'];
+  /** For a project's own skill (one the Forge made, say): the project's folder name. */
+  project: string | null;
   stars: number | null;
   /** The GitHub repository, for a skill installed from the Archive. */
   repo: string | null;
@@ -19,12 +21,13 @@ export type SkillSort = { key: 'stars' | 'name'; dir: 'asc' | 'desc' };
 export function skillRows(installed: InstalledSkill[], entries: ArchiveEntry[]): SkillRow[] {
   const fromArchive = new Map(entries.filter((e) => e.status === 'installed').map((e) => [e.name, e]));
   return installed.map((s) => {
-    // Only a personal skill can be one the Archive installed: plugins bring their own.
-    const entry = s.source === 'plugin' ? undefined : fromArchive.get(s.name);
+    // Only a personal skill can be one the Archive installed: plugins and projects bring their own.
+    const entry = s.source === 'personal' || s.source === 'synced' ? fromArchive.get(s.name) : undefined;
     return {
       name: s.name,
       description: s.description,
       source: s.source,
+      project: s.project ?? null,
       stars: entry?.stars ?? null,
       repo: entry?.repo ?? null,
     };

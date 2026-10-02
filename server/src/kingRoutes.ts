@@ -1,7 +1,8 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { ChatError } from './chats.ts';
 import type { Court, RaiseOrder } from './king.ts';
+import { guard } from './routes.ts';
 
 /**
  * The King's routes. `/api/king` and `/api/king/messages` are for the page (talking to
@@ -19,25 +20,7 @@ export async function registerKingRoutes(
 ): Promise<void> {
   const { court } = opts;
 
-  const authorized = (req: FastifyRequest, reply: FastifyReply): boolean => {
-    const header = req.headers.authorization ?? '';
-    if (opts.isToken(header.startsWith('Bearer ') ? header.slice(7) : undefined)) return true;
-    void reply.code(401).send({ error: 'Missing or wrong token.' });
-    return false;
-  };
-
-  /** Run a handler behind the token, turning a ChatError into its status and message. */
-  const guarded =
-    (handler: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>) =>
-    async (req: FastifyRequest, reply: FastifyReply) => {
-      if (!authorized(req, reply)) return reply;
-      try {
-        return await handler(req, reply);
-      } catch (err) {
-        if (err instanceof ChatError) return reply.code(err.status).send({ error: err.message });
-        throw err;
-      }
-    };
+  const guarded = guard(opts.isToken);
 
   const knightParam = (req: FastifyRequest) => (req.params as { knight: string }).knight;
 

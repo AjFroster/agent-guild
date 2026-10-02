@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 
 import { itemsFromTranscript } from '@agent-guild/core';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 
 import { type ChatManager, type ChatMode, ChatError, type SessionExtras } from './chats.ts';
 import { type TownCrier, nextRun } from './crier.ts';
+import { tokenCheck } from './routes.ts';
 
 /**
  * Routes that read conversations and act on sessions. On top of the loopback Host and
@@ -66,12 +67,7 @@ const MAX_TEXT = 100_000;
 export async function registerChatRoutes(app: FastifyInstance, opts: ChatRouteOptions): Promise<void> {
   const { chats, crier } = opts;
 
-  const authorized = (req: FastifyRequest, reply: FastifyReply): boolean => {
-    const header = req.headers.authorization ?? '';
-    if (opts.isToken(header.startsWith('Bearer ') ? header.slice(7) : undefined)) return true;
-    void reply.code(401).send({ error: 'Missing or wrong token.' });
-    return false;
-  };
+  const authorized = tokenCheck(opts.isToken);
 
   const fail = (reply: FastifyReply, err: unknown) => {
     if (err instanceof ChatError) return reply.code(err.status).send({ error: err.message });

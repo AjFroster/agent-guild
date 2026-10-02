@@ -1,5 +1,17 @@
 import type { PortalInfo } from './api.ts';
-import { type Art, type Rect, FRAMES, frameAt, grass, inside, put, ribbon, terrain } from './scene.ts';
+import {
+  type Art,
+  type Rect,
+  FRAMES,
+  frameAt,
+  grass,
+  highlight,
+  inside,
+  plate,
+  put,
+  ribbon,
+  terrain,
+} from './scene.ts';
 
 /**
  * The Tower page's scene (docs/TOWER.md): the Tower on its terrace; the Seer's scrying pool,
@@ -213,33 +225,4 @@ export function drawTowerScene(
     ['Lookout', 760, 294],
   ] as const)
     ribbon(ctx, art.ribbonBlue, `${name} · coming soon`, x, y, 230, '#ffffff');
-}
-
-/** A dark name plate with a blue rim, under a portal. */
-function plate(ctx: CanvasRenderingContext2D, text: string, cx: number, y: number): void {
-  ctx.save();
-  ctx.font = '700 12px system-ui, sans-serif';
-  const w = ctx.measureText(text).width + 14;
-  ctx.fillStyle = 'rgba(20, 26, 40, 0.9)';
-  ctx.strokeStyle = '#78b4fa';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.roundRect(cx - w / 2, y, w, 22, 8);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = '#e6f0ff';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(text, cx, y + 11.5);
-  ctx.restore();
-}
-
-function highlight(ctx: CanvasRenderingContext2D, r: Rect): void {
-  ctx.save();
-  ctx.strokeStyle = '#ffcc33';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.roundRect(r.x - 4, r.y - 4, r.w + 8, r.h + 8, 10);
-  ctx.stroke();
-  ctx.restore();
 }

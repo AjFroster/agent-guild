@@ -62,6 +62,25 @@ describe('installedSkills', () => {
     ]);
   });
 
+  it("lists each project's own skills, by the project's folder name only", async () => {
+    await skill(
+      'work/bakery/.claude/skills/release-notes',
+      '---\nname: release-notes\ndescription: Notes\n---',
+    );
+    await skill('work/bakery/.claude/skills/deep/er/hidden', '---\nname: hidden\n---');
+    const bakery = join(dir, 'work', 'bakery');
+    const skills = await installedSkills(join(dir, 'skills'), undefined, [bakery, bakery, join(dir, 'gone')]);
+    expect(skills).toEqual([
+      {
+        name: 'release-notes',
+        description: 'Notes',
+        source: 'project',
+        path: 'release-notes',
+        project: 'bakery',
+      },
+    ]);
+  });
+
   it('is empty when the folders do not exist', async () => {
     expect(await installedSkills(join(dir, 'nope'), join(dir, 'nor-this'))).toEqual([]);
   });

@@ -46,6 +46,8 @@ export interface Hero {
   smith: boolean;
   /** When it was last given an order (epoch seconds), or null. */
   orderedAt: number | null;
+  /** When a raven last brought it news from one of the guild's utilities, or null. */
+  ravenAt: number | null;
 }
 
 export interface Tokens {
@@ -159,6 +161,7 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     librarian: false,
     smith: false,
     orderedAt: null,
+    ravenAt: null,
   };
 }
 
@@ -226,8 +229,19 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
       hero = { ...hero, smith: true };
       break;
     case 'ordered':
-      // Given an order: up, even out of bed, and off to hear it.
-      hero = { ...hero, orderedAt: event.t, status: 'working' };
+      // Given an order: up, even out of bed, and off to hear it. A message a raven just
+      // brought is news from a utility, read where the Knight stands.
+      hero = fromRaven(hero.ravenAt, event.t)
+        ? { ...hero, status: 'working' }
+        : { ...hero, orderedAt: event.t, status: 'working' };
+      break;
+    case 'raven':
+      // The raven's own event may arrive after the message it brought.
+      hero = {
+        ...hero,
+        ravenAt: event.t,
+        orderedAt: fromRaven(event.t, hero.orderedAt ?? -Infinity) ? null : hero.orderedAt,
+      };
       break;
     case 'usage':
       hero = { ...hero, tokens: addTokens(hero.tokens, event) };
@@ -314,6 +328,18 @@ export function currentQuest(hero: Hero): string | null {
 
 /** How long a Knight stands before the throne after an order before going to work. */
 export const AUDIENCE_SECONDS = 6;
+/** A message this close to a raven is the raven's, not an order. */
+const RAVEN_WINDOW_SECONDS = 30;
+/** How long the raven's letter shows over a Knight. */
+export const RAVEN_SECONDS = 10;
+
+const fromRaven = (ravenAt: number | null, t: number) =>
+  ravenAt !== null && Math.abs(t - ravenAt) < RAVEN_WINDOW_SECONDS;
+
+/** Whether a raven has just brought this hero news, at time `now`. */
+export function hasRaven(hero: Hero, now: number): boolean {
+  return hero.ravenAt !== null && now >= hero.ravenAt && now - hero.ravenAt < RAVEN_SECONDS;
+}
 
 /** Whether a Knight is in the Throne Room hearing its latest order at time `now`. */
 export function inAudience(hero: Hero, now: number): boolean {
@@ -423,6 +449,28 @@ export function looseEnds(state: GuildState): Hero[] {
 /** Tokens across every hero the guild has seen, present or gone. */
 export function guildTokens(state: GuildState): Tokens {
   return Object.values(state.heroes).reduce((sum, h) => addTokens(sum, h.tokens), noTokens());
+}
+
+/** Who spent the tokens: the Knights (and the King), or one of the guild's utilities. */
+export type Spender = 'knights' | 'library' | 'forge';
+
+/**
+ * Tokens by who spent them: each session, and its sub-agents, counts for the utility its
+ * root session works for (librarians for the Library, smiths for the Forge), else for the
+ * Knights. Only sessions started at or after `since` (epoch seconds) count: helpers start
+ * a session per run, so this is "the runs since then".
+ */
+export function tokensByUtility(state: GuildState, since = -Infinity): Record<Spender, number> {
+  const out: Record<Spender, number> = { knights: 0, library: 0, forge: 0 };
+  for (const hero of Object.values(state.heroes)) {
+    if (hero.startedAt < since) continue;
+    let root = hero;
+    for (let i = 0; i < 10 && root.parentId && state.heroes[root.parentId]; i++)
+      root = state.heroes[root.parentId]!;
+    const who: Spender = root.librarian ? 'library' : root.smith ? 'forge' : 'knights';
+    out[who] += totalTokens(hero.tokens);
+  }
+  return out;
 }
 
 /** How deep a hero sits in its party tree: 0 for a leader. */

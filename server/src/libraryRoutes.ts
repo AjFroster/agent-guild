@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import {
   type Archive,
@@ -10,6 +10,7 @@ import {
 import { ChatError } from './chats.ts';
 import type { Library, LibraryConfig } from './library.ts';
 import type { InstalledSkill } from './skills.ts';
+import { guard } from './routes.ts';
 
 /**
  * The Library's routes, all behind the token. `/api/skills...` serve the user's Skills
@@ -31,20 +32,7 @@ export interface LibraryRouteOptions {
 export async function registerLibraryRoutes(app: FastifyInstance, opts: LibraryRouteOptions): Promise<void> {
   const { archive } = opts;
 
-  const guarded =
-    (handler: (req: FastifyRequest, reply: FastifyReply) => Promise<unknown>) =>
-    async (req: FastifyRequest, reply: FastifyReply) => {
-      const header = req.headers.authorization ?? '';
-      if (!opts.isToken(header.startsWith('Bearer ') ? header.slice(7) : undefined)) {
-        return reply.code(401).send({ error: 'Missing or wrong token.' });
-      }
-      try {
-        return await handler(req, reply);
-      } catch (err) {
-        if (err instanceof ChatError) return reply.code(err.status).send({ error: err.message });
-        throw err;
-      }
-    };
+  const guarded = guard(opts.isToken);
   const changed = <T>(value: T): T => {
     opts.onChange();
     return value;
@@ -140,6 +128,7 @@ export async function registerLibraryRoutes(app: FastifyInstance, opts: LibraryR
         known: entries.map((e) => ({
           id: e.id,
           name: e.name,
+          description: e.description,
           repo: e.repo,
           path: e.path,
           commit: e.commit,
