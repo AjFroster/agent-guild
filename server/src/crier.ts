@@ -25,8 +25,9 @@ export interface CrierConfig {
   lastChatId: string | null;
 }
 
+/** Off until the user turns it on: each run spends their Claude usage. */
 export const DEFAULT_CRIER: CrierConfig = {
-  enabled: true,
+  enabled: false,
   time: '18:00',
   threshold: 7,
   maxItems: 10,

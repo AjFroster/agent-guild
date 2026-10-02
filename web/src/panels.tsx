@@ -6,11 +6,17 @@ import {
   type Location,
   XP_PER_LEVEL,
   depthOf,
+  guildTokens,
+  hasLooseEnds,
+  looseEnds,
+  partyTokens,
   roster,
   toolsFor,
+  totalTokens,
 } from '@agent-guild/core';
 import type { ReactNode } from 'react';
 
+import { compact, duration, gitSummary } from './format.ts';
 import { BUILDINGS, type Selection } from './village.ts';
 
 /** Side panels: the guild overview, one hero, or one building. */
@@ -131,6 +137,11 @@ export function GuildPanel({
                   <span className="level">Lv {hero.level}</span>
                   <span className={`status status-${hero.status}`}>{STATUS_LABEL[hero.status]}</span>
                 </span>
+                {hasLooseEnds(hero) && (
+                  <span className="loose" data-testid={`loose-${hero.id}`}>
+                    {gitSummary(hero.git!)}
+                  </span>
+                )}
               </button>
               <XpBar hero={hero} />
               <Quests hero={hero} />
@@ -138,6 +149,8 @@ export function GuildPanel({
           ))}
         </ol>
       )}
+      <GuildTotal state={state} />
+      <LooseEnds state={state} onSelect={onSelect} />
       <h2 className="section">Buildings</h2>
       <ul className="buildings">
         {LOCATIONS.map((loc) => {
@@ -160,6 +173,45 @@ export function GuildPanel({
       <p className="muted small hint">Click a hero or a building on the map for details.</p>
       {children}
     </>
+  );
+}
+
+/** Work only this machine has, including from sessions that have left the guild. */
+function LooseEnds({ state, onSelect }: { state: GuildState; onSelect: Select }) {
+  const heroes = looseEnds(state);
+  if (heroes.length === 0) return null;
+  return (
+    <section className="loose-ends" data-testid="loose-ends" aria-label="Loose ends">
+      <h2 className="section">Loose ends</h2>
+      <p className="muted small">Work that is only on this machine. Push it before you walk away.</p>
+      <ul className="plain">
+        {heroes.map((h) => (
+          <li key={h.id}>
+            {h.status === 'gone' ? <strong>{h.name}</strong> : <HeroButton hero={h} onSelect={onSelect} />}
+            {h.branch && (
+              <>
+                {' '}
+                <code className="small">{h.branch}</code>
+              </>
+            )}
+            <span className="loose-line small">
+              {gitSummary(h.git!)}
+              {h.status === 'gone' && ' · left the guild'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function GuildTotal({ state }: { state: GuildState }) {
+  const total = totalTokens(guildTokens(state));
+  if (total === 0) return null;
+  return (
+    <p className="muted small" data-testid="guild-tokens">
+      The guild has used {compact(total)} tokens.
+    </p>
   );
 }
 
@@ -228,15 +280,21 @@ export function HeroPanel({
             <dd>{hero.model}</dd>
           </>
         )}
+        {hero.git && hero.parentId === null && (
+          <>
+            <dt>Git</dt>
+            <dd className={hasLooseEnds(hero) ? 'loose-text' : undefined} data-testid="hero-git">
+              {gitSummary(hero.git)}
+            </dd>
+          </>
+        )}
         <dt>Arrived</dt>
         <dd>{ago(now - hero.startedAt)}</dd>
         <dt>Last active</dt>
         <dd>{ago(now - hero.lastActiveAt)}</dd>
-        <dt>Turns</dt>
-        <dd>{hero.turns}</dd>
-        <dt>Tool calls</dt>
-        <dd>{calls}</dd>
       </dl>
+
+      <ReportCard state={state} hero={hero} calls={calls} />
 
       {party.length > 0 && (
         <>
@@ -280,6 +338,42 @@ export function HeroPanel({
         onSelect={onSelect}
         showHero={false}
       />
+    </section>
+  );
+}
+
+/** How the session went, in numbers: time, turns, tools, quests, tokens. */
+function ReportCard({ state, hero, calls }: { state: GuildState; hero: Hero; calls: number }) {
+  const own = hero.tokens;
+  const tokens = totalTokens(own);
+  const withParty = totalTokens(partyTokens(state, hero));
+  const done = hero.quests.filter((q) => q.status === 'completed').length;
+  const tiles: [string, string][] = [
+    ['Time on task', duration(hero.lastActiveAt - hero.startedAt)],
+    ['Turns', String(hero.turns)],
+    ['Tool calls', String(calls)],
+    ['Quests done', hero.quests.length ? `${done}/${hero.quests.length}` : '–'],
+    ['Tokens', tokens ? compact(tokens) : '–'],
+    ['Per turn', tokens && hero.turns ? compact(tokens / hero.turns) : '–'],
+  ];
+  return (
+    <section className="report-card" data-testid="report-card" aria-label="Report card">
+      <h3>Report card</h3>
+      <dl className="tiles">
+        {tiles.map(([label, value]) => (
+          <div key={label} className="tile">
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {tokens > 0 && (
+        <p className="muted small" data-testid="token-split">
+          {compact(own.input)} in · {compact(own.output)} out · {compact(own.cacheRead)} cache read ·{' '}
+          {compact(own.cacheWrite)} cache write
+          {withParty > tokens && <> · {compact(withParty)} with party</>}
+        </p>
+      )}
     </section>
   );
 }

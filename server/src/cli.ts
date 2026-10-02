@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path';
 import type { GuildEvent } from '@agent-guild/core';
 
 import { registerChatRoutes } from './chatRoutes.ts';
+import { GitWatcher } from './git.ts';
 import { ChatManager } from './chats.ts';
 import { TownCrier } from './crier.ts';
 import { createServer } from './server.ts';
@@ -25,6 +26,8 @@ import { TranscriptWatcher } from './watcher.ts';
  *   AGENT_GUILD_DATA_DIR      Town Crier settings and reports (default ~/.agent-guild)
  *   AGENT_GUILD_HOME          sessions may only start inside this folder (default: your home)
  *   AGENT_GUILD_NO_CONTROL    set to 1 for watch-only: no chats, no Town Crier
+ *   AGENT_GUILD_ALLOW_BYPASS  set to 1 to offer "skip all permission checks" for new chats
+ *   AGENT_GUILD_GIT           set to 0 to stop checking session folders for unpushed work
  */
 
 const port = Number(process.env.AGENT_GUILD_PORT ?? 4747);
@@ -33,6 +36,7 @@ const maxAgeHours = Number(process.env.AGENT_GUILD_MAX_AGE_HOURS ?? 3);
 const idleMinutes = Number(process.env.AGENT_GUILD_IDLE_MINUTES ?? 20);
 const dataDir = process.env.AGENT_GUILD_DATA_DIR ?? join(homedir(), '.agent-guild');
 const controlOn = process.env.AGENT_GUILD_NO_CONTROL !== '1';
+const allowBypass = process.env.AGENT_GUILD_ALLOW_BYPASS === '1';
 const token = process.env.AGENT_GUILD_TOKEN ?? (await loadToken(join(dataDir, 'token')));
 const webDir = resolve(import.meta.dirname, '../../web/dist');
 
@@ -44,6 +48,7 @@ const chats = new ChatManager({
   claude: process.env.AGENT_GUILD_CLAUDE ?? 'claude',
   // Sessions may only start inside this folder. Tests point it at a scratch directory.
   ...(process.env.AGENT_GUILD_HOME ? { home: process.env.AGENT_GUILD_HOME } : {}),
+  allowBypass,
   onList: (list) => announce('chats', list),
 });
 const crier = new TownCrier({ dir: dataDir, chats, onChange: () => announce('crier', crier.config) });
@@ -54,6 +59,12 @@ const watcher = new TranscriptWatcher({
   idleMs: idleMinutes * 60_000,
   onEvents: (e) => publishEvents(e),
 });
+
+// Unpushed commits and uncommitted files in the folders sessions ran in: counts only.
+const git =
+  process.env.AGENT_GUILD_GIT === '0'
+    ? null
+    : new GitWatcher({ sessions: () => watcher.sessionFolders(), onEvents: (e) => publishEvents(e) });
 
 const server = createServer({
   host: '127.0.0.1',
@@ -74,10 +85,11 @@ const server = createServer({
 });
 publishEvents = server.publish;
 announce = server.announce;
-announce('control', { enabled: controlOn });
+announce('control', { enabled: controlOn, allowBypass: controlOn && allowBypass });
 
 await server.app.listen({ host: '127.0.0.1', port });
 watcher.start();
+git?.start();
 if (controlOn) {
   await crier.load();
   crier.start();
@@ -92,6 +104,7 @@ console.log(`Open: http://127.0.0.1:${port}/?token=${token}`);
 
 const shutdown = () => {
   watcher.stop();
+  git?.stop();
   crier.stop();
   chats.stopAll();
   void server.app.close().then(() => process.exit(0));

@@ -6,11 +6,29 @@
     "name": "Ada"
   },
   {
+    "t": 0.2,
+    "session": "s-hopper",
+    "type": "session_start",
+    "name": "Hopper"
+  },
+  {
+    "t": 0.4,
+    "session": "s-hopper",
+    "type": "meta",
+    "branch": "feat/season-tracker"
+  },
+  {
     "t": 0.5,
     "session": "s-ada",
     "type": "meta",
     "model": "claude-opus-5-5",
     "branch": "feat/win-probability"
+  },
+  {
+    "t": 0.6,
+    "session": "s-hopper",
+    "type": "tool",
+    "tool": "Bash"
   },
   {
     "t": 1,
@@ -40,6 +58,20 @@
     ]
   },
   {
+    "t": 1,
+    "session": "s-ada",
+    "type": "usage",
+    "input": 2400,
+    "output": 610,
+    "cacheRead": 0,
+    "cacheWrite": 18200
+  },
+  {
+    "t": 1.5,
+    "session": "s-hopper",
+    "type": "session_end"
+  },
+  {
     "t": 2,
     "session": "s-scout",
     "type": "subagent_start",
@@ -57,6 +89,15 @@
     "session": "s-scout",
     "type": "tool",
     "tool": "Grep"
+  },
+  {
+    "t": 3,
+    "session": "s-scout",
+    "type": "usage",
+    "input": 900,
+    "output": 1200,
+    "cacheRead": 4100,
+    "cacheWrite": 0
   },
   {
     "t": 3.5,
@@ -84,6 +125,15 @@
     "tool": "Bash"
   },
   {
+    "t": 5,
+    "session": "s-tester",
+    "type": "usage",
+    "input": 1100,
+    "output": 880,
+    "cacheRead": 3900,
+    "cacheWrite": 0
+  },
+  {
     "t": 5.5,
     "session": "s-tester",
     "type": "meta",
@@ -107,6 +157,15 @@
     "session": "s-grace",
     "type": "tool",
     "tool": "WebSearch"
+  },
+  {
+    "t": 7,
+    "session": "s-grace",
+    "type": "usage",
+    "input": 1800,
+    "output": 420,
+    "cacheRead": 0,
+    "cacheWrite": 15600
   },
   {
     "t": 8,
@@ -136,10 +195,35 @@
     ]
   },
   {
+    "t": 8,
+    "session": "s-hopper",
+    "type": "git",
+    "unpushed": 3,
+    "dirty": 0,
+    "remote": true
+  },
+  {
+    "t": 8,
+    "session": "s-grace",
+    "type": "git",
+    "unpushed": 0,
+    "dirty": 0,
+    "remote": true
+  },
+  {
     "t": 9,
     "session": "s-ada",
     "type": "tool",
     "tool": "Edit"
+  },
+  {
+    "t": 9,
+    "session": "s-ada",
+    "type": "usage",
+    "input": 320,
+    "output": 1450,
+    "cacheRead": 24800,
+    "cacheWrite": 2100
   },
   {
     "t": 10,
@@ -152,6 +236,15 @@
     "session": "s-ada",
     "type": "tool",
     "tool": "Edit"
+  },
+  {
+    "t": 11,
+    "session": "s-scout",
+    "type": "usage",
+    "input": 140,
+    "output": 2300,
+    "cacheRead": 9800,
+    "cacheWrite": 600
   },
   {
     "t": 12,
@@ -181,10 +274,36 @@
     ]
   },
   {
+    "t": 12,
+    "session": "s-grace",
+    "type": "usage",
+    "input": 150,
+    "output": 1100,
+    "cacheRead": 19400,
+    "cacheWrite": 900
+  },
+  {
+    "t": 12,
+    "session": "s-ada",
+    "type": "git",
+    "unpushed": 2,
+    "dirty": 1,
+    "remote": true
+  },
+  {
     "t": 13,
     "session": "s-tester",
     "type": "tool",
     "tool": "Bash"
+  },
+  {
+    "t": 13,
+    "session": "s-tester",
+    "type": "usage",
+    "input": 210,
+    "output": 1900,
+    "cacheRead": 8700,
+    "cacheWrite": 0
   },
   {
     "t": 14,
@@ -195,6 +314,15 @@
     "t": 15,
     "session": "s-ada",
     "type": "stop"
+  },
+  {
+    "t": 15,
+    "session": "s-ada",
+    "type": "usage",
+    "input": 180,
+    "output": 2900,
+    "cacheRead": 31200,
+    "cacheWrite": 1800
   },
   {
     "t": 15.5,
@@ -240,6 +368,15 @@
     "session": "s-grace",
     "type": "tool",
     "tool": "WebFetch"
+  },
+  {
+    "t": 18,
+    "session": "s-ada",
+    "type": "usage",
+    "input": 90,
+    "output": 760,
+    "cacheRead": 36400,
+    "cacheWrite": 400
   },
   {
     "t": 20,

@@ -6,13 +6,16 @@ on you.
 
 Local-first. Watching is read-only: the guild follows the transcripts Claude Code
 already writes to `~/.claude/projects/` and never changes your Claude settings, and the
-map only receives tool names, todo titles and turn ends.
+map only receives tool names, todo titles, turn ends and token counts. The server also runs
+read-only `git status` in the folders sessions ran in, and sends on two counts: commits on
+no remote, and uncommitted files.
 
 Chatting is not read-only. **New session** and **Open chat** run your own `claude` CLI
 in headless mode (`claude -p`, streaming JSON), with your login and settings, in a folder
 you choose inside your home directory. Conversation text then reaches the page, over
 127.0.0.1 only and only with the link's token. Set `AGENT_GUILD_NO_CONTROL=1` to turn
-chats and the Town Crier off and keep the guild watch-only.
+chats and the Town Crier off and keep the guild watch-only. Skipping permission checks is
+never offered unless you start the guild with `AGENT_GUILD_ALLOW_BYPASS=1`.
 
 ## Run it
 
@@ -21,8 +24,13 @@ npm ci
 npm start
 ```
 
-Open the link it prints (`http://127.0.0.1:4747/?token=…`). The token is new every run,
-and the server only listens on 127.0.0.1.
+Open the link it prints (`http://127.0.0.1:4747/?token=…`). The server only listens on
+127.0.0.1 and refuses requests from any other origin, other apps on localhost included.
+
+The token is kept in `~/.agent-guild/token` (readable only by you), so the link stays the
+same across restarts; delete that file and restart to invalidate old links. The page keeps
+the token in the browser and takes it out of the address bar, so after the first visit
+`http://127.0.0.1:4747/` opens the guild on its own.
 
 | Variable                    | Default              |                                                                |
 | --------------------------- | -------------------- | -------------------------------------------------------------- |
@@ -30,6 +38,9 @@ and the server only listens on 127.0.0.1.
 | `AGENT_GUILD_MAX_AGE_HOURS` | `3`                  | sessions older than this are not loaded at startup (`0` = all) |
 | `AGENT_GUILD_IDLE_MINUTES`  | `20`                 | a silent session leaves the guild after this (`0` = never)     |
 | `CLAUDE_PROJECTS_DIR`       | `~/.claude/projects` |                                                                |
+| `AGENT_GUILD_ALLOW_BYPASS`  | off                  | `1` offers "skip all permission checks" for new chats          |
+| `AGENT_GUILD_NO_CONTROL`    | off                  | `1` turns chats and the Town Crier off: watch-only             |
+| `AGENT_GUILD_GIT`           | on                   | `0` stops checking session folders for unpushed work           |
 
 ### Keep it running (Windows + WSL)
 
@@ -60,12 +71,13 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 ## Using it
 
 - **New session** starts Claude Code in a folder you pick, with a permission mode
-  (edit files freely, plan only, auto, ask, or skip checks). Talk to it in the chat
-  drawer: replies stream in, tool calls show as rows you can expand, **Stop** ends the
-  current turn.
+  (edit files freely, plan only, auto, or ask; "skip checks" only with
+  `AGENT_GUILD_ALLOW_BYPASS=1`). Talk to it in the chat drawer: replies stream in, tool
+  calls show as rows you can expand, **Stop** ends the current turn.
 - **Open chat** on a session's panel shows its conversation, including sessions you
   started in a terminal, and lets you continue it (`claude --resume`).
-- **Town Crier** writes a daily report on tech and AI at 18:00, keeping stories Claude
+- **Town Crier** (off until you turn it on, since each run uses your Claude usage)
+  writes a daily report on tech and AI at 18:00, keeping stories Claude
   scores at or above the cutoff (default 7/10). Change the time and cutoff, run it now,
   and read past reports in the guild panel. It runs while the guild is running; if 18:00
   passed while it was off, it runs once at the next start that day. Reports are saved in
@@ -75,7 +87,12 @@ Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=
 
 - **Click a hero** to see that session: what it is doing now, its project branch and
   model, party members, quests, which buildings it spends its time in, and its latest tool
-  calls.
+  calls. Its **report card** sums it up: time on task, turns, tool calls, quests done,
+  and tokens used (in, out, cache read and write, and with its party for a leader). The
+  guild panel shows the total across every session.
+- **Loose ends** in the guild panel lists sessions whose folder has commits on no remote
+  or uncommitted files, including sessions that have left the guild. A hero with loose
+  ends says so in the roster and on its panel. Folders are checked once a minute.
 - **Click a building** to see who is there now, which tools send heroes there, and the
   latest activity inside.
 - Everything on the map can also be opened from the side panel with the keyboard.

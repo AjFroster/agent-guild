@@ -7,7 +7,7 @@ export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'unauthorized'
 
 /** Server announcements that ride the same stream: chat list, Town Crier, control on/off. */
 export interface Announcements {
-  control: { enabled: boolean } | null;
+  control: { enabled: boolean; allowBypass?: boolean } | null;
   chats: ChatInfo[];
   crierVersion: number;
 }

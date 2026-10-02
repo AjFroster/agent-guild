@@ -240,11 +240,14 @@ function Message({ item }: { item: ChatItem }) {
 export function NewChatDialog({
   api,
   projects,
+  allowBypass,
   onStarted,
   onCancel,
 }: {
   api: Api;
   projects: string[];
+  /** Offer "skip all permission checks"; the server refuses it unless started to allow it. */
+  allowBypass: boolean;
   onStarted: (id: string) => void;
   onCancel: () => void;
 }) {
@@ -307,7 +310,7 @@ export function NewChatDialog({
         <label>
           Permissions
           <select value={mode} onChange={(e) => setMode(e.target.value as ChatMode)} data-testid="new-mode">
-            {CHAT_MODES.map((m) => (
+            {CHAT_MODES.filter((m) => allowBypass || m !== 'bypassPermissions').map((m) => (
               <option key={m} value={m}>
                 {MODE_LABEL[m]}
               </option>

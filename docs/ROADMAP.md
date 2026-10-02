@@ -29,7 +29,9 @@ MCP tool.
 | Desktop notifications, settings panel                       | AQ                    | done                                               |
 | First-run hint                                              | AQ                    | done                                               |
 | Guild-wide activity feed with filters                       | AQ                    | next                                               |
-| Token counts, session report card                           | AQ                    | next                                               |
+| Token counts, session report card                           | AQ                    | done                                               |
+| Loose ends: unpushed commits, uncommitted files             | none                  | done                                               |
+| Cloud (claude.ai/code) sessions as heroes                   | none                  | open: internal API only, see below                 |
 | Multiple `~/.claude*` directories                           | AQ                    | next                                               |
 | Consent-gated hooks installer; exact permission-wait signal | PA                    | planned                                            |
 | Agent teams (lead + teammates)                              | PA                    | planned                                            |
@@ -44,3 +46,11 @@ MCP tool.
 | VS Code extension                                           | PA                    | not planned                                        |
 
 PA = Pixel Agents, AQ = Agent Quest.
+
+## Cloud sessions
+
+Sessions on claude.ai/code run in Anthropic's cloud, so their transcripts never reach
+`~/.claude/projects`. The `claude` CLI lists them through an internal beta API signed in
+with the user's claude.ai login. The guild would have to read that login to do the same,
+which the rule above (only drive the CLI the user installed) rules out until there is a
+supported way. Remote Control sessions run on the user's machine and already show up.

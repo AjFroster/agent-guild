@@ -10,11 +10,15 @@ import {
   applyEvent,
   depthOf,
   emptyGuild,
+  guildTokens,
   levelFor,
+  looseEnds,
+  partyTokens,
   locationForTool,
   replay,
   roster,
   toolsFor,
+  totalTokens,
 } from './game.ts';
 
 const start = (session: string, t = 0): GuildEvent => ({ t, session, type: 'session_start', name: session });
@@ -213,5 +217,92 @@ describe('hero history', () => {
   it('lists which tools send a hero to each building', () => {
     expect(toolsFor('arena')).toEqual(['Bash']);
     expect(toolsFor('guildhall')).toEqual([]);
+  });
+});
+
+describe('tokens', () => {
+  const use = (session: string, t: number, input: number, output: number): GuildEvent => ({
+    t,
+    session,
+    type: 'usage',
+    input,
+    output,
+    cacheRead: 100,
+    cacheWrite: 0,
+  });
+  const state = replay([
+    start('lead'),
+    { t: 1, session: 'scout', type: 'subagent_start', parent: 'lead', name: 'Scout' },
+    { t: 1, session: 'deep', type: 'subagent_start', parent: 'scout', name: 'Deep' },
+    use('lead', 2, 10, 20),
+    use('lead', 3, 5, 5),
+    use('scout', 4, 1, 2),
+    use('deep', 5, 1, 1),
+    { t: 6, session: 'scout', type: 'subagent_stop' },
+    start('other', 7),
+    use('other', 8, 1000, 1000),
+  ]);
+
+  it("adds up each hero's own replies", () => {
+    expect(state.heroes.lead!.tokens).toEqual({ input: 15, output: 25, cacheRead: 200, cacheWrite: 0 });
+    expect(totalTokens(state.heroes.lead!.tokens)).toBe(240);
+  });
+
+  it("counts a party, members who left included, and nobody else's", () => {
+    expect(partyTokens(state, state.heroes.lead!)).toEqual({
+      input: 17,
+      output: 28,
+      cacheRead: 400,
+      cacheWrite: 0,
+    });
+  });
+
+  it('totals the whole guild', () => {
+    expect(guildTokens(state).output).toBe(1028);
+  });
+
+  it('rejects a negative or fractional count', () => {
+    expect(EventStream.safeParse([{ ...use('a', 1, -1, 0) }]).success).toBe(false);
+    expect(EventStream.safeParse([{ ...use('a', 1, 1.5, 0) }]).success).toBe(false);
+  });
+});
+
+describe('git state', () => {
+  const git = (session: string, t: number, unpushed: number, dirty: number): GuildEvent => ({
+    t,
+    session,
+    type: 'git',
+    unpushed,
+    dirty,
+    remote: true,
+  });
+
+  it('records the folder state without counting it as activity', () => {
+    const state = replay([
+      start('a'),
+      { t: 5, session: 'a', type: 'tool', tool: 'Edit' },
+      git('a', 900, 2, 1),
+    ]);
+    expect(state.heroes.a!.git).toEqual({ unpushed: 2, dirty: 1, remote: true });
+    expect(state.heroes.a!.lastActiveAt).toBe(5);
+  });
+
+  it('keeps updating after the hero leaves, and lists loose ends newest first', () => {
+    const state = replay([
+      start('old'),
+      { t: 1, session: 'old', type: 'session_end' },
+      start('new', 2),
+      { t: 3, session: 'sub', type: 'subagent_start', parent: 'new', name: 'Sub' },
+      start('clean', 4),
+      git('old', 10, 3, 0),
+      git('new', 10, 0, 4),
+      git('sub', 10, 9, 9),
+      git('clean', 10, 0, 0),
+      git('never-started', 10, 5, 5),
+    ]);
+    expect(state.heroes.old!.status).toBe('gone');
+    expect(looseEnds(state).map((h) => h.id)).toEqual(['new', 'old']);
+    // Pushing everything clears it.
+    expect(looseEnds(replay([start('a'), git('a', 1, 2, 0), git('a', 2, 0, 0)]))).toEqual([]);
   });
 });

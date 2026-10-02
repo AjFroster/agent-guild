@@ -40,6 +40,29 @@ export const GuildEvent = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('needs_input') }),
   /** The agent finished its turn. */
   z.object({ ...base, type: z.literal('stop') }),
+  /**
+   * Tokens one model reply used, read from the transcript's usage numbers. Counts only:
+   * nothing about what the tokens said.
+   */
+  z.object({
+    ...base,
+    type: z.literal('usage'),
+    input: z.number().int().nonnegative(),
+    output: z.number().int().nonnegative(),
+    cacheRead: z.number().int().nonnegative(),
+    cacheWrite: z.number().int().nonnegative(),
+  }),
+  /**
+   * Git state of the folder a session runs in, polled by the server: counts only, never
+   * file names or commit messages. `unpushed` is commits on no remote branch.
+   */
+  z.object({
+    ...base,
+    type: z.literal('git'),
+    unpushed: z.number().int().nonnegative(),
+    dirty: z.number().int().nonnegative(),
+    remote: z.boolean(),
+  }),
   /** Which model the session runs on and which git branch it is on, when they change. */
   z.object({
     ...base,

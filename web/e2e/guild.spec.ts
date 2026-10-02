@@ -85,3 +85,33 @@ test('a non-numeric time is rejected', async ({ page }) => {
   await page.goto('/?demo=party&t=soon');
   await expect(page.getByRole('alert')).toContainText('must be a number');
 });
+
+test('a hero shows a report card with its tokens and its party total', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=party&t=20&select=hero:s-ada');
+  const card = page.getByTestId('report-card');
+  await expect(card).toContainText('Time on task');
+  await expect(card).toContainText('Quests done3/4');
+  await expect(card.getByTestId('token-split')).toContainText('with party');
+  await expect(page.getByTestId('panel-hero')).toBeVisible();
+  await capture(page, '12-report-card');
+  await page.goto('/?demo=party&t=20');
+  await expect(page.getByTestId('guild-tokens')).toContainText('tokens');
+  expect(errors).toEqual([]);
+});
+
+test('loose ends list unpushed work, from sessions that left too', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=party&t=20');
+  const loose = page.getByTestId('loose-ends');
+  await expect(loose).toContainText('Ada');
+  await expect(loose).toContainText('2 commits not pushed · 1 uncommitted file');
+  await expect(loose).toContainText('Hopper');
+  await expect(loose).toContainText('3 commits not pushed · left the guild');
+  await expect(loose).not.toContainText('Grace');
+  await expect(page.getByTestId('loose-s-ada')).toBeVisible();
+  await capture(page, '13-loose-ends');
+  await page.goto('/?demo=party&t=20&select=hero:s-grace');
+  await expect(page.getByTestId('hero-git')).toHaveText('Everything committed and pushed');
+  expect(errors).toEqual([]);
+});

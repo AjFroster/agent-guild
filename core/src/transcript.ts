@@ -1,11 +1,12 @@
 import type { GuildEvent, Todo, TodoStatus } from './events.ts';
+import type { Tokens } from './game.ts';
 
 /**
  * Turns Claude Code transcript lines (`~/.claude/projects/<project>/<session>.jsonl`) into
  * guild events.
  *
  * Only structure crosses this boundary: tool names, todo titles, turn ends, the model
- * and git branch, and a sub-agent's short description. Prompt text, tool inputs, file contents and replies are
+ * and git branch, token counts, and a sub-agent's short description. Prompt text, tool inputs, file contents and replies are
  * read past and dropped here, so nothing downstream can leak them.
  *
  * The transcript format is Claude Code's internal format, not a public contract. Every
@@ -15,6 +16,12 @@ import type { GuildEvent, Todo, TodoStatus } from './events.ts';
 export interface TranscriptContext {
   /** Guild id for this transcript: the session id, or `agent-…` for a sub-agent file. */
   session: string;
+  /**
+   * Usage already counted, per message id. Claude Code writes one line per content block
+   * of a reply and repeats the reply's usage on each, so without this a reply with three
+   * tool calls would count three times. Keep one per transcript file.
+   */
+  usage?: Map<string, Tokens>;
 }
 
 type Json = Record<string, unknown>;
@@ -44,6 +51,41 @@ function todosFrom(input: unknown): Todo[] | null {
   return todos.slice(0, 50);
 }
 
+const count = (v: unknown): number =>
+  typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+
+/** Bound on remembered message ids; replies arrive in order, so recent ones suffice. */
+const USAGE_MEMORY = 200;
+
+/**
+ * The tokens a line adds: its reply's usage minus what earlier lines of the same reply
+ * already counted. Null when nothing new.
+ */
+function usageDelta(message: Json, memory: Map<string, Tokens> | undefined): Tokens | null {
+  const u = message.usage;
+  if (!isObject(u)) return null;
+  const now: Tokens = {
+    input: count(u.input_tokens),
+    output: count(u.output_tokens),
+    cacheRead: count(u.cache_read_input_tokens),
+    cacheWrite: count(u.cache_creation_input_tokens),
+  };
+  const id = typeof message.id === 'string' ? message.id : null;
+  const before = (id && memory?.get(id)) || { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  if (id && memory) {
+    memory.delete(id);
+    memory.set(id, now);
+    if (memory.size > USAGE_MEMORY) memory.delete(memory.keys().next().value!);
+  }
+  const delta: Tokens = {
+    input: Math.max(0, now.input - before.input),
+    output: Math.max(0, now.output - before.output),
+    cacheRead: Math.max(0, now.cacheRead - before.cacheRead),
+    cacheWrite: Math.max(0, now.cacheWrite - before.cacheWrite),
+  };
+  return delta.input + delta.output + delta.cacheRead + delta.cacheWrite > 0 ? delta : null;
+}
+
 /** Events from one parsed transcript line. */
 export function eventsFromLine(line: unknown, ctx: TranscriptContext): GuildEvent[] {
   if (!isObject(line)) return [];
@@ -64,6 +106,8 @@ export function eventsFromLine(line: unknown, ctx: TranscriptContext): GuildEven
         ...(branch ? { branch } : {}),
       });
     }
+    const tokens = usageDelta(line.message, ctx.usage);
+    if (tokens) events.push({ t, session, type: 'usage', ...tokens });
     const content = Array.isArray(line.message.content) ? line.message.content : [];
     for (const block of content) {
       if (!isObject(block) || block.type !== 'tool_use' || typeof block.name !== 'string') continue;

@@ -45,6 +45,19 @@ test('start a session from the browser and talk to it', async ({ page }) => {
   await expect(page.locator('.roster')).toContainText('Builder');
 });
 
+test('skipping permission checks is not offered unless the guild allows it', async ({ page, request }) => {
+  await openGuild(page);
+  await page.getByTestId('new-session').click();
+  const options = await page.getByTestId('new-mode').locator('option').allTextContents();
+  expect(options.join('|')).not.toContain('Skip all permission checks');
+
+  const res = await request.post(`${LIVE}/api/chats`, {
+    headers: { authorization: `Bearer ${LIVE_TOKEN}` },
+    data: { cwd: PROJECT, mode: 'bypassPermissions', message: 'go' },
+  });
+  expect(res.status()).toBe(403);
+});
+
 test('clicking a session opens its conversation, and it can be continued', async ({ page }) => {
   await openGuild(page);
   await page.locator('.roster').getByRole('button', { name: 'Open Builder' }).click();
