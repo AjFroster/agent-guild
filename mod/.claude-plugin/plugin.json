@@ -1,0 +1,22 @@
+{
+  "name": "agent-kingdom",
+  "version": "0.1.0",
+  "description": "The Herald: brings the Agent Guild into each session. Tells the guild when the session waits on a permission prompt, shows your hero in the status line, and adds /guild.",
+  "author": { "name": "AjFroster" },
+  "homepage": "https://github.com/AjFroster/agent-guild",
+  "license": "MIT",
+  "userConfig": {
+    "guild_url": {
+      "type": "string",
+      "title": "Guild URL",
+      "description": "Where the guild runs (npm start). Loopback only: 127.0.0.1, localhost or ::1.",
+      "default": "http://127.0.0.1:4747"
+    },
+    "token_file": {
+      "type": "string",
+      "title": "Token file",
+      "description": "The file holding the guild's token. It is sent only as Authorization: Bearer.",
+      "default": "~/.agent-guild/token"
+    }
+  }
+}

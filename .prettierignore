@@ -4,3 +4,4 @@ package-lock.json
 web/playwright-report
 web/test-results
 web/e2e-screenshots
+mod/.claude-plugin/types
