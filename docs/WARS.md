@@ -46,8 +46,9 @@ ahead of time:
   its worktree's, see below). The battle shows its Knights, their quests and tokens.
 - **Stalled**: nobody has committed or worked on it for 2 days (a setting). Stalled battles
   lead the report.
-- **Won**: the branch is merged into the default branch (`git branch --merged`), or its PR
-  is merged when `gh` is available. Victories add to the war's tally and give the Knights
+- **Won**: its PR is merged (read through `gh`). Without `gh`, the guild falls back to
+  `git branch --merged`, which misses squash merges (this repo squashes every PR): there a
+  merged battle would look abandoned, so the War Room asks you instead of guessing. Victories add to the war's tally and give the Knights
   who fought it a bonus (100 XP, beside today's 50 a quest and 10 a turn).
 - **Retreated**: the branch was deleted unmerged, or you marked it so.
 
@@ -123,9 +124,16 @@ His prompt gains one line: plan by war, and give each order a battle.
 4. **PRs and CI through `gh`** (shared with the Lookout, docs/TOWER.md) and the herald's
    account.
 
+## Decided
+
+- **One war per repository** (2026-10-09). A war is one repository folder; a war spanning
+  several repositories is out of scope for now.
+
 ## Open questions
 
-- Is a war always one repository, or can a war span several (an API and its client)? This
-  plan says one folder per war; a war of several folders could come later.
-- Should a won battle's worktree clear itself after a day? This plan says never without
-  your click.
+- Should a won battle's worktree clear itself? This plan says never without your click.
+  Clearing a worktree deletes its folder, so whatever is only there (uncommitted files,
+  unpushed commits, a local `.env`, installed `node_modules`) goes with it, and its Knight
+  can no longer be resumed in that folder. A safe middle ground for later: clear on its own
+  only when the battle's PR is merged, the worktree has no loose ends, and no Knight is in
+  it, after a day.
