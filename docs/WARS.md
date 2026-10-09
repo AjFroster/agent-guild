@@ -98,7 +98,7 @@ turn it on, a time of day, run once if the time passed while the guild was down.
   battles, loose ends (unpushed commits, uncommitted files), and tokens spent by its
   Knights. Saved in `~/.agent-guild/battle-reports/`, raised as a toast, and readable in the
   War Room.
-- **The herald's account (optional, uses usage).** When turned on, a helper session (the
+- **The herald's account (optional, uses usage; not built yet).** When turned on, a helper session (the
   helper pool, closed after its turn) reads the dispatch and the war's goal and writes a
   short account: what moved, what is at risk, what to do next. Like every helper, it reads
   and writes words only.
@@ -120,28 +120,40 @@ His prompt gains one line: plan by war, and give each order a battle.
 
 ## On the map and the War Room
 
-- **On the map**: each war plants its banner by the Barracks with its tally of won
-  battles; a Knight's banner colour is its war's. A stalled battle puts a red flag over its
-  Knight's bedroll.
-- **The War Room** (`?page=wars`, opened by clicking a war tent beside the Barracks, a new
-  prop drawn by `scripts/art/props.py`): a Tiny Swords scene of a war table with one banner
-  per war (`ui/Banner_Vertical.png`), then
-  parchment cards per war: goal, battles as rows (kind, branch, state, Knights, tokens), war
-  aims, and the latest dispatch. Built on `BuildingPage.tsx` and the scene kit like every
-  other page (`docs/BUILDING-PAGES.md`).
-- **Needs you** gains "a battle has stalled" and "a war has no Knight and open aims".
+- **On the map**: a war camp on the Barracks fence plants one banner per war (up to four,
+  then "+N") with its tally of won battles; a banner waves while one of its Knights fights.
+  A Knight wears its war's banner colour, which no other Knight then takes, and its panel
+  names the war and its victories. Clicking the camp (or its "⚔ War Room" sign, or the
+  War Room button in the top bar) opens the War Room.
+- **The War Room** (`?page=wars`, `web/src/wars.tsx` and `warScene.ts`): a Tiny Swords
+  scene of the castle and a war table with one banner per war (a red mark when a battle
+  needs you), then parchment cards per war: goal, victories, tokens and loose ends,
+  battles as rows (kind, branch, state, Knights, pull request and checks) with their
+  actions (send a Knight, withdraw an aim, say how a battle ended, clear the field, and
+  why the guild kept a worktree), declaring a war, and the battle reports with their
+  settings. Built on `BuildingPage.tsx` and the scene kit like every other page
+  (`docs/BUILDING-PAGES.md`).
+- **Needs you** gains stalled battles and battles whose branch is gone with no word on how
+  they ended ("It was won" / "Retreated" right there).
 
-## Phases
+## Status
 
-1. **Wars and battles, read-only**: `core/src/wars.ts` (pure: branch list to battles,
-   kinds, states, the dispatch; unit-tested), `server/src/wars.ts` on `jsonStore.ts`, the
-   branch scan beside `git.ts`, banner colours by war, the War Room page with a fixture
-   and a CI screenshot. No usage, no writes to any repository.
-2. **Battle reports**: the scheduler and the free dispatch, toasts, the report list.
-3. **The King's war council**: `list_wars`, `declare_battle`, `send_knight` with
-   worktrees, and the browser test of a King sending two Knights into one war.
-4. **PRs and CI through `gh`** (shared with the Lookout, docs/TOWER.md) and the herald's
-   account.
+Built (2026-10-09), all but the herald's account:
+
+- `core/src/wars.ts`: branches to battles, kinds, states, victories, the clearing guards
+  and the dispatch, pure and unit-tested; a `victory` event gives each Knight who fought a
+  merged battle 100 XP.
+- `server/src/wars.ts` (the War Room: its record, the git and `gh` reads, worktrees, the
+  guards, the report scheduler) and `warRoutes.ts`; `list_wars`, `declare_battle` and
+  `send_knight` in `kingMcp.ts`. Tested on real git repositories with a fake `gh`.
+- The map, the War Room page and Needs you, with unit tests for the scene and banners.
+- `web/e2e/wars.spec.ts` runs a whole campaign on the live server (real git,
+  `e2e/fake-gh.mjs`, `e2e/fake-claude.mjs`): declare, plan, send a Knight into its
+  worktree, win by a merged pull request, refuse then clear the field, answer a vanished
+  branch in Needs you, and write a report. CI posts its screenshots.
+
+`AGENT_GUILD_GH` names the `gh` to use (`0` turns pull requests off); the War Room looks
+every `AGENT_GUILD_WAR_POLL_MS` (one minute), and asks `gh` at most every two minutes.
 
 ## Decided
 

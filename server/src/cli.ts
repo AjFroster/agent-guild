@@ -24,6 +24,8 @@ import { loadToken } from './token.ts';
 import { TranscriptWatcher } from './watcher.ts';
 import { writeMcpConfig } from './mcpConfig.ts';
 import { type Run, type Utility, RunLog, failedRuns, registerRunRoutes } from './runs.ts';
+import { WarRoom, ghRunner } from './wars.ts';
+import { registerWarRoutes } from './warRoutes.ts';
 
 /**
  * `npm start`: serve the guild, follow ~/.claude/projects, and run chats and the Town
@@ -45,6 +47,9 @@ import { type Run, type Utility, RunLog, failedRuns, registerRunRoutes } from '.
  *   CLAUDE_PLUGINS_DIR        plugins whose skills count as installed (default ~/.claude/plugins)
  *   AGENT_GUILD_PORTALS       set to 0 to stop looking for services on local ports
  *   AGENT_GUILD_PORT_POLL_MS  how often to look (default 3000)
+ *   AGENT_GUILD_GH            the gh executable the War Room reads pull requests with (default
+ *                             "gh"; 0 = none: then nothing is cleared on its own)
+ *   AGENT_GUILD_WAR_POLL_MS   how often the War Room looks at its wars (default 60000)
  */
 
 const port = Number(process.env.AGENT_GUILD_PORT ?? 4747);
@@ -209,6 +214,28 @@ const git =
     ? null
     : new GitWatcher({ sessions: () => watcher.sessionFolders(), onEvents: (e) => publishEvents(e) });
 
+// The War Room: the user's wars (repositories) and battles (branches), docs/WARS.md.
+const warPollMs = Number(process.env.AGENT_GUILD_WAR_POLL_MS ?? 60_000);
+const warRoom = controlOn
+  ? new WarRoom({
+      dir: dataDir,
+      gh: process.env.AGENT_GUILD_GH === '0' ? null : ghRunner(process.env.AGENT_GUILD_GH ?? 'gh'),
+      // Pull requests change slowly; a fast poll (the browser tests) asks gh every time.
+      ghEveryMs: warPollMs < 60_000 ? 0 : 120_000,
+      checkFolder: (raw) => chats.checkFolder(raw),
+      state: () => replay(guildEvents()),
+      sessions: () => [
+        ...chats.list().map((c) => ({ id: c.id, cwd: c.cwd })),
+        ...watcher.sessionFolders(100).map((f) => ({ id: f.session, cwd: f.cwd })),
+      ],
+      chats: () => chats.list(),
+      lastWrite: (id) => watcher.lastWrite(id),
+      onChange: (status) => announce('wars', status),
+      onVictory: (ids) =>
+        publishEvents(ids.map((id) => ({ t: Date.now() / 1000, session: id, type: 'victory' }))),
+    })
+  : null;
+
 const server = createServer({
   host: '127.0.0.1',
   token,
@@ -261,6 +288,13 @@ const server = createServer({
               };
             },
           });
+          if (warRoom)
+            await registerWarRoutes(scope, {
+              isToken,
+              wars: warRoom,
+              court,
+              startKnight: (o) => chats.start({ ...knightExtras(), ...o }),
+            });
           await registerLibraryRoutes(scope, {
             isToken,
             archive,
@@ -294,6 +328,7 @@ if (controlOn) {
 }
 watcher.start();
 git?.start();
+warRoom?.start(warPollMs, Math.min(4_000, warPollMs));
 if (ports) {
   await ports.load();
   ports.start(Number(process.env.AGENT_GUILD_PORT_POLL_MS ?? 3000));
@@ -321,6 +356,7 @@ const shutdown = () => {
   watcher.stop();
   git?.stop();
   ports?.stop();
+  warRoom?.stop();
   crier.stop();
   library.stop();
   chats.stopAll();

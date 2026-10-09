@@ -81,6 +81,11 @@ export const GuildEvent = z.discriminatedUnion('type', [
     dirty: z.number().int().nonnegative(),
     remote: z.boolean(),
   }),
+  /**
+   * A battle this session fought was won: its branch merged (docs/WARS.md). Sent by the
+   * server once per battle and Knight, also after the session has left.
+   */
+  z.object({ ...base, type: z.literal('victory') }),
   /** Which model the session runs on and which git branch it is on, when they change. */
   z.object({
     ...base,

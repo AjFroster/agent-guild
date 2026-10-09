@@ -83,6 +83,8 @@ export const ART = {
   hatLookout: 'props/hat_lookout.png',
   hatPortal: 'props/hat_portal.png',
   staff: 'props/staff.png',
+  castle: 'tiny-swords/buildings/Castle.png',
+  warriorBlue: 'tiny-swords/units/Warrior_Blue.png',
 } as const;
 
 export type ArtName = keyof typeof ART;

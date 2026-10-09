@@ -17,10 +17,11 @@ import {
   tokensByUtility,
   totalTokens,
 } from '@agent-guild/core';
-import type { ReactNode } from 'react';
+import { type ReactNode, useContext } from 'react';
 
 import { compact, duration, gitSummary } from './format.ts';
 import { BUILDINGS, RANK_LABEL, type Selection, TEAM_CSS, heroTeams } from './village.ts';
+import { BannerContext } from './warBanners.ts';
 
 /** Side panels: the guild overview, one hero, or one building. */
 
@@ -70,7 +71,7 @@ const RANK_ABOUT: Record<ReturnType<typeof rankOf>, string> = {
 
 /** A dot in the hero's team colour, matching its unit on the map. */
 function TeamDot({ state, hero }: { state: GuildState; hero: Hero }) {
-  const team = heroTeams(state).get(hero.id);
+  const team = heroTeams(state, useContext(BannerContext).teams).get(hero.id);
   if (!team) return null;
   return (
     <span className="team-dot" style={{ background: TEAM_CSS[team] }} title={`${team} team`} aria-hidden />
@@ -265,6 +266,7 @@ export function HeroPanel({
 }) {
   const leader = hero.parentId ? state.heroes[hero.parentId] : undefined;
   const party = roster(state).filter((h) => h.parentId === hero.id);
+  const war = useContext(BannerContext).warOf.get(hero.parentId ?? hero.id);
   const calls = LOCATIONS.reduce((n, l) => n + hero.visits[l], 0);
   const most = Math.max(1, ...LOCATIONS.map((l) => hero.visits[l]));
 
@@ -307,12 +309,24 @@ export function HeroPanel({
             </dd>
           </>
         )}
+        {war && (
+          <>
+            <dt>War</dt>
+            <dd data-testid="hero-war">{war.name}</dd>
+          </>
+        )}
         {hero.branch && (
           <>
-            <dt>Branch</dt>
+            <dt>{war ? 'Battle' : 'Branch'}</dt>
             <dd>
               <code>{hero.branch}</code>
             </dd>
+          </>
+        )}
+        {hero.victories > 0 && (
+          <>
+            <dt>Victories</dt>
+            <dd data-testid="hero-victories">{hero.victories}</dd>
           </>
         )}
         {hero.model && (

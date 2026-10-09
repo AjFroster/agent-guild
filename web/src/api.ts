@@ -1,4 +1,4 @@
-import type { ChatItem } from '@agent-guild/core';
+import type { Banner, Battle, BattleKind, ChatItem, Dispatch } from '@agent-guild/core';
 
 /**
  * Calls to the guild server's control routes. The token from the page URL goes in the
@@ -172,6 +172,39 @@ export interface UtilityRun {
   detail: string;
 }
 
+/** A war (one repository) as the page sees it: its folder's name, never its path. */
+export interface WarInfo {
+  id: string;
+  name: string;
+  goal: string;
+  banner: Banner;
+  folder: string;
+  archived: boolean;
+  problem: string | null;
+  defaultBranch: string | null;
+  /** `gh` answered: pull requests and checks are known. */
+  gh: boolean;
+  battles: (Battle & { clearGuard: string | null })[];
+  /** Every Knight fighting in it: they wear its banner. */
+  knights: string[];
+  victories: number;
+  tokens: number;
+  looseEnds: { unpushed: number; dirty: number };
+}
+
+export interface WarStatus {
+  wars: WarInfo[];
+  suggestions: { key: string; folder: string; knights: number }[];
+  settings: {
+    autoClear: boolean;
+    stallDays: number;
+    reports: { enabled: boolean; time: string; nextRunAt: number | null };
+  };
+  lastReport: { date: string; at: number } | null;
+  /** Battles that need the user: stalled, or a branch gone with an unknown outcome. */
+  waiting: number;
+}
+
 export function api(token: string) {
   const call = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     const res = await fetch(path, {
@@ -220,6 +253,32 @@ export function api(token: string) {
     runCrier: () => call<ChatInfo>('POST', '/api/crier/run'),
     report: (date: string) =>
       call<{ date: string; text: string }>('GET', `/api/crier/reports/${encodeURIComponent(date)}`),
+    wars: () => call<WarStatus>('GET', '/api/wars'),
+    declareWar: (body: { key?: string; folder?: string; name?: string; goal?: string }) =>
+      call<WarInfo>('POST', '/api/wars', body),
+    updateWar: (id: string, patch: { name?: string; goal?: string; banner?: Banner; archived?: boolean }) =>
+      call<WarStatus>('POST', `/api/wars/${encodeURIComponent(id)}`, patch),
+    declareBattle: (id: string, body: { title: string; kind: BattleKind; branch?: string }) =>
+      call<unknown>('POST', `/api/wars/${encodeURIComponent(id)}/battles`, body),
+    withdrawAim: (id: string, aim: string) =>
+      call<WarStatus>('POST', `/api/wars/${encodeURIComponent(id)}/aims/${encodeURIComponent(aim)}/withdraw`),
+    markBattle: (id: string, branch: string, outcome: 'won' | 'retreated' | null) =>
+      call<WarStatus>('POST', `/api/wars/${encodeURIComponent(id)}/mark`, { branch, outcome }),
+    clearField: (id: string, branch: string) =>
+      call<WarStatus>('POST', `/api/wars/${encodeURIComponent(id)}/clear`, { branch }),
+    sendKnight: (id: string, body: { branch: string; order: string; mode: ChatMode; name?: string }) =>
+      call<{ id: string }>('POST', `/api/wars/${encodeURIComponent(id)}/knights`, body),
+    warSettings: (patch: {
+      autoClear?: boolean;
+      stallDays?: number;
+      reports?: { enabled?: boolean; time?: string };
+    }) => call<WarStatus>('PUT', '/api/wars/settings', patch),
+    runBattleReport: () => call<Dispatch>('POST', '/api/wars/reports'),
+    battleReport: (date: string) =>
+      call<{ date: string; markdown: string; dispatch: Dispatch }>(
+        'GET',
+        `/api/wars/reports/${encodeURIComponent(date)}`,
+      ),
     chatStreamUrl: (id: string) =>
       `/api/chats/${encodeURIComponent(id)}/stream?token=${encodeURIComponent(token)}`,
   };

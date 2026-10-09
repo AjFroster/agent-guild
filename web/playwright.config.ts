@@ -19,6 +19,8 @@ export const LIVE_HOME = join(tmpdir(), 'agent-guild-e2e-home');
 export const LIVE_REMOTES = join(tmpdir(), 'agent-guild-e2e-remotes');
 /** The skills folder the live server reads and installs into, never the real ~/.claude. */
 export const LIVE_SKILLS = join(LIVE_HOME, '.claude', 'skills');
+/** Where e2e/fake-gh.mjs finds each repository's pull requests. */
+export const LIVE_GH = join(LIVE_HOME, 'fake-gh');
 
 export default defineConfig({
   testDir: './e2e',
@@ -71,6 +73,10 @@ export default defineConfig({
         AGENT_GUILD_PORT_POLL_MS: '500',
         // Where the fake Scout looks up the commit it "found".
         FAKE_SKILL_REPO: join(LIVE_REMOTES, 'acme-labs', 'agent-skills.git'),
+        // The War Room reads pull requests from e2e/fake-gh.mjs, and looks often.
+        AGENT_GUILD_GH: resolve('e2e/fake-gh.mjs'),
+        FAKE_GH_DIR: LIVE_GH,
+        AGENT_GUILD_WAR_POLL_MS: '500',
       },
       stdout: 'pipe',
       stderr: 'pipe',

@@ -1441,3 +1441,180 @@ h2.ts-ribbon {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
+
+/* --- the War Room page ------------------------------------------------ */
+
+.war-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.war-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.war-banner {
+  display: inline-block;
+  width: 12px;
+  height: 18px;
+  border: 1px solid #2a1800;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+}
+
+.war-goal {
+  font-style: italic;
+}
+
+.war-facts strong {
+  font-size: 17px;
+}
+
+.battles-table td {
+  vertical-align: top;
+}
+
+.battle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.battle-state {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #d8c79a;
+  color: #4a3a22;
+  white-space: nowrap;
+}
+
+.battle-fighting {
+  background: #b5461a;
+  color: #fff;
+}
+
+.battle-holding {
+  background: #4f7cb8;
+  color: #fff;
+}
+
+.battle-stalled,
+.battle-unclear {
+  background: #e0a526;
+  color: #2a1800;
+}
+
+.battle-won {
+  background: #3d8a4a;
+  color: #fff;
+}
+
+.battle-retreated {
+  background: #8a7a64;
+  color: #fff;
+}
+
+.checks-passing {
+  color: #2f6e3a;
+}
+
+.checks-failing {
+  color: #a1281a;
+  font-weight: 700;
+}
+
+.checks-pending {
+  color: #8a5a10;
+}
+
+.war-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.war-form-row {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.war-form input,
+.war-form select,
+.war-form textarea,
+.war-settings input,
+.war-settings select,
+input.war-days {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #8a6a44;
+  background: #fff8e4;
+  color: #2a1a08;
+}
+
+.war-form input {
+  min-width: min(100%, 240px);
+}
+
+.war-settings {
+  margin-top: 12px;
+}
+
+.war-settings summary {
+  cursor: pointer;
+}
+
+.war-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.war-report {
+  max-height: 420px;
+  overflow: auto;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: #fff8e4;
+}
+
+/* On parchment: dark ink for code, buttons and errors. */
+.wars-page .ts-card code {
+  background: #efe2b8;
+  color: #3c2410;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+.wars-page .ts-card .chip {
+  background: #fff8e4;
+  color: #3c2410;
+  border-color: #8a6a44;
+  font-weight: 600;
+}
+
+.wars-page .ts-card .chip:hover:not(:disabled) {
+  background: #f3e3b6;
+}
+
+.wars-page .ts-card .send:disabled,
+.wars-page .ts-card .chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.wars-page .ts-card .error {
+  color: #a1281a;
+  font-weight: 600;
+}
