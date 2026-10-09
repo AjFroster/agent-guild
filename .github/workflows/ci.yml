@@ -100,6 +100,29 @@ jobs:
             [ "$s" = success ] || { echo "::error::a check failed; see the summary table"; exit 1; }
           done
 
+  # The Herald (mod/): validate the plugin and the marketplace and run its tests in the
+  # pinned CLI's own test kit (the type-check needs the API file a loaded mod gets, so it
+  # runs locally, not here). None of these
+  # call the model, so the CLI runs with no login.
+  mod:
+    name: Mod
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLAUDE_CODE_VERSION: 2.1.295
+      DISABLE_AUTOUPDATER: 1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Install the pinned Claude Code CLI
+        run: npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+      - name: Mod checks
+        run: npm run mod:check
+
   build:
     name: Build
     runs-on: ubuntu-latest

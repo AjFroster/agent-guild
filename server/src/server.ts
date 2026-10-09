@@ -2,8 +2,10 @@ import { timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 
 import fastifyStatic from '@fastify/static';
-import type { GuildEvent } from '@agent-guild/core';
+import { type GuildEvent, type GuildState, applyEvent, replay } from '@agent-guild/core';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
+
+import { registerHeraldRoutes } from './heraldRoutes.ts';
 
 /**
  * The local guild server. It exists on your machine only and says so in code:
@@ -80,10 +82,24 @@ export function createServer(opts: ServerOptions): GuildServer {
 
   const maxEvents = opts.maxEvents ?? 20_000;
   const history: GuildEvent[] = [];
+  /**
+   * The history folded once, for the Herald's routes. A publish in time order folds its
+   * events in (what replay would give); one out of order drops it for a full replay.
+   */
+  let state: GuildState | null = null;
+  let lastT = -Infinity;
   const clients = new Set<FastifyReply>();
   /** Latest value of each announced message, replayed to a tab when it connects. */
   const announced = new Map<string, unknown>();
-  const app = Fastify({ logger: false });
+  // Long enough that an over-long id reaches its route's own check (a 400), not Fastify's 414.
+  const app = Fastify({
+    logger: false,
+    routerOptions: { maxParamLength: 1000 },
+    // A URL the router cannot take (bad encoding, a param past maxParamLength) is a plain
+    // 400 that never echoes the URL back.
+    frameworkErrors: (_error, _req, reply) =>
+      void (reply as FastifyReply).code(400).send({ error: 'Bad request.' }),
+  });
 
   app.addHook('onRequest', async (req, reply) => {
     const host = hostnameOf(req.headers.host ?? '');
@@ -123,6 +139,21 @@ export function createServer(opts: ServerOptions): GuildServer {
     });
   });
 
+  // The Herald (mod/) reports permission waits and asks for its hero, in watch-only mode too.
+  void app.register(async (scope) =>
+    registerHeraldRoutes(scope, {
+      isToken: (given) => sameToken(given, opts.token),
+      publish: (events) => publish(events),
+      state: () => {
+        if (!state) {
+          state = replay(history);
+          lastT = history.reduce((max, e) => Math.max(max, e.t), -Infinity);
+        }
+        return state;
+      },
+    }),
+  );
+
   if (opts.control) {
     const control = opts.control;
     void app.register(async (scope) => control(scope, (given) => sameToken(given, opts.token)));
@@ -134,8 +165,20 @@ export function createServer(opts: ServerOptions): GuildServer {
 
   const publish = (events: GuildEvent[]) => {
     if (events.length === 0) return;
+    if (state) {
+      if (events.every((e, i) => e.t >= (i === 0 ? lastT : events[i - 1]!.t))) {
+        state = events.reduce(applyEvent, state);
+        lastT = events[events.length - 1]!.t;
+      } else {
+        state = null;
+      }
+    }
     history.push(...events);
-    if (history.length > maxEvents) compact(history, maxEvents);
+    if (history.length > maxEvents) {
+      compact(history, maxEvents);
+      // Fold the compacted history afresh, as a tab that connects now would.
+      state = null;
+    }
     const frame = `event: events\ndata: ${JSON.stringify(events)}\n\n`;
     for (const client of clients) client.raw.write(frame);
   };

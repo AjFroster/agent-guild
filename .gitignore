@@ -15,3 +15,6 @@ blob-report/
 web/e2e-screenshots/
 .playwright-cli/
 .playwright/
+
+# Declarations Claude Code lays beside a mod it loads: its own file, not ours to publish.
+mod/.claude-plugin/types/

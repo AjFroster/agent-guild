@@ -178,7 +178,8 @@ function withXp(hero: Hero, gained: number): Hero {
  * name would be a guess.
  */
 export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
-  const existing = state.heroes[event.session];
+  // Own keys only, so an id like `constructor` never finds Object's prototype.
+  const existing = Object.hasOwn(state.heroes, event.session) ? state.heroes[event.session] : undefined;
 
   if (event.type === 'session_start' || event.type === 'subagent_start') {
     if (existing && existing.status !== 'gone') return state;
@@ -259,6 +260,10 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
     }
     case 'needs_input':
       hero = { ...hero, status: 'needs_you' };
+      break;
+    case 'cleared':
+      // Only a wait ends here: a hero that was already working, idle or away stays so.
+      if (hero.status === 'needs_you') hero = { ...hero, status: 'working' };
       break;
     case 'stop':
       hero = withXp({ ...hero, status: 'idle', location: 'guildhall', turns: hero.turns + 1 }, XP_PER_TURN);

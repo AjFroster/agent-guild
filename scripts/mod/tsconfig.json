@@ -1,0 +1,22 @@
+{
+  // Type-checks the Herald (mod/) against the plugin API Claude Code lays beside a mod it
+  // loads (mod/.claude-plugin/types/, not committed: it is Claude Code's own file). Load the
+  // mod once with `claude --plugin-dir mod` to get it; scripts/mod/typecheck.mjs skips the
+  // check when it is missing, as in CI.
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["es2023"],
+    "types": [],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "react",
+    "jsxFactory": "h",
+    "jsxFragmentFactory": "Fragment"
+  },
+  "include": ["../../mod/.claude-plugin/types/claude-code/index.d.ts", "../../mod/hooks"]
+}

@@ -83,8 +83,10 @@ level-up toast fires once; `/guild` with the guild up and down.
 - `.claude-plugin/marketplace.json` at the repository root lists `agent-kingdom` with
   `"source": "./mod"`; `claude plugin validate .` passes.
 - `npm run mod:check` (root `package.json`) runs validate, the type-check and the mod tests.
-- CI runs `npm run mod:check` with a pinned Claude Code CLI and no login. If the CLI cannot
-  run those checks without a login, CI runs the type-check alone and this file says why.
+- CI runs `npm run mod:check` with a pinned Claude Code CLI and no login. The type-check
+  runs where Claude Code has laid the mod's API types (`mod/.claude-plugin/types/`, after
+  `claude --plugin-dir mod`); that file is Claude Code's own and is not committed, so CI
+  skips that one step.
 - The mod is excluded from or passes the repo's lint and format checks.
 
 ### G6. Docs
