@@ -791,7 +791,7 @@ function drawWarCamp(
     ctx.fillText(extra ? `+${extra}` : `${war.victories}`, x + 18, top + 18 + wave / 2);
   });
   // The sign over the banners.
-  label(ctx, '⚔ War Room', 170, 342, 'rgba(60, 30, 14, 0.85)', '#f8e7c0', 12);
+  label(ctx, '⚔ War Camp', 170, 342, 'rgba(60, 30, 14, 0.85)', '#f8e7c0', 12);
   if (hovered) outline(ctx, WAR_CAMP, 'rgba(241, 239, 230, 0.8)', 2);
   ctx.restore();
 }

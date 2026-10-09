@@ -8,7 +8,7 @@ import { type APIRequestContext, type Page, expect, test } from '@playwright/tes
 import { LIVE_GH, LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
 
 /**
- * The War Room (docs/WARS.md) against the real server: a real git repository under the
+ * The War Camp (docs/WARS.md) against the real server: a real git repository under the
  * test home, e2e/fake-claude.mjs for the Knight, and e2e/fake-gh.mjs for pull requests.
  * The tests run in order, as one campaign: declare, fight, win, clear, report.
  */
@@ -42,7 +42,7 @@ async function openWarRoom(page: Page) {
   await expect(page.getByTestId('wars-page')).toBeVisible();
 }
 
-/** From the War Room's list of wars into the castle war's battlefield. */
+/** From the War Camp's list of wars into the castle war's battlefield. */
 async function openCastle(page: Page) {
   await openWarRoom(page);
   await page.getByTestId('all-wars').getByTestId('open-war-castle').click();
@@ -126,10 +126,24 @@ test('declare a war on a repository, plan a battle and send a Knight into its wo
     fullPage: true,
   });
 
-  // All wars, from the War Room: this one sleeps, since its Knight's turn is over.
+  // Back in the War Camp: the war's tent stands faded, since its Knight's turn is over, and
+  // the Knight rests on the field before its goblin.
   await page.getByTestId('war-back').click();
   await expect(page.getByTestId('wars-sleeping')).toContainText('Siege of the Castle');
   await expect(page).not.toHaveURL(/war=/);
+  const camp = page.locator('[data-testid="wars-scene"][data-ready="true"]');
+  await expect(camp).toHaveAttribute('aria-label', /Siege of the Castle \(0 victories, sleeping\)/);
+  await expect(camp).toHaveAttribute('aria-label', new RegExp(`raise-the-banners faces ${foe}`));
+  await page.screenshot({
+    path: 'e2e-screenshots/36-war-camp-page.png',
+    animations: 'disabled',
+    fullPage: true,
+  });
+  // Clicking the tent opens the war again.
+  const box = (await camp.boundingBox())!;
+  await camp.click({ position: { x: (330 / 1120) * box.width, y: (200 / 720) * box.height } });
+  await expect(page.getByTestId('war-page')).toBeVisible();
+  await page.getByTestId('war-back').click();
   await page.getByTestId('all-wars').scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'e2e-screenshots/35-all-wars.png', animations: 'disabled' });
 

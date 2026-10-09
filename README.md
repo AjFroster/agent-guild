@@ -171,7 +171,7 @@ stays quiet. Its rules and checks: [docs/MOD.md](docs/MOD.md).
   the Tower's door counts them. It costs no usage: the guild looks itself (and checks each
   new port once with one request to 127.0.0.1, which you can turn off). The Tower's other
   wizards (Seer, Archmage, Enchanter, Lookout) come next.
-- **Wars and battles.** Declare a war on a repository in the **War Room** (the ⚔ button,
+- **Wars and battles.** Declare a war on a repository in the **War Camp** (the ⚔ button,
   or the war camp on the Barracks fence) and every branch in it becomes a battle: planned,
   fighting, holding, stalled, won or retreated. Send a Knight into a battle and it works in
   its own git worktree; the King can too, with `list_wars`, `declare_battle` and

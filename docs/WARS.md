@@ -10,7 +10,7 @@ fighting for, or how it is going. Wars and Battles add that layer.
 | **Battle**        | One branch of work in that war: a feature, a refactor, a fix             | **Won** when it merges, **retreated** if dropped |
 | **Knight**        | A session fighting a battle (unchanged: one Claude Code session)         | When the session ends                            |
 | **Quest**         | A todo item inside a Knight's turn (unchanged)                           | When ticked                                      |
-| **Battle report** | A scheduled report per war: battles won, fighting, stalled; what it cost | Saved, toasted, and read in the War Room         |
+| **Battle report** | A scheduled report per war: battles won, fighting, stalled; what it cost | Saved, toasted, and read in the War Camp         |
 
 ## What a war is
 
@@ -118,30 +118,37 @@ New tools in `kingMcp.ts`, each behind a route in a new `warRoutes.ts`:
 
 His prompt gains one line: plan by war, and give each order a battle.
 
-## On the map and the War Room
+## On the map and the War Camp
 
 - **On the map**: a war camp on the Barracks fence plants one banner per war (up to four,
   then "+N") with its tally of won battles; a banner waves while one of its Knights fights.
   A Knight wears its war's banner colour, which no other Knight then takes, and its panel
-  names the war and its victories. Clicking the camp (or its "⚔ War Room" sign, or the
-  War Room button in the top bar) opens the War Room.
-- **The War Room** (`?page=wars`, `web/src/wars.tsx` and `warScene.ts`): a Tiny Swords
-  scene of the castle and a war table with one banner per war (a red mark when a battle
-  needs you), then parchment cards per war: goal, victories, tokens and loose ends,
-  battles as rows (kind, branch, state, Knights, pull request and checks) with their
-  actions (send a Knight, withdraw an aim, say how a battle ended, clear the field, and
-  why the guild kept a worktree), declaring a war, and the battle reports with their
-  settings. Built on `BuildingPage.tsx` and the scene kit like every other page
-  (`docs/BUILDING-PAGES.md`).
-- **All wars and their battlefields**: the War Room lists every war as active (a Knight
-  fighting now), sleeping (nobody at work) or ended. Opening one (`?page=wars&war=<id>`,
-  `web/src/fieldScene.ts`) shows its battlefield: each Knight working in the war duels an
-  enemy, a Tiny Swords unit in a rival colour with a bug's name ("Merge Conflict the
-  Unyielding"). The enemy is random but seeded by the Knight's session, so it is the same
-  foe on every visit. Swords swing while the Knight works; both rest when its turn ends.
-  Clicking a Knight opens its chat. The war's battles follow below. The guild's copy of
-  the pack has no goblins (only Warriors and Pawns); adding the pack's goblin sheets would
-  let them join the enemy roster.
+  names the war and its victories. Clicking the camp (or its "⚔ War Camp" sign, or the
+  War Camp button in the top bar) opens the War Camp. (The server side is still called
+  the War Room in the code: `server/src/wars.ts`, `warRoutes.ts`.)
+- **The War Camp** (`?page=wars`, `web/src/wars.tsx` and `campScene.ts`): a Tiny Swords
+  scene of the camp. Behind a palisade stands a tent per war in its banner's colour
+  (active wars first, sleeping ones faded; three at most, or two and "+N"), its victories
+  on a banner at the gate. On the sand in front, the Knights of every open war duel
+  goblins (up to four, working Knights first), and the goblins' own camp stands across the
+  field. Clicking a tent opens that war; clicking a Knight opens its chat. In demo mode
+  there are no wars, so the camp drills the demo's Knights. Below the scene: every war,
+  grouped as active (a Knight fighting now), sleeping (nobody at work) or ended; declaring
+  a war; and the battle reports with their settings. Built on `BuildingPage.tsx` and the
+  scene kit like every other page (`docs/BUILDING-PAGES.md`).
+- **The duels** (`web/src/duel.ts`): each Knight swings at a goblin from the Tiny Swords
+  pack (Torch, TNT or Barrel goblin, in red, blue, purple or yellow) with a bug's name
+  ("Merge Conflict", "Flaky Test"). The goblin is random but seeded by the Knight's
+  session, so it is the same foe on every visit, and no two on one field share a name. A
+  Knight at work plays its attack row and its goblin fights back; on each hit the goblin is
+  knocked back a step and sparks fly, as at the training dummies. The goblin's health bar
+  is the Knight's quests still to do ("quests 2/5"); a resting Knight shows "z z" and its
+  goblin "resting", and one waiting on you a red "!".
+- **A war's battlefield** (`?page=wars&war=<id>`, `web/src/fieldScene.ts`): the same duels
+  for one war's Knights (six at most), then the war's card: goal, victories, tokens and
+  loose ends, battles as rows (kind, branch, state, Knights, pull request and checks) with
+  their actions (send a Knight, withdraw an aim, say how a battle ended, clear the field,
+  and why the guild kept a worktree).
 - **Needs you** gains stalled battles and battles whose branch is gone with no word on how
   they ended ("It was won" / "Retreated" right there).
 
@@ -155,7 +162,7 @@ Built (2026-10-09), all but the chronicler's account:
 - `server/src/wars.ts` (the War Room: its record, the git and `gh` reads, worktrees, the
   guards, the report scheduler) and `warRoutes.ts`; `list_wars`, `declare_battle` and
   `send_knight` in `kingMcp.ts`. Tested on real git repositories with a fake `gh`.
-- The map, the War Room page and Needs you, with unit tests for the scene and banners.
+- The map, the War Camp page and Needs you, with unit tests for the camp, the duels and the banners.
 - `web/e2e/wars.spec.ts` runs a whole campaign on the live server (real git,
   `e2e/fake-gh.mjs`, `e2e/fake-claude.mjs`): declare, plan, send a Knight into its
   worktree, win by a merged pull request, refuse then clear the field, answer a vanished

@@ -734,7 +734,7 @@ export class WarRoom {
     let folder: string | null = null;
     if (typeof body.key === 'string' && body.key) {
       for (const root of this.roots.values()) if (root && keyOf(root) === body.key) folder = root;
-      if (!folder) throw new ChatError(404, 'That suggestion is gone. Refresh the War Room.');
+      if (!folder) throw new ChatError(404, 'That suggestion is gone. Refresh the War Camp.');
     } else folder = await this.opts.checkFolder(body.folder);
     const top = (await this.run(folder, ['rev-parse', '--show-toplevel']).catch(() => '')).trim();
     if (!top) throw new ChatError(400, 'A war is fought in a git repository: that folder is not one.');

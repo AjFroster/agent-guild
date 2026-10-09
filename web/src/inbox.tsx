@@ -180,7 +180,7 @@ function Row({
           )}
           {control.onOpenWars && (
             <button type="button" className="link" onClick={control.onOpenWars}>
-              Open the War Room
+              Open the War Camp
             </button>
           )}
         </div>

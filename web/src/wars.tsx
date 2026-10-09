@@ -21,30 +21,27 @@ import { BuildingPage } from './BuildingPage.tsx';
 import { Markdown } from './chat.tsx';
 import { ago } from './panels.tsx';
 import {
-  describeField,
-  fieldKnights,
-  drawField,
-  fieldModel,
-  fieldPick,
-  sameFieldPick,
-} from './fieldScene.ts';
-import { type Sprites, TEAM_CSS, loadSprites } from './village.ts';
-import {
+  type CampPick,
   type WarMood,
-  type WarPick,
-  describeWars,
-  drawWarScene,
-  samePick,
-  warModel,
+  campKnights,
+  campModel,
+  campPick,
+  describeCamp,
+  drawCamp,
+  sameCampPick,
   warMood,
-  warPick,
-} from './warScene.ts';
+} from './campScene.ts';
+import { type GoblinArt, loadGoblins, warKnights } from './duel.ts';
+import { describeField, drawField, fieldModel, fieldPick, sameFieldPick } from './fieldScene.ts';
+import { type Sprites, TEAM_CSS, loadSprites } from './village.ts';
 
 /**
- * The War Room page (docs/WARS.md), reached from the war camp on the Barracks fence. On
- * top, the war table as a Tiny Swords scene (warScene.ts); below, a card per war with its
- * battles: send a Knight into one (in its own worktree), say how an unclear one ended,
- * clear a won one's worktree. Then declaring a war, and the battle reports.
+ * The War Camp page (docs/WARS.md), reached from the war camp on the Barracks fence. On
+ * top, the camp as a Tiny Swords scene (campScene.ts): a tent per war, and the Knights of
+ * every war dueling goblins. Below, the wars, active, sleeping and ended; declaring a war;
+ * and the battle reports. Opening a war shows its battlefield (fieldScene.ts) and its card:
+ * send a Knight into a battle (in its own worktree), say how an unclear one ended, clear a
+ * won one's worktree.
  */
 
 export interface WarControl {
@@ -123,7 +120,13 @@ export function WarsPage({
 }) {
   const [status, setStatus] = useStatus(control);
   const [warId, openWar] = useWarParam();
-  const model = useMemo(() => warModel(status ? status.wars : control ? [] : null), [status, control]);
+  const art = useDuelArt();
+  const wars = useMemo(() => (control ? (status?.wars ?? []) : null), [control, status]);
+  const knights = useMemo(() => campKnights(state, wars), [state, wars]);
+  const model = useMemo(
+    () => (art ? campModel(wars, knights, art.sprites, art.goblins) : null),
+    [art, wars, knights],
+  );
   const war = warId && status ? status.wars.find((w) => w.id === warId) : undefined;
   if (war && control)
     return (
@@ -138,37 +141,42 @@ export function WarsPage({
       />
     );
 
-  const onPick = (p: WarPick) => {
+  const onPick = (p: CampPick) => {
     if (p.kind === 'war') return openWar(p.id);
-    const id = p.kind === 'reports' ? 'battle-reports' : p.kind === 'more' ? 'all-wars' : 'declare-war';
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (p.kind === 'knight') return control?.onTalk(p.id);
+    document.getElementById('all-wars')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  if (!model) return <p className="muted">Readying the camp…</p>;
   return (
     <BuildingPage
       id="wars"
-      title="The War Room"
+      title="The War Camp"
       ribbon="red"
       onBack={onBack}
       scene={{
         model,
         animate,
-        draw: drawWarScene,
-        pick: warPick,
-        same: samePick,
+        draw: drawCamp,
+        pick: campPick,
+        same: sameCampPick,
         onPick,
-        label: describeWars(model),
+        label: describeCamp(model),
       }}
       hint={
         <>
-          Each banner on the table is a war: one of your repositories. The number is its victories (merged
-          battles); it waves while a Knight fights, and a red mark means a battle needs you. Click one, or a
-          war below, to open its battlefield.
+          Each tent is a war: one of your repositories. Its banner counts victories (merged battles), and a
+          sleeping war&apos;s tent is faded. On the field, every Knight at work swings at a goblin; the
+          goblin&apos;s health is the Knight&apos;s quests still to do. Click a Knight to talk to it, a tent
+          to open that war.
         </>
       }
     >
       {!control ? (
-        <p className="muted small">The War Room follows your repositories when the guild runs live.</p>
+        <p className="muted small">
+          The War Camp follows your repositories when the guild runs live. Until then it drills the
+          demo&apos;s Knights.
+        </p>
       ) : !status ? (
         <p className="muted">Reading the wars…</p>
       ) : (
@@ -265,25 +273,28 @@ function WarRow({
   );
 }
 
-/** Hero sheets for the battlefield, loaded once per page. */
-let spritesPromise: Promise<Sprites> | null = null;
-function useSprites(): Sprites | null {
-  const [sprites, setSprites] = useState<Sprites | null>(null);
+/** The Knights' sheets and the goblins', loaded once per page. */
+let artPromise: Promise<{ sprites: Sprites; goblins: GoblinArt }> | null = null;
+function useDuelArt(): { sprites: Sprites; goblins: GoblinArt } | null {
+  const [art, setArt] = useState<{ sprites: Sprites; goblins: GoblinArt } | null>(null);
   useEffect(() => {
     let live = true;
-    spritesPromise ??= loadSprites();
-    spritesPromise.then(
-      (s) => live && setSprites(s),
+    artPromise ??= Promise.all([loadSprites(), loadGoblins()]).then(([sprites, goblins]) => ({
+      sprites,
+      goblins,
+    }));
+    artPromise.then(
+      (a) => live && setArt(a),
       () => {},
     );
     return () => {
       live = false;
     };
   }, []);
-  return sprites;
+  return art;
 }
 
-/** One war's page: its battlefield, where each Knight duels an enemy, then its battles. */
+/** One war's page: its battlefield, where each Knight duels a goblin, then its battles. */
 function WarField({
   war,
   state,
@@ -301,11 +312,11 @@ function WarField({
   onStatus: (s: WarStatus) => void;
   onBack: () => void;
 }) {
-  const sprites = useSprites();
-  const knights = useMemo(() => fieldKnights(state, war), [state, war]);
+  const art = useDuelArt();
+  const knights = useMemo(() => warKnights(state, war), [state, war]);
   const model = useMemo(
-    () => (sprites ? fieldModel(war.banner, knights, sprites) : null),
-    [war.banner, knights, sprites],
+    () => (art ? fieldModel(war.banner, knights, art.sprites, art.goblins) : null),
+    [war.banner, knights, art],
   );
   if (!model) return <p className="muted">Readying the battlefield…</p>;
   return (
@@ -326,8 +337,9 @@ function WarField({
       }}
       hint={
         <>
-          Each Knight working in this war duels a foe: swords swing while it works, and it rests when its turn
-          is done. Click a Knight to talk to it.
+          Each Knight in this war duels a goblin: its sword swings while it works, and it rests when its turn
+          is done. The goblin&apos;s health is the Knight&apos;s quests still to do. Click a Knight to talk to
+          it.
         </>
       }
     >
@@ -335,7 +347,7 @@ function WarField({
         {model.duels.map((d) => (
           <li key={d.knight.id} data-testid={`duel-${d.knight.id}`} data-active={d.knight.active}>
             <strong>{d.knight.name}</strong> {d.knight.active ? 'fights' : 'faces'}{' '}
-            <span className="war-foe">{d.enemy.name}</span>
+            <span className="war-foe">{d.goblin.name}</span>
             {d.knight.battle && <code className="small">{d.knight.battle}</code>}
           </li>
         ))}

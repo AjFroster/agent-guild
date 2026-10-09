@@ -275,7 +275,7 @@ function Guild({
                 aria-pressed={page === 'wars'}
                 data-testid="open-war-room"
               >
-                ⚔ War Room
+                ⚔ War Camp
               </button>
             )}
             {control && (
