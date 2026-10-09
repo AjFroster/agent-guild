@@ -1590,31 +1590,104 @@ input.war-days {
 }
 
 /* On parchment: dark ink for code, buttons and errors. */
-.wars-page .ts-card code {
+:is(.wars-page, .war-page) .ts-card code {
   background: #efe2b8;
   color: #3c2410;
   padding: 0 4px;
   border-radius: 4px;
 }
 
-.wars-page .ts-card .chip {
+:is(.wars-page, .war-page) .ts-card .chip {
   background: #fff8e4;
   color: #3c2410;
   border-color: #8a6a44;
   font-weight: 600;
 }
 
-.wars-page .ts-card .chip:hover:not(:disabled) {
+:is(.wars-page, .war-page) .ts-card .chip:hover:not(:disabled) {
   background: #f3e3b6;
 }
 
-.wars-page .ts-card .send:disabled,
-.wars-page .ts-card .chip:disabled {
+:is(.wars-page, .war-page) .ts-card .send:disabled,
+:is(.wars-page, .war-page) .ts-card .chip:disabled {
   opacity: 0.55;
   cursor: default;
 }
 
-.wars-page .ts-card .error {
+:is(.wars-page, .war-page) .ts-card .error {
   color: #a1281a;
   font-weight: 600;
+}
+
+/* The list of wars, by mood, and one war's duels. */
+.war-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.war-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.war-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 248, 228, 0.6);
+}
+
+.war-row[data-mood='sleeping'] {
+  opacity: 0.85;
+}
+
+.war-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 16px;
+  color: #3c2410;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.war-open:hover strong,
+.war-open:focus-visible strong {
+  text-decoration: underline;
+}
+
+.war-row-facts {
+  color: #5a4228;
+}
+
+.war-row-waiting {
+  color: #a1281a;
+  font-weight: 700;
+}
+
+.war-duels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0 0 12px;
+}
+
+.war-duels li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.war-foe {
+  color: #e0604f;
+  font-weight: 700;
 }

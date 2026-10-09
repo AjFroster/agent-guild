@@ -133,6 +133,15 @@ His prompt gains one line: plan by war, and give each order a battle.
   why the guild kept a worktree), declaring a war, and the battle reports with their
   settings. Built on `BuildingPage.tsx` and the scene kit like every other page
   (`docs/BUILDING-PAGES.md`).
+- **All wars and their battlefields**: the War Room lists every war as active (a Knight
+  fighting now), sleeping (nobody at work) or ended. Opening one (`?page=wars&war=<id>`,
+  `web/src/fieldScene.ts`) shows its battlefield: each Knight working in the war duels an
+  enemy, a Tiny Swords unit in a rival colour with a bug's name ("Merge Conflict the
+  Unyielding"). The enemy is random but seeded by the Knight's session, so it is the same
+  foe on every visit. Swords swing while the Knight works; both rest when its turn ends.
+  Clicking a Knight opens its chat. The war's battles follow below. The guild's copy of
+  the pack has no goblins (only Warriors and Pawns); adding the pack's goblin sheets would
+  let them join the enemy roster.
 - **Needs you** gains stalled battles and battles whose branch is gone with no word on how
   they ended ("It was won" / "Retreated" right there).
 

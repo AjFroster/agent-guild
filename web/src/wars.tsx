@@ -1,4 +1,11 @@
-import { BANNERS, BATTLE_KINDS, type Banner, type Battle, type BattleKind } from '@agent-guild/core';
+import {
+  BANNERS,
+  BATTLE_KINDS,
+  type Banner,
+  type Battle,
+  type BattleKind,
+  type GuildState,
+} from '@agent-guild/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -13,8 +20,25 @@ import {
 import { BuildingPage } from './BuildingPage.tsx';
 import { Markdown } from './chat.tsx';
 import { ago } from './panels.tsx';
-import { TEAM_CSS } from './village.ts';
-import { type WarPick, describeWars, drawWarScene, samePick, warModel, warPick } from './warScene.ts';
+import {
+  describeField,
+  fieldKnights,
+  drawField,
+  fieldModel,
+  fieldPick,
+  sameFieldPick,
+} from './fieldScene.ts';
+import { type Sprites, TEAM_CSS, loadSprites } from './village.ts';
+import {
+  type WarMood,
+  type WarPick,
+  describeWars,
+  drawWarScene,
+  samePick,
+  warModel,
+  warMood,
+  warPick,
+} from './warScene.ts';
 
 /**
  * The War Room page (docs/WARS.md), reached from the war camp on the Barracks fence. On
@@ -64,27 +88,62 @@ function useStatus(control: WarControl | undefined): [WarStatus | null, (s: WarS
   return [local && local.after === announced ? local.status : announced, set];
 }
 
+/** Which war's battlefield is open, kept in `?war=` so a reload (and a test) can open it. */
+function useWarParam(): [string | null, (id: string | null) => void] {
+  const [war, setWar] = useState<string | null>(() => new URLSearchParams(window.location.search).get('war'));
+  const open = useCallback((id: string | null) => {
+    setWar(id);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('war', id);
+    else url.searchParams.delete('war');
+    window.history.replaceState(null, '', url);
+    window.scrollTo({ top: 0 });
+  }, []);
+  return [war, open];
+}
+
+const MOODS: readonly { mood: WarMood; title: string; ribbon: 'red' | 'blue' | 'yellow' }[] = [
+  { mood: 'active', title: 'Active wars', ribbon: 'red' },
+  { mood: 'sleeping', title: 'Sleeping wars', ribbon: 'blue' },
+  { mood: 'ended', title: 'Ended wars', ribbon: 'yellow' },
+];
+
 export function WarsPage({
+  state,
   now,
   animate,
   control,
   onBack,
 }: {
+  state: GuildState;
   now: number;
   animate: boolean;
   control?: WarControl | undefined;
   onBack: () => void;
 }) {
   const [status, setStatus] = useStatus(control);
+  const [warId, openWar] = useWarParam();
   const model = useMemo(() => warModel(status ? status.wars : control ? [] : null), [status, control]);
+  const war = warId && status ? status.wars.find((w) => w.id === warId) : undefined;
+  if (war && control)
+    return (
+      <WarField
+        war={war}
+        state={state}
+        now={now}
+        animate={animate}
+        control={control}
+        onStatus={setStatus}
+        onBack={() => openWar(null)}
+      />
+    );
 
   const onPick = (p: WarPick) => {
-    const id = p.kind === 'war' ? `war-${p.id}` : p.kind === 'reports' ? 'battle-reports' : 'declare-war';
+    if (p.kind === 'war') return openWar(p.id);
+    const id = p.kind === 'reports' ? 'battle-reports' : p.kind === 'more' ? 'all-wars' : 'declare-war';
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const active = status?.wars.filter((w) => !w.archived) ?? [];
-  const ended = status?.wars.filter((w) => w.archived) ?? [];
   return (
     <BuildingPage
       id="wars"
@@ -103,8 +162,8 @@ export function WarsPage({
       hint={
         <>
           Each banner on the table is a war: one of your repositories. The number is its victories (merged
-          battles); it waves while a Knight fights, and a red mark means a battle needs you. Click one to jump
-          to its battles.
+          battles); it waves while a Knight fights, and a red mark means a battle needs you. Click one, or a
+          war below, to open its battlefield.
         </>
       }
     >
@@ -114,45 +173,174 @@ export function WarsPage({
         <p className="muted">Reading the wars…</p>
       ) : (
         <>
-          {active.length === 0 && (
+          {status.wars.length === 0 ? (
             <p className="muted" data-testid="no-wars">
               No war declared yet. Declare one on a repository below: each branch of work in it becomes a
               battle.
             </p>
-          )}
-          <ul className="plain war-cards" aria-label="Wars">
-            {active.map((w) => (
-              <li key={w.id}>
-                <WarCard war={w} now={now} control={control} onStatus={setStatus} />
-              </li>
-            ))}
-          </ul>
-          <Declare status={status} api={control.api} onStatus={setStatus} />
-          <Reports status={status} api={control.api} onStatus={setStatus} now={now} />
-          {ended.length > 0 && (
-            <div className="ts-card" data-testid="ended-wars">
-              <h3 className="ts-ribbon ts-ribbon-yellow">Ended wars</h3>
-              <ul className="plain">
-                {ended.map((w) => (
-                  <li key={w.id}>
-                    <strong>{w.name}</strong> <span className="muted small">({w.folder})</span>{' '}
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() =>
-                        void control.api.updateWar(w.id, { archived: false }).then(setStatus, () => {})
-                      }
-                      data-testid={`resume-war-${w.id}`}
-                    >
-                      Resume
-                    </button>
-                  </li>
-                ))}
-              </ul>
+          ) : (
+            <div id="all-wars" className="war-groups" data-testid="all-wars">
+              {MOODS.map(({ mood, title, ribbon }) => {
+                const wars = status.wars.filter((w) => warMood(w) === mood);
+                if (wars.length === 0) return null;
+                return (
+                  <div key={mood} className="ts-card" data-testid={`wars-${mood}`}>
+                    <h3 className={`ts-ribbon ts-ribbon-${ribbon}`}>
+                      {title} ({wars.length})
+                    </h3>
+                    <ul className="plain war-list">
+                      {wars.map((w) => (
+                        <li key={w.id}>
+                          <WarRow
+                            war={w}
+                            mood={mood}
+                            now={now}
+                            onOpen={() => openWar(w.id)}
+                            onResume={() =>
+                              void control.api.updateWar(w.id, { archived: false }).then(setStatus, () => {})
+                            }
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
             </div>
           )}
+          <Declare status={status} api={control.api} onStatus={setStatus} onDeclared={openWar} />
+          <Reports status={status} api={control.api} onStatus={setStatus} now={now} />
         </>
       )}
+    </BuildingPage>
+  );
+}
+
+/** One war in the list: its banner, how it stands, and a way into its battlefield. */
+function WarRow({
+  war,
+  mood,
+  now,
+  onOpen,
+  onResume,
+}: {
+  war: WarInfo;
+  mood: WarMood;
+  now: number;
+  onOpen: () => void;
+  onResume: () => void;
+}) {
+  const fighting = war.battles.filter((b) => b.state === 'fighting').length;
+  const open = war.battles.filter((b) => b.state !== 'won' && b.state !== 'retreated').length;
+  const waiting = war.battles.filter((b) => b.state === 'stalled' || b.state === 'unclear').length;
+  const last = war.battles.reduce<number | null>(
+    (m, b) => (b.lastActivityAt !== null && (m === null || b.lastActivityAt > m) ? b.lastActivityAt : m),
+    null,
+  );
+  return (
+    <div className="war-row" data-mood={mood}>
+      <button type="button" className="war-open" onClick={onOpen} data-testid={`open-war-${war.folder}`}>
+        <span className="war-banner" style={{ background: TEAM_CSS[war.banner] }} aria-hidden="true" />
+        <strong>{war.name}</strong>
+        <span className="muted small">{war.folder}</span>
+      </button>
+      <span className="small war-row-facts">
+        {mood === 'active'
+          ? `${fighting} ${fighting === 1 ? 'battle' : 'battles'} being fought`
+          : mood === 'sleeping'
+            ? last !== null
+              ? `asleep, last stirred ${ago(now - last)}`
+              : 'asleep'
+            : 'ended'}
+        {' · '}
+        {open} open · {war.victories} {war.victories === 1 ? 'victory' : 'victories'}
+        {waiting > 0 && <span className="war-row-waiting"> · {waiting} need you</span>}
+      </span>
+      {mood === 'ended' && (
+        <button type="button" className="chip" onClick={onResume} data-testid={`resume-war-${war.id}`}>
+          Resume
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Hero sheets for the battlefield, loaded once per page. */
+let spritesPromise: Promise<Sprites> | null = null;
+function useSprites(): Sprites | null {
+  const [sprites, setSprites] = useState<Sprites | null>(null);
+  useEffect(() => {
+    let live = true;
+    spritesPromise ??= loadSprites();
+    spritesPromise.then(
+      (s) => live && setSprites(s),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+  return sprites;
+}
+
+/** One war's page: its battlefield, where each Knight duels an enemy, then its battles. */
+function WarField({
+  war,
+  state,
+  now,
+  animate,
+  control,
+  onStatus,
+  onBack,
+}: {
+  war: WarInfo;
+  state: GuildState;
+  now: number;
+  animate: boolean;
+  control: WarControl;
+  onStatus: (s: WarStatus) => void;
+  onBack: () => void;
+}) {
+  const sprites = useSprites();
+  const knights = useMemo(() => fieldKnights(state, war), [state, war]);
+  const model = useMemo(
+    () => (sprites ? fieldModel(war.banner, knights, sprites) : null),
+    [war.banner, knights, sprites],
+  );
+  if (!model) return <p className="muted">Readying the battlefield…</p>;
+  return (
+    <BuildingPage
+      id="war"
+      title={war.name}
+      ribbon="red"
+      onBack={onBack}
+      backLabel="← All wars"
+      scene={{
+        model,
+        animate,
+        draw: drawField,
+        pick: fieldPick,
+        same: sameFieldPick,
+        onPick: (p) => control.onTalk(p.id),
+        label: describeField(model),
+      }}
+      hint={
+        <>
+          Each Knight working in this war duels a foe: swords swing while it works, and it rests when its turn
+          is done. Click a Knight to talk to it.
+        </>
+      }
+    >
+      <ul className="plain war-duels" aria-label="Duels" data-testid="war-duels">
+        {model.duels.map((d) => (
+          <li key={d.knight.id} data-testid={`duel-${d.knight.id}`} data-active={d.knight.active}>
+            <strong>{d.knight.name}</strong> {d.knight.active ? 'fights' : 'faces'}{' '}
+            <span className="war-foe">{d.enemy.name}</span>
+            {d.knight.battle && <code className="small">{d.knight.battle}</code>}
+          </li>
+        ))}
+      </ul>
+      <WarCard war={war} now={now} control={control} onStatus={onStatus} />
     </BuildingPage>
   );
 }
@@ -580,12 +768,25 @@ function Declare({
   status,
   api,
   onStatus,
+  onDeclared,
 }: {
   status: WarStatus;
   api: Api;
   onStatus: (s: WarStatus) => void;
+  /** A new war opens its battlefield. */
+  onDeclared: (id: string) => void;
 }) {
   const { busy, error, run } = useAction(onStatus, api);
+  const declare = async (key: string, body: Parameters<Api['declareWar']>[0]) => {
+    let id: string | null = null;
+    const ok = await run(key, async () => {
+      const war = await api.declareWar(body);
+      id = war.id;
+      return war;
+    });
+    if (ok && id) onDeclared(id);
+    return ok;
+  };
   const [folder, setFolder] = useState('');
   const [name, setName] = useState('');
   const [goal, setGoal] = useState('');
@@ -615,7 +816,7 @@ function Declare({
                   type="button"
                   className="chip"
                   disabled={busy !== null}
-                  onClick={() => void run(`key:${s.key}`, () => api.declareWar({ key: s.key }))}
+                  onClick={() => void declare(`key:${s.key}`, { key: s.key })}
                   data-testid={`declare-${s.folder}`}
                 >
                   Declare war
@@ -630,7 +831,7 @@ function Declare({
         onSubmit={(e) => {
           e.preventDefault();
           if (!folder.trim()) return;
-          void run('folder', () => api.declareWar({ folder: folder.trim(), name, goal })).then((ok) => {
+          void declare('folder', { folder: folder.trim(), name, goal }).then((ok) => {
             if (ok) {
               setFolder('');
               setName('');

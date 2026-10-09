@@ -88,6 +88,8 @@ export function usePage(): [Page, (p: Page) => void] {
     const url = new URL(window.location.href);
     if (p !== 'village') url.searchParams.set('page', p);
     else url.searchParams.delete('page');
+    // One war's battlefield belongs to the War Room; leaving it closes the war.
+    if (p !== 'wars') url.searchParams.delete('war');
     window.history.replaceState(null, '', url);
   }, []);
   return [page, open];

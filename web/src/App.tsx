@@ -293,6 +293,7 @@ function Guild({
         </header>
         {page === 'wars' ? (
           <WarsPage
+            state={state}
             now={now}
             animate={live !== undefined}
             onBack={() => openPage('village')}

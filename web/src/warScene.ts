@@ -43,6 +43,11 @@ export function warModel(wars: readonly WarInfo[] | null): WarModel {
   };
 }
 
+/** A war is active while one of its Knights is fighting, asleep otherwise, ended when archived. */
+export type WarMood = 'active' | 'sleeping' | 'ended';
+export const warMood = (w: WarInfo): WarMood =>
+  w.archived ? 'ended' : w.battles.some((b) => b.state === 'fighting') ? 'active' : 'sleeping';
+
 export type WarPick =
   { kind: 'war'; id: string } | { kind: 'more' } | { kind: 'reports' } | { kind: 'table' };
 

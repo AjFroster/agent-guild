@@ -42,6 +42,13 @@ async function openWarRoom(page: Page) {
   await expect(page.getByTestId('wars-page')).toBeVisible();
 }
 
+/** From the War Room's list of wars into the castle war's battlefield. */
+async function openCastle(page: Page) {
+  await openWarRoom(page);
+  await page.getByTestId('all-wars').getByTestId('open-war-castle').click();
+  await expect(page.getByTestId('war-page')).toBeVisible();
+}
+
 async function battleOf(request: APIRequestContext, branch: string) {
   const res = await request.get(`${LIVE}/api/wars`, { headers: AUTH });
   const status = (await res.json()) as {
@@ -66,7 +73,10 @@ test.beforeAll(async () => {
   await mkdir(LIVE_GH, { recursive: true });
 });
 
-test('declare a war on a repository, plan a battle and send a Knight into its worktree', async ({ page }) => {
+test('declare a war on a repository, plan a battle and send a Knight into its worktree', async ({
+  page,
+  request,
+}) => {
   const errors = watchForErrors(page);
   await openWarRoom(page);
 
@@ -99,7 +109,29 @@ test('declare a war on a repository, plan a battle and send a Knight into its wo
   await expect(battle).toHaveAttribute('data-state', 'holding');
   const trees = git(REPO, 'worktree', 'list', '--porcelain');
   expect(trees).toContain(`branch refs/heads/${BATTLE}`);
-  await page.screenshot({ path: 'e2e-screenshots/30-war-room.png', animations: 'disabled', fullPage: true });
+  // Declaring opened the war's battlefield: the Knight duels its enemy there.
+  await expect(page.getByTestId('war-page')).toBeVisible();
+  const { battle: fought } = await battleOf(request, BATTLE);
+  const duel = page.getByTestId(`duel-${fought.knights[0]!.id}`);
+  await expect(duel).toContainText('raise-the-banners');
+  await expect(duel.locator('.war-foe')).not.toBeEmpty();
+  // Its enemy is the same on every visit.
+  const foe = await duel.locator('.war-foe').textContent();
+  await page.reload();
+  await expect(page.getByTestId(`duel-${fought.knights[0]!.id}`).locator('.war-foe')).toHaveText(foe!);
+  await expect(page.locator('[data-testid="war-scene"][data-ready="true"]')).toHaveCount(1);
+  await page.screenshot({
+    path: 'e2e-screenshots/30-war-battlefield.png',
+    animations: 'disabled',
+    fullPage: true,
+  });
+
+  // All wars, from the War Room: this one sleeps, since its Knight's turn is over.
+  await page.getByTestId('war-back').click();
+  await expect(page.getByTestId('wars-sleeping')).toContainText('Siege of the Castle');
+  await expect(page).not.toHaveURL(/war=/);
+  await page.getByTestId('all-wars').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'e2e-screenshots/35-all-wars.png', animations: 'disabled' });
 
   // On the map the Knight wears the war's banner, and its panel names the war.
   await page.getByTestId('wars-back').click();
@@ -143,7 +175,7 @@ test('a merged pull request wins the battle, and the field is cleared only when 
     ]),
   );
 
-  await openWarRoom(page);
+  await openCastle(page);
   const war = page.getByTestId('war-castle');
   const battle = war.getByTestId(`battle-${BATTLE}`);
   await expect(battle).toHaveAttribute('data-state', 'won', { timeout: 15_000 });
@@ -172,7 +204,7 @@ test('a merged pull request wins the battle, and the field is cleared only when 
   expect(git(REPO, 'branch', '--list', BATTLE)).toContain(BATTLE);
 
   // The Knight earned the victory.
-  await page.getByTestId('wars-back').click();
+  await page.getByTestId('open-war-room').click();
   await page.locator('.roster').getByRole('button', { name: 'Open raise-the-banners' }).click();
   await expect(page.getByTestId('panel-hero').getByTestId('hero-victories')).toHaveText('1');
   expect(errors.filter((e) => !e.includes('409'))).toEqual([]);
@@ -191,7 +223,7 @@ test('a branch gone without a word waits in Needs you until the user says how it
 
   await row.click();
   await expect(row).toHaveCount(0);
-  await page.getByTestId('open-war-room').click();
+  await openCastle(page);
   const war = page.getByTestId('war-castle');
   await expect(war.getByTestId(`battle-${GONE}`)).toHaveAttribute('data-state', 'won');
   await expect(war.getByTestId('war-facts-castle')).toContainText('2 victories');
