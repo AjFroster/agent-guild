@@ -1,32 +1,32 @@
 /**
- * Which screenshots a pull request shows. The browser tests take every shot; the PR
- * comment shows only those for the parts of the app the PR changed
- * (scripts/shot-select.ts). A path ending in `/` is a folder; anything else is one file.
+ * Which screenshots a pull request takes and shows. Each area names the modules that draw
+ * its screens; scripts/shot-select.ts follows the import graph (scripts/import-graph.ts)
+ * from each changed module to the areas that use it, directly or through others. A path
+ * ending in `/` is a folder; anything else is one file.
  *
- * A new page or shot goes in an area here; scripts/shot-select.test.ts fails until it does.
+ * A new page goes in an area here; scripts/shot-select.test.ts fails until it does.
  */
 
-/** A change here can move any screen, so every shot shows. */
+/** A change here can move any screen, so every shot is taken. */
 export const SHARED: readonly string[] = [
   'web/src/styles.css',
   'web/src/themes.css',
   'web/src/fonts.ts',
   'web/src/App.tsx',
   'web/src/main.tsx',
-  'web/src/api.ts',
-  'web/src/live.ts',
+  // The data every screen is drawn from: demo fixtures, the live stream and its login.
   'web/src/demo.ts',
-  'web/src/format.ts',
+  'web/src/live.ts',
   'web/src/token.ts',
-  'web/src/scene.ts',
-  'web/src/BuildingPage.tsx',
-  'web/src/SceneCanvas.tsx',
+  'server/src/server.ts',
+  'server/src/cli.ts',
   'web/index.html',
   'web/package.json',
   'web/vite.config.ts',
   'web/playwright.config.ts',
   'web/e2e/shots.ts',
   'web/e2e/shot-areas.ts',
+  'scripts/import-graph.ts',
   'scripts/shot-select.ts',
   'scripts/shot-table.ts',
 ];
@@ -42,6 +42,9 @@ export const THEME_FILES: readonly string[] = [
 
 export interface Area {
   name: string;
+  /** The modules that draw this area's screens (and serve their data). */
+  modules: readonly string[];
+  /** Anything else its screens show: fixtures, art, fake transcripts. */
   files: readonly string[];
   shots: readonly string[];
 }
@@ -49,20 +52,15 @@ export interface Area {
 export const AREAS: readonly Area[] = [
   {
     name: 'Village and map',
-    files: [
+    modules: [
       'web/src/village.ts',
       'web/src/VillageCanvas.tsx',
       'web/src/panels.tsx',
       'web/src/selection.ts',
-      'core/src/game.ts',
-      'core/src/events.ts',
-      'core/src/transcript.ts',
-      'fixtures/',
-      'web/public/',
-      'web/e2e/transcripts/',
       'server/src/watcher.ts',
       'server/src/git.ts',
     ],
+    files: ['fixtures/', 'web/public/', 'web/e2e/transcripts/'],
     shots: [
       '1-empty-guild',
       '2-hero-at-forge',
@@ -80,35 +78,29 @@ export const AREAS: readonly Area[] = [
   },
   {
     name: 'Chat',
-    files: [
-      'web/src/chat.tsx',
-      'core/src/chat.ts',
-      'server/src/chats.ts',
-      'server/src/chatRoutes.ts',
-      'server/src/crier.ts',
-      'web/e2e/fake-claude.mjs',
-    ],
+    modules: ['web/src/chat.tsx', 'server/src/chats.ts', 'server/src/chatRoutes.ts', 'server/src/crier.ts'],
+    files: ['web/e2e/fake-claude.mjs'],
     shots: ['10-chat', '11-town-crier-report', '18-talk-opens-chat', '31-new-session'],
   },
   {
     name: 'The King',
-    files: ['server/src/king.ts', 'server/src/kingRoutes.ts', 'server/src/kingMcp.ts'],
+    modules: ['server/src/king.ts', 'server/src/kingRoutes.ts', 'server/src/kingMcp.ts'],
+    files: [],
     shots: ['14-kingdom', '15-king-chat', '16-king-map'],
   },
   {
     name: 'Library',
-    files: [
+    modules: [
       'web/src/library.tsx',
       'web/src/libraryScene.ts',
       'web/src/skills.tsx',
       'web/src/skillList.ts',
-      'web/src/health.tsx',
       'server/src/skills.ts',
-      'server/src/archive.ts',
       'server/src/library.ts',
       'server/src/install.ts',
       'server/src/libraryRoutes.ts',
     ],
+    files: [],
     shots: [
       '15-library-signs',
       '16-library-page',
@@ -120,13 +112,13 @@ export const AREAS: readonly Area[] = [
   },
   {
     name: 'Forge',
-    files: [
+    modules: [
       'web/src/forge.tsx',
       'web/src/forgeScene.ts',
-      'web/src/health.tsx',
       'server/src/forge.ts',
       'server/src/forgeRoutes.ts',
     ],
+    files: [],
     shots: [
       '17-forge-signs',
       '18-forge-page',
@@ -138,28 +130,31 @@ export const AREAS: readonly Area[] = [
   },
   {
     name: 'Tower',
-    files: [
+    modules: [
       'web/src/tower.tsx',
       'web/src/towerScene.ts',
       'server/src/ports.ts',
       'server/src/portalRoutes.ts',
     ],
+    files: [],
     shots: ['19-tower-page', '26-portal-on-the-map', '27-tower-portals'],
   },
   {
     name: 'Needs you',
-    files: ['web/src/inbox.tsx', 'web/src/decisions.ts'],
+    modules: ['web/src/inbox.tsx', 'web/src/decisions.ts'],
+    files: [],
     shots: ['5-needs-you', '9-needs-you-toast', '28-needs-you-inbox'],
   },
   {
     name: 'Settings and notices',
-    files: [
+    modules: [
       'web/src/chrome.tsx',
       'web/src/settings.ts',
       'web/src/themes.ts',
       'web/src/notices.ts',
       'web/src/useNotices.ts',
     ],
+    files: [],
     shots: ['9-needs-you-toast', '30-settings'],
   },
 ];

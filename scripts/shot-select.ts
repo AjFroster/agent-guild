@@ -1,23 +1,31 @@
 /**
- * Picks the screenshots a pull request's comment shows: those for the areas its changed
- * files belong to (web/e2e/shot-areas.ts), in every theme only when a theme file changed.
+ * Picks the screenshots a pull request takes and shows. Each changed module is followed
+ * through the import graph (scripts/import-graph.ts) to the areas whose screens use it
+ * (web/e2e/shot-areas.ts); other files match an area by path. Every theme is taken only
+ * when a theme file changed.
  *
- *   node scripts/shot-select.ts <shots dir> <out dir> <changed-files.txt> [--all]
+ *   node scripts/shot-select.ts plan <changed-files.txt> <out dir> [--all]
  *
- * copies the chosen PNGs into <out dir> and writes <out dir>/header.md, the lines that
- * open the comment. `--all` (the PR's "screenshots: all" label) chooses everything.
+ * runs before the browser tests: it writes <out dir>/plan.env (GUILD_SHOTS and
+ * GUILD_SHOT_THEMES, which web/e2e/shots.ts obeys, so only the chosen shots are taken) and
+ * <out dir>/plan.json.
+ *
+ *   node scripts/shot-select.ts header <out dir>
+ *
+ * runs after them and writes <out dir>/header.md, the lines that open the PR comment.
+ * `--all` (the PR's "screenshots: all" label) chooses everything.
  */
-import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { AREAS, SHARED, THEME_FILES } from '../web/e2e/shot-areas.ts';
-import { DEFAULT_THEME } from '../web/src/themes.ts';
+import { type Graph, dependents, isModule, repoGraph } from './import-graph.ts';
 
 export const ALL_LABEL = 'screenshots: all';
 
 export interface Selection {
-  /** The shot names to show, e.g. `10-chat`. */
+  /** The shot names to take and show, e.g. `10-chat`. */
   shots: string[];
   /** Every theme, or only the default one. */
   themes: 'all' | 'default';
@@ -44,11 +52,13 @@ export function shotsInSpec(source: string): string[] {
 export function selectShots(options: {
   changed: readonly string[];
   allShots: readonly string[];
+  /** The import graph, to follow a changed module to the screens that use it. */
+  graph?: Graph;
   /** Spec file path → the shots it takes, so a changed spec shows its own shots. */
   specShots?: ReadonlyMap<string, readonly string[]>;
   forceAll?: boolean;
 }): Selection {
-  const { allShots, specShots = new Map(), forceAll = false } = options;
+  const { allShots, graph = new Map(), specShots = new Map(), forceAll = false } = options;
   const changed = options.changed.filter((p) => !quiet(p));
   const themes = forceAll || changed.some((p) => inList(p, THEME_FILES)) ? 'all' : 'default';
   const everything = (reason: string): Selection => ({
@@ -61,18 +71,33 @@ export function selectShots(options: {
   if (forceAll) return everything(`the "${ALL_LABEL}" label`);
   const shared = changed.find((p) => inList(p, SHARED));
   if (shared) return everything(`every screen (${shared} is shared by all of them)`);
-  const mapped = (p: string) =>
-    inList(p, THEME_FILES) || AREAS.some((a) => inList(p, a.files)) || specShots.has(p);
-  const unmapped = changed.find((p) => p.startsWith('web/src/') && !mapped(p));
-  if (unmapped) return everything(`every screen (${unmapped} is in no area yet)`);
+
+  // Area → why it was chosen, e.g. "Forge (web/src/format.ts, used by health.tsx)".
+  const hits = new Map<string, string>();
+  for (const path of changed) {
+    const reached = new Set([path, ...(isModule(path) ? dependents(graph, path) : [])]);
+    let placed = false;
+    for (const area of AREAS) {
+      const via = area.modules.includes(path) ? path : area.modules.find((m) => reached.has(m));
+      if (!via && !inList(path, area.files)) continue;
+      placed = true;
+      if (hits.has(area.name)) continue;
+      const how = !via || via === path ? path : `${path}, used by ${basename(via)}`;
+      hits.set(area.name, `${area.name} (${how})`);
+    }
+    // A screen module no area uses yet (a new page): show everything rather than nothing.
+    if (!placed && path.startsWith('web/src/') && !inList(path, THEME_FILES)) {
+      return everything(`every screen (${path} is in no area yet)`);
+    }
+  }
 
   const chosen = new Set<string>();
   const reasons: string[] = [];
   for (const area of AREAS) {
-    const hit = changed.find((p) => inList(p, area.files));
-    if (!hit) continue;
+    const why = hits.get(area.name);
+    if (!why) continue;
     area.shots.forEach((s) => chosen.add(s));
-    reasons.push(`${area.name} (${hit})`);
+    reasons.push(why);
   }
   for (const path of changed) {
     const own = specShots.get(path);
@@ -91,63 +116,81 @@ export function selectShots(options: {
 
 /** The lines that open the PR comment. */
 export function header(selection: Selection, total: number, sha: string, artifactUrl?: string): string {
-  const full = artifactUrl ? `[the run's download](${artifactUrl})` : "the run's download";
+  const download = artifactUrl ? `[the run's download](${artifactUrl})` : "the run's download";
   const n = selection.shots.length;
   const lines = [`From the browser tests on ${sha}.`, ''];
   if (n === 0) {
-    lines.push(`No screens changed in this PR. All ${total} shots are in ${full}.`);
+    lines.push(
+      `No screen this PR changes has a shot, so none were taken. Add the "${ALL_LABEL}" label to take all ${total}.`,
+    );
   } else {
     const which = n === total ? `All ${total} shots` : `${n} of ${total} shots`;
     const look =
       selection.themes === 'all'
         ? 'in every theme, side by side'
-        : 'in the default theme (every theme shows when a theme file changes)';
+        : 'in the default theme (every theme is taken when a theme file changes)';
     lines.push(`${which}, ${look}, for ${selection.reasons.join(', ')}. Click one for full size.`);
     if (selection.skipped.length) {
       lines.push(
         '',
-        `<details><summary>Left out: ${selection.skipped.join(', ')}</summary>\n\n` +
-          `Their screens did not change. Every shot is in ${full}, or add the "${ALL_LABEL}" label to show them here.\n\n</details>`,
+        `<details><summary>Not taken: ${selection.skipped.join(', ')}</summary>\n\n` +
+          `No file this PR changes reaches their screens, so they were not taken. Add the "${ALL_LABEL}" label to take every shot.\n\n</details>`,
       );
     }
   }
+  if (n) lines.push('', `Also in ${download}.`);
   return `${lines.join('\n')}\n`;
 }
 
-/** `10-chat--hazard.png` → `{shot: '10-chat', theme: 'hazard'}`. */
-const parse = (file: string) => {
-  const [shot = '', theme = ''] = file.replace(/\.png$/, '').split('--');
-  return { shot, theme };
-};
+/** Every shot the browser specs take, keyed by spec path. */
+export function repoSpecShots(dir = 'web/e2e'): Map<string, string[]> {
+  const specs = readdirSync(dir).filter((f) => f.endsWith('.ts'));
+  return new Map(specs.map((f) => [`${dir}/${f}`, shotsInSpec(readFileSync(join(dir, f), 'utf8'))]));
+}
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const [shotsDir, outDir, changedFile] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
-  if (!shotsDir || !outDir || !changedFile) {
-    console.error('usage: node scripts/shot-select.ts <shots dir> <out dir> <changed-files.txt> [--all]');
+  const [command, ...rest] = process.argv.slice(2).filter((a) => !a.startsWith('--'));
+  const usage = () => {
+    console.error(
+      'usage: node scripts/shot-select.ts plan <changed-files.txt> <out dir> [--all]\n' +
+        '       node scripts/shot-select.ts header <out dir>',
+    );
     process.exit(2);
+  };
+  const specShots = repoSpecShots();
+  const allShots = [...new Set([...specShots.values()].flat())];
+  if (command === 'plan') {
+    const [changedFile, outDir] = rest;
+    if (!changedFile || !outDir) usage();
+    const changed = readFileSync(changedFile!, 'utf8')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    const selection = selectShots({
+      changed,
+      allShots,
+      graph: repoGraph(),
+      specShots,
+      forceAll: process.argv.includes('--all'),
+    });
+    mkdirSync(outDir!, { recursive: true });
+    writeFileSync(join(outDir!, 'plan.json'), JSON.stringify(selection, null, 2));
+    writeFileSync(
+      join(outDir!, 'plan.env'),
+      `GUILD_SHOTS=${selection.shots.join(',')}\nGUILD_SHOT_THEMES=${selection.themes}\n`,
+    );
+    console.log(
+      `${selection.shots.length} of ${allShots.length} shots, ${selection.themes === 'all' ? 'every theme' : 'the default theme'}: ${selection.reasons.join(', ') || 'none'}`,
+    );
+  } else if (command === 'header') {
+    const [outDir] = rest;
+    if (!outDir) usage();
+    const selection = JSON.parse(readFileSync(join(outDir!, 'plan.json'), 'utf8')) as Selection;
+    writeFileSync(
+      join(outDir!, 'header.md'),
+      header(selection, allShots.length, process.env.SHA ?? '', process.env.ARTIFACT_URL),
+    );
+  } else {
+    usage();
   }
-  const files = readdirSync(shotsDir).filter((f) => f.endsWith('.png'));
-  const allShots = [...new Set(files.map((f) => parse(f).shot))];
-  const specs = readdirSync('web/e2e').filter((f) => f.endsWith('.ts'));
-  const specShots = new Map(
-    specs.map((f) => [`web/e2e/${f}`, shotsInSpec(readFileSync(join('web/e2e', f), 'utf8'))] as const),
-  );
-  const changed = readFileSync(changedFile, 'utf8')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const selection = selectShots({ changed, allShots, specShots, forceAll: process.argv.includes('--all') });
-  mkdirSync(outDir, { recursive: true });
-  const keep = new Set(selection.shots);
-  for (const file of files) {
-    const { shot, theme } = parse(file);
-    if (!keep.has(shot)) continue;
-    if (selection.themes === 'default' && theme && theme !== DEFAULT_THEME) continue;
-    copyFileSync(join(shotsDir, file), join(outDir, file));
-  }
-  const sha = process.env.SHA ?? '';
-  writeFileSync(join(outDir, 'header.md'), header(selection, allShots.length, sha, process.env.ARTIFACT_URL));
-  console.log(
-    `${selection.shots.length} of ${allShots.length} shots, ${selection.themes === 'all' ? 'every theme' : 'the default theme'}`,
-  );
 }

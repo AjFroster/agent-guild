@@ -1,18 +1,16 @@
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { AREAS, SHARED, THEME_FILES } from '../web/e2e/shot-areas.ts';
-import { header, matches, selectShots, shotsInSpec } from './shot-select.ts';
+import { AREAS, SHARED } from '../web/e2e/shot-areas.ts';
+import { dependents, isModule, repoGraph } from './import-graph.ts';
+import { header, matches, repoSpecShots, selectShots, shotsInSpec } from './shot-select.ts';
 
-const E2E = 'web/e2e';
-const specFiles = readdirSync(E2E).filter((f) => f.endsWith('.spec.ts'));
-const specShots = new Map(
-  specFiles.map((f) => [`${E2E}/${f}`, shotsInSpec(readFileSync(join(E2E, f), 'utf8'))] as const),
-);
+const specShots = repoSpecShots();
 const allShots = [...new Set([...specShots.values()].flat())].sort();
-const pick = (changed: string[], forceAll = false) => selectShots({ changed, allShots, specShots, forceAll });
+const graph = repoGraph();
+const pick = (changed: string[], forceAll = false) =>
+  selectShots({ changed, allShots, graph, specShots, forceAll });
 
 describe('the area map', () => {
   it('finds the shots the specs take', () => {
@@ -31,12 +29,17 @@ describe('the area map', () => {
     expect(AREAS.flatMap((a) => a.shots).filter((s) => !known.has(s))).toEqual([]);
   });
 
-  it('places every web source file in an area or on the shared list', () => {
-    const lists = [...SHARED, ...THEME_FILES, ...AREAS.flatMap((a) => a.files)];
+  it('names only modules that exist', () => {
+    expect(AREAS.flatMap((a) => a.modules).filter((m) => !graph.has(m))).toEqual([]);
+  });
+
+  it('reaches an area, or is shared, from every web source file', () => {
+    const modules = new Set(AREAS.flatMap((a) => a.modules));
     const missing = readdirSync('web/src')
-      .filter((f) => !/\.test\.tsx?$/.test(f))
       .map((f) => `web/src/${f}`)
-      .filter((p) => !lists.some((l) => matches(p, l)));
+      .filter((p) => !/\.test\.tsx?$/.test(p))
+      .filter((p) => !SHARED.some((l) => matches(p, l)))
+      .filter((p) => !isModule(p) || ![p, ...dependents(graph, p)].some((m) => modules.has(m)));
     expect(missing).toEqual([]);
   });
 });
@@ -74,14 +77,46 @@ describe('selectShots', () => {
     expect(s.reasons).toEqual(['every screen (web/src/App.tsx is shared by all of them)']);
   });
 
+  it('follows a helper to the screens that import it', () => {
+    // health.tsx is drawn on the Forge and Library pages, and nowhere else.
+    const s = pick(['web/src/health.tsx']);
+    expect(s.reasons).toEqual([
+      'Library (web/src/health.tsx, used by library.tsx)',
+      'Forge (web/src/health.tsx, used by forge.tsx)',
+    ]);
+    expect(s.skipped).toContain('Chat');
+  });
+
+  it('follows a helper through other helpers', () => {
+    // format.ts → panels.tsx, which the village and every building page draw with.
+    const s = pick(['web/src/format.ts']);
+    expect(s.reasons[0]).toBe('Village and map (web/src/format.ts, used by panels.tsx)');
+    expect(s.skipped).toEqual(['Chat']);
+  });
+
+  it('follows a core function to only the screens that use it', () => {
+    // transcript.ts reaches the web only through the server's watcher.
+    const s = pick(['core/src/transcript.ts']);
+    expect(s.reasons).toEqual(['Village and map (core/src/transcript.ts, used by watcher.ts)']);
+  });
+
+  it('follows a server helper to the areas whose routes use it', () => {
+    const s = pick(['server/src/jsonStore.ts']);
+    expect(s.reasons.map((r) => r.split(' (')[0])).toEqual(['Library', 'Forge']);
+  });
+
+  it('shows nothing for a module no screen uses', () => {
+    expect(pick(['server/src/heraldRoutes.ts']).shots).toEqual([]);
+  });
+
   it('shows the touched area in every theme when the theme list changes', () => {
     const s = pick(['web/src/themes.ts']);
     expect(s.shots.sort()).toEqual(['30-settings', '9-needs-you-toast']);
     expect(s.themes).toBe('all');
   });
 
-  it('shows nothing for server-only, docs or test changes', () => {
-    expect(pick(['server/src/runs.ts', 'docs/WARS.md', 'README.md']).shots).toEqual([]);
+  it('shows nothing for docs or test changes', () => {
+    expect(pick(['docs/WARS.md', 'README.md']).shots).toEqual([]);
     expect(pick(['web/src/village.test.ts', 'core/src/game.test.ts']).shots).toEqual([]);
   });
 
@@ -106,7 +141,10 @@ describe('selectShots', () => {
   it('matches folders by prefix and files exactly', () => {
     expect(pick(['fixtures/party.json']).shots).toContain('1-empty-guild');
     expect(pick(['server/src/skills.ts']).reasons).toEqual(['Library (server/src/skills.ts)']);
-    expect(pick(['web/src/skills.tsx']).reasons).toEqual(['Library (web/src/skills.tsx)']);
+    expect(pick(['web/src/skills.tsx']).reasons).toEqual([
+      'Library (web/src/skills.tsx)',
+      'Needs you (web/src/skills.tsx, used by inbox.tsx)',
+    ]);
   });
 });
 
@@ -136,12 +174,13 @@ describe('header', () => {
     expect(text).toContain('From the browser tests on abc1234.');
     expect(text).toContain('2 of 36 shots, in the default theme');
     expect(text).toContain('for Chat (web/src/chat.tsx)');
-    expect(text).toContain('Left out: Forge, Tower');
+    expect(text).toContain('Not taken: Forge, Tower');
     expect(text).toContain("[the run's download](https://x/a)");
   });
 
   it('says so when no screen changed', () => {
     const text = header({ shots: [], themes: 'default', reasons: [], skipped: [] }, 36, 'abc1234');
-    expect(text).toContain("No screens changed in this PR. All 36 shots are in the run's download.");
+    expect(text).toContain('No screen this PR changes has a shot, so none were taken.');
+    expect(text).toContain('take all 36');
   });
 });
