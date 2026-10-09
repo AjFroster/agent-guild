@@ -71,7 +71,7 @@ describe('selectShots', () => {
     const s = pick(['web/src/App.tsx']);
     expect(s.shots).toEqual(allShots);
     expect(s.themes).toBe('default');
-    expect(s.reasons).toEqual(['web/src/App.tsx is shared by every screen']);
+    expect(s.reasons).toEqual(['every screen (web/src/App.tsx is shared by all of them)']);
   });
 
   it('shows the touched area in every theme when the theme list changes', () => {
@@ -88,7 +88,7 @@ describe('selectShots', () => {
   it('shows everything when a web source file is in no area yet', () => {
     const s = pick(['web/src/warRoom.tsx']);
     expect(s.shots).toEqual(allShots);
-    expect(s.reasons).toEqual(['web/src/warRoom.tsx is in no area yet']);
+    expect(s.reasons).toEqual(['every screen (web/src/warRoom.tsx is in no area yet)']);
   });
 
   it('shows the shots a changed spec takes', () => {

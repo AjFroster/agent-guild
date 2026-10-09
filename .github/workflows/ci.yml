@@ -180,12 +180,14 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+      # !cancelled(), not always(): a run cut short by a newer push has only some of the
+      # shots, and must not replace the comment the newer run is about to write.
       # The tests take every shot; the PR shows only those for the areas its files belong
       # to (web/e2e/shot-areas.ts), in every theme only when a theme file changed. The
       # "screenshots: all" label shows everything. The full set stays in the download above.
       - name: Choose the screenshots for this PR
         if: >-
-          always() && github.event_name == 'pull_request' &&
+          !cancelled() && github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v9
         env:
@@ -216,7 +218,7 @@ jobs:
       # with no auth. Skipped for fork PRs, whose token cannot push.
       - name: Publish the screenshots
         if: >-
-          always() && github.event_name == 'pull_request' &&
+          !cancelled() && github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository
         id: publish
         env:
@@ -261,7 +263,7 @@ jobs:
           echo "base=https://raw.githubusercontent.com/${{ github.repository }}/ci-screenshots/$DIR" >> "$GITHUB_OUTPUT"
 
       - name: Put the screenshots in the run summary
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           SHOTS_URL: ${{ steps.shots.outputs.artifact-url }}
           BASE: ${{ steps.publish.outputs.base }}
@@ -285,13 +287,13 @@ jobs:
       # side (scripts/shot-table.ts). A new shoot() in a spec needs a place in
       # web/e2e/shot-areas.ts (a unit test says so), not an edit to this workflow.
       - name: Lay the screenshots out by theme
-        if: always() && github.event_name == 'pull_request' && steps.publish.outputs.base != ''
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.publish.outputs.base != '' }}
         env:
           BASE: ${{ steps.publish.outputs.base }}
         run: node scripts/shot-table.ts web/e2e-screenshots-pr "$BASE" > shot-table.md
 
       - name: Show them on the pull request
-        if: always() && github.event_name == 'pull_request' && steps.publish.outputs.base != ''
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.publish.outputs.base != '' }}
         uses: actions/github-script@v9
         with:
           script: |

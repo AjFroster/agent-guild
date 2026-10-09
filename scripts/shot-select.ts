@@ -60,11 +60,11 @@ export function selectShots(options: {
 
   if (forceAll) return everything(`the "${ALL_LABEL}" label`);
   const shared = changed.find((p) => inList(p, SHARED));
-  if (shared) return everything(`${shared} is shared by every screen`);
+  if (shared) return everything(`every screen (${shared} is shared by all of them)`);
   const mapped = (p: string) =>
     inList(p, THEME_FILES) || AREAS.some((a) => inList(p, a.files)) || specShots.has(p);
   const unmapped = changed.find((p) => p.startsWith('web/src/') && !mapped(p));
-  if (unmapped) return everything(`${unmapped} is in no area yet`);
+  if (unmapped) return everything(`every screen (${unmapped} is in no area yet)`);
 
   const chosen = new Set<string>();
   const reasons: string[] = [];
