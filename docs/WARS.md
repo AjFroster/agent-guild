@@ -98,7 +98,7 @@ turn it on, a time of day, run once if the time passed while the guild was down.
   battles, loose ends (unpushed commits, uncommitted files), and tokens spent by its
   Knights. Saved in `~/.agent-guild/battle-reports/`, raised as a toast, and readable in the
   War Room.
-- **The herald's account (optional, uses usage; not built yet).** When turned on, a helper session (the
+- **The chronicler's account (optional, uses usage; not built yet).** When turned on, a helper session (the
   helper pool, closed after its turn) reads the dispatch and the war's goal and writes a
   short account: what moved, what is at risk, what to do next. Like every helper, it reads
   and writes words only.
@@ -138,7 +138,7 @@ His prompt gains one line: plan by war, and give each order a battle.
 
 ## Status
 
-Built (2026-10-09), all but the herald's account:
+Built (2026-10-09), all but the chronicler's account:
 
 - `core/src/wars.ts`: branches to battles, kinds, states, victories, the clearing guards
   and the dispatch, pure and unit-tested; a `victory` event gives each Knight who fought a

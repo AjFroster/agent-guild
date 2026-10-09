@@ -59,6 +59,30 @@ file and restart to invalidate old links.
 
 Recorded demos need no server: `npm run dev`, then `http://127.0.0.1:5280/?demo=party`.
 
+## The Herald: the guild inside each session
+
+The Herald (`mod/`) is a Claude Code mod that brings the guild into every session:
+
+- it tells the guild the moment a session waits on a **permission prompt**, which the
+  transcripts cannot show, and when that wait ends;
+- it shows the session's hero on the **status line**: `⚔ Knight · Lv 3 · 320 XP`;
+- it raises a **toast** when the hero levels up;
+- **`/guild`** says whether the guild is up and puts the village link on your clipboard.
+
+Install it from a Claude Code terminal session:
+
+```text
+/plugin install agent-kingdom --marketplace AjFroster/agent-guild
+```
+
+Answer `y` to add the marketplace, then pick a scope. Its two settings (in `/config`) are
+the guild's address (default `http://127.0.0.1:4747`) and the token file (default
+`~/.agent-guild/token`). It sends the guild a session id and a kind (`permission` or
+`cleared`), nothing else; it only talks to 127.0.0.1, localhost or ::1; the token goes
+only into the `Authorization` header and, on `/guild`, your clipboard; and it never
+blocks, delays or changes anything in the session. When the guild is not running it
+stays quiet. Its rules and checks: [docs/MOD.md](docs/MOD.md).
+
 ## How it maps
 
 | Claude Code                                             | Guild                                  |
