@@ -54,7 +54,7 @@ jobs:
         continue-on-error: true
 
       # The props are drawn by a script; the PNGs committed must be what it draws now.
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
