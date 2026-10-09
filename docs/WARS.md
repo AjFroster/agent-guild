@@ -63,11 +63,30 @@ Today the King gives an order to "the Knight already working in that folder", so
 repository holds one Knight. Battles fix that. When the King (or you) sends a Knight to a
 battle, the guild runs `git worktree add` for that branch under
 `~/.agent-guild/worktrees/<war>/<branch>` and starts the Knight there. Two battles in the
-same war can then run at once without fighting over one checkout. The guild never deletes
-a worktree on its own: a won battle's worktree is listed with a "Clear the field" button.
+same war can then run at once without fighting over one checkout.
 
-This is the only time the guild writes to a repository, and only on an order you or the
-King gave.
+**Clearing the field.** Once a battle is won, the guild removes its worktree on its own,
+but only when every guard holds (checked on each poll, all read-only until the last step):
+
+1. **The PR is merged**, read through `gh`. Without `gh` nothing is cleared automatically
+   (a squash merge cannot be told from an abandoned branch with git alone).
+2. **A day has passed** since the merge, so a follow-up fix can still use the folder.
+3. **No Knight is in it**: no running session there, and no transcript written from it
+   in that day.
+4. **No loose ends**: no uncommitted or untracked files, and the worktree's last commit is
+   the PR's head commit (from `gh`), so every commit in it went into the merge. (Plain "on a
+   remote" would not do: GitHub often deletes a merged PR's branch.)
+5. **Nothing ignored but rebuildable output**: `git status --ignored` shows only
+   `node_modules`, `dist`, `build`, `coverage`, `test-results`, `playwright-report` and
+   similar. A `.env` or any other ignored file keeps the worktree.
+
+Then it runs `git worktree remove` without `--force` (git refuses on its own if anything
+changed in between), keeps the branch, notes it in the next battle report and raises a
+toast. A worktree that fails a guard stays, with a "Clear the field" button that names the
+guard. Automatic clearing is a setting, on by default; you can turn it off.
+
+Adding a worktree for a battle you or the King ordered, and removing one these guards
+cleared, are the only writes the guild makes to a repository.
 
 ## Battle reports
 
@@ -128,12 +147,5 @@ His prompt gains one line: plan by war, and give each order a battle.
 
 - **One war per repository** (2026-10-09). A war is one repository folder; a war spanning
   several repositories is out of scope for now.
-
-## Open questions
-
-- Should a won battle's worktree clear itself? This plan says never without your click.
-  Clearing a worktree deletes its folder, so whatever is only there (uncommitted files,
-  unpushed commits, a local `.env`, installed `node_modules`) goes with it, and its Knight
-  can no longer be resumed in that folder. A safe middle ground for later: clear on its own
-  only when the battle's PR is merged, the worktree has no loose ends, and no Knight is in
-  it, after a day.
+- **Won battles' worktrees clear themselves, with guards** (2026-10-09): only after the PR
+  is merged, and only when nothing would be lost (see "Clearing the field").
