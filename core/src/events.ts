@@ -56,6 +56,8 @@ export const GuildEvent = z.discriminatedUnion('type', [
   z.object({ ...base, type: z.literal('commanded') }),
   /** Claude Code is waiting on the user: a permission prompt or an idle notification. */
   z.object({ ...base, type: z.literal('needs_input') }),
+  /** The wait is over: the permission prompt was answered. Only that, never how. */
+  z.object({ ...base, type: z.literal('cleared') }),
   /** The agent finished its turn. */
   z.object({ ...base, type: z.literal('stop') }),
   /**
@@ -92,3 +94,18 @@ export const GuildEvent = z.discriminatedUnion('type', [
 export type GuildEvent = z.infer<typeof GuildEvent>;
 
 export const EventStream = z.array(GuildEvent);
+
+/** A session id as Claude Code writes it, or as the Herald sends it: nothing else gets in. */
+export const SessionId = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(/^[A-Za-z0-9_-]+$/);
+
+/**
+ * What the Herald (the guild's Claude Code mod) sends from inside a session: its id and
+ * a kind, nothing else. `permission` is a permission prompt waiting on the user;
+ * `cleared` is that wait ending.
+ */
+export const Signal = z.strictObject({ session: SessionId, kind: z.enum(['permission', 'cleared']) });
+export type Signal = z.infer<typeof Signal>;

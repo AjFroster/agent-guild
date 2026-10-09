@@ -21,7 +21,8 @@
     "dev": "npm run dev -w web",
     "e2e": "npm run e2e -w web",
     "start": "npm run build -w web && node server/src/cli.ts",
-    "rehearse": "node scripts/rehearse.ts"
+    "rehearse": "node scripts/rehearse.ts",
+    "mod:check": "claude plugin validate --strict mod && claude plugin validate --strict . && node scripts/mod/typecheck.mjs && claude plugin test mod"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

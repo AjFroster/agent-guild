@@ -1,0 +1,14 @@
+{
+  "name": "agent-guild",
+  "owner": { "name": "AjFroster" },
+  "metadata": {
+    "description": "The Agent Guild's Claude Code mods."
+  },
+  "plugins": [
+    {
+      "name": "agent-kingdom",
+      "source": "./mod",
+      "description": "The Herald: brings the Agent Guild into each session. Tells the guild when the session waits on a permission prompt, shows your hero in the status line, and adds /guild."
+    }
+  ]
+}

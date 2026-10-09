@@ -55,6 +55,17 @@ describe('applyEvent', () => {
     expect(state.order).toEqual([]);
   });
 
+  it('never takes an inherited name like constructor or __proto__ for a hero', () => {
+    for (const session of ['constructor', '__proto__', 'toString', 'hasOwnProperty']) {
+      const state = replay([
+        { t: 1, session, type: 'needs_input' },
+        { t: 2, session, type: 'tool', tool: 'Edit' },
+      ] as GuildEvent[]);
+      expect(Object.keys(state.heroes), session).toEqual([]);
+      expect(state.order).toEqual([]);
+    }
+  });
+
   it('moves a working hero to the building for its tool', () => {
     const state = replay([start('a'), { t: 1, session: 'a', type: 'tool', tool: 'Edit' }]);
     expect(state.heroes.a).toMatchObject({ location: 'forge', status: 'working' });
@@ -92,6 +103,37 @@ describe('applyEvent', () => {
     expect(waiting.heroes.a?.status).toBe('needs_you');
     const resumed = applyEvent(waiting, { t: 2, session: 'a', type: 'tool', tool: 'Read' });
     expect(resumed.heroes.a?.status).toBe('working');
+  });
+
+  it('puts a hero back to work when its wait is cleared', () => {
+    const waiting = replay([start('a'), { t: 1, session: 'a', type: 'needs_input' }]);
+    const cleared = applyEvent(waiting, { t: 2, session: 'a', type: 'cleared' });
+    expect(cleared.heroes.a?.status).toBe('working');
+  });
+
+  it('leaves any other status alone on cleared', () => {
+    const idle = replay([start('a'), { t: 1, session: 'a', type: 'cleared' }]);
+    expect(idle.heroes.a?.status).toBe('idle');
+    const gone = replay([
+      start('a'),
+      { t: 1, session: 'a', type: 'needs_input' },
+      { t: 2, session: 'a', type: 'session_end' },
+      { t: 3, session: 'a', type: 'cleared' },
+    ]);
+    expect(gone.heroes.a?.status).toBe('gone');
+    const stopped = replay([
+      start('a'),
+      { t: 1, session: 'a', type: 'tool', tool: 'Read' },
+      { t: 2, session: 'a', type: 'stop' },
+      { t: 3, session: 'a', type: 'cleared' },
+    ]);
+    expect(stopped.heroes.a?.status).toBe('idle');
+    expect(stopped.heroes.a?.xp).toBe(XP_PER_TURN);
+  });
+
+  it('never makes a hero out of a cleared signal', () => {
+    const state = replay([{ t: 1, session: 'stranger', type: 'cleared' }]);
+    expect(state.heroes).toEqual({});
   });
 
   it('pays turn XP and sends the hero home on stop', () => {

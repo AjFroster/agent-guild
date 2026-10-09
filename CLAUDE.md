@@ -55,6 +55,12 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   private JSON file behind the Archive and the Forge). Helper sessions start with
   `helper: true` (their own pool; closed after each turn). `web/src/decisions.ts` and
   `inbox.tsx` are the Needs-you tab: everything waiting on the user in one list.
+- The Herald (docs/MOD.md): `mod/` is the Claude Code mod (`agent-kingdom`, a plugin of
+  function hooks, listed by `.claude-plugin/marketplace.json`) that posts `/api/signal` and
+  reads `/api/hero/:session` (`server/src/heraldRoutes.ts`); `npm run mod:check` validates,
+  type-checks (against the API types Claude Code lays in `mod/.claude-plugin/types/` once
+  it has loaded the mod; skipped where they are missing, as in CI) and tests it. The agents in
+  `.claude/agents/` (mod-dev, mod-tester, mod-qa) build and check it.
 - `npm run rehearse` (`scripts/rehearse.ts`): a free preflight of the CLI flags and MCP
   roles; `-- --live` runs each utility once on the real `claude` (the user runs it: it
   spends usage). Never from CI or tests.
