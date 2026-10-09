@@ -95,7 +95,10 @@ committing:
 
 If the change needs a new state on screen, add or extend a fixture and a `capture()` in
 `web/e2e/guild.spec.ts` (or `shoot()` from `web/e2e/shots.ts`) so CI shows it on the PR. Every
-shot is taken in each theme and posted side by side (`scripts/shot-table.ts`).
+shot is taken in each theme. The PR comment shows only the shots for the areas a PR changes
+(`web/e2e/shot-areas.ts`, `scripts/shot-select.ts`), in every theme only when a theme file
+changed, side by side (`scripts/shot-table.ts`). A new shot or page needs a place in that map;
+`scripts/shot-select.test.ts` fails until it has one. The `screenshots: all` label shows all.
 
 ## Commands
 

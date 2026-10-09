@@ -157,6 +157,37 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+      # The tests take every shot; the PR shows only those for the areas its files belong
+      # to (web/e2e/shot-areas.ts), in every theme only when a theme file changed. The
+      # "screenshots: all" label shows everything. The full set stays in the download above.
+      - name: Choose the screenshots for this PR
+        if: >-
+          always() && github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v9
+        env:
+          ARTIFACT_URL: ${{ steps.shots.outputs.artifact-url }}
+        with:
+          script: |
+            const fs = require('fs')
+            const { execFileSync } = require('child_process')
+            if (!fs.existsSync('web/e2e-screenshots')) return
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              pull_number: context.issue.number, per_page: 100,
+            })
+            // A rename changes both paths.
+            const changed = files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean))
+            fs.writeFileSync('changed-files.txt', changed.join('\n'))
+            const labels = context.payload.pull_request.labels.map((l) => l.name)
+            const args = ['scripts/shot-select.ts', 'web/e2e-screenshots', 'web/e2e-screenshots-pr', 'changed-files.txt']
+            if (labels.includes('screenshots: all')) args.push('--all')
+            const out = execFileSync('node', args, {
+              env: { ...process.env, SHA: context.payload.pull_request.head.sha.slice(0, 7) },
+              encoding: 'utf8',
+            })
+            core.info(out)
+
       # GitHub strips data: URIs from images in summaries and PR comments, so the images
       # need a real URL. A branch on a public repo gives one through raw.githubusercontent,
       # with no auth. Skipped for fork PRs, whose token cannot push.
@@ -168,7 +199,7 @@ jobs:
         env:
           PR: ${{ github.event.pull_request.number }}
         run: |
-          test -d web/e2e-screenshots || exit 0
+          test -d web/e2e-screenshots-pr || exit 0
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -183,7 +214,7 @@ jobs:
           DIR="pr-$PR/$SHA"
           rm -rf "../shots/pr-$PR"   # keep only the current commit's shots
           mkdir -p "../shots/$DIR"
-          cp web/e2e-screenshots/*.png "../shots/$DIR/"
+          find web/e2e-screenshots-pr -name '*.png' -exec cp {} "../shots/$DIR/" \;
 
           cd ../shots
           git add -A
@@ -216,24 +247,25 @@ jobs:
             echo "## UI screenshots"
             echo
             echo "Captured while the browser tests ran, so a green tick can be checked by eye."
-            echo "Each shot is taken in every theme, side by side."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
           if [ -z "$BASE" ]; then
             echo "_Published only for pull requests from this repo._" >> "$GITHUB_STEP_SUMMARY"
-          elif [ -d web/e2e-screenshots ]; then
-            node scripts/shot-table.ts web/e2e-screenshots "$BASE" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -d web/e2e-screenshots-pr ]; then
+            cat web/e2e-screenshots-pr/header.md >> "$GITHUB_STEP_SUMMARY"
+            echo >> "$GITHUB_STEP_SUMMARY"
+            node scripts/shot-table.ts web/e2e-screenshots-pr "$BASE" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "[Download at full resolution]($SHOTS_URL)" >> "$GITHUB_STEP_SUMMARY"
 
-      # One comment per PR, updated in place. The shot list comes from the directory, so a
-      # new shoot() in a spec shows up here without editing this workflow; each shot's themes
-      # sit side by side (scripts/shot-table.ts).
+      # One comment per PR, updated in place: the chosen shots, each shot's themes side by
+      # side (scripts/shot-table.ts). A new shoot() in a spec needs a place in
+      # web/e2e/shot-areas.ts (a unit test says so), not an edit to this workflow.
       - name: Lay the screenshots out by theme
         if: always() && github.event_name == 'pull_request' && steps.publish.outputs.base != ''
         env:
           BASE: ${{ steps.publish.outputs.base }}
-        run: node scripts/shot-table.ts web/e2e-screenshots "$BASE" > shot-table.md
+        run: node scripts/shot-table.ts web/e2e-screenshots-pr "$BASE" > shot-table.md
 
       - name: Show them on the pull request
         if: always() && github.event_name == 'pull_request' && steps.publish.outputs.base != ''
@@ -245,7 +277,7 @@ jobs:
               '<!-- ui-screenshots -->',
               '### UI screenshots',
               '',
-              `From the browser tests on ${context.sha.slice(0, 7)}. Each shot is in every theme, side by side; click one for full size.`,
+              fs.readFileSync('web/e2e-screenshots-pr/header.md', 'utf8'),
               '',
               fs.readFileSync('shot-table.md', 'utf8'),
             ].join('\n')
