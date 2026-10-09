@@ -94,7 +94,8 @@ committing:
     playwright-cli close
 
 If the change needs a new state on screen, add or extend a fixture and a `capture()` in
-`web/e2e/guild.spec.ts` so CI shows it on the PR.
+`web/e2e/guild.spec.ts` (or `shoot()` from `web/e2e/shots.ts`) so CI shows it on the PR. Every
+shot is taken in each theme and posted side by side (`scripts/shot-table.ts`).
 
 ## Commands
 

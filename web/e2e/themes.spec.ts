@@ -1,7 +1,9 @@
-import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { type Locator, type Page, expect, test } from '@playwright/test';
+
+import { THEMES as THEME_LIST } from '../src/themes.ts';
+import { shoot } from './shots.ts';
 
 import { LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
 
@@ -9,8 +11,6 @@ import { LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
  * The gear button, the theme picker in Settings, and each theme repainting the panels,
  * chat and forms while the village stays as drawn.
  */
-const SHOTS = 'e2e-screenshots';
-mkdirSync(SHOTS, { recursive: true });
 const LIVE = `http://127.0.0.1:${LIVE_PORT}`;
 
 /** Each theme's panel colour and section-label font, straight from themes.css. */
@@ -78,10 +78,27 @@ for (const theme of THEMES) {
     }
     // The village is drawn the same in every theme.
     await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
-    await page.screenshot({ path: `${SHOTS}/30-theme-${theme.id}.png`, animations: 'disabled' });
     expect(errors).toEqual([]);
   });
 }
+
+test('every theme is in the list the tests check', () => {
+  expect(THEMES.map((t) => t.id)).toEqual(THEME_LIST.map((t) => t.id));
+});
+
+test('the Settings dialog and the new-session form, in every theme', async ({ page }) => {
+  await page.goto('/?demo=party&t=20');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await shoot(page.getByTestId('settings'), '30-settings');
+  await page.getByTestId('settings').getByRole('button', { name: 'Done' }).click();
+
+  await page.goto(`${LIVE}/?token=${LIVE_TOKEN}&open=new`);
+  const form = page.getByTestId('new-chat');
+  await expect(form).toBeVisible();
+  await form.getByTestId('new-cwd').fill('~/code/lighthouse');
+  await form.getByTestId('new-message').fill('Fix the flaky upload test and open a PR.');
+  await shoot(form, '31-new-session');
+});
 
 test('the chosen theme survives a reload and is on the page before it draws', async ({ page }) => {
   await page.goto('/?demo=party&t=20');
@@ -121,7 +138,6 @@ test('the Settings dialog wears each theme', async ({ page }) => {
     const dialog = page.getByTestId('settings');
     await expect(dialog).toHaveCSS('background-color', theme.panel);
     await expect(dialog.getByTestId(`theme-${theme.id}`)).toBeVisible();
-    await dialog.screenshot({ path: `${SHOTS}/31-settings-${theme.id}.png`, animations: 'disabled' });
     await dialog.getByRole('button', { name: 'Done' }).click();
   }
 });
@@ -159,7 +175,6 @@ test.describe('live chat in each theme', () => {
       const form = page.getByTestId('new-chat');
       await expect(form).toHaveCSS('background-color', theme.panel);
       await form.getByTestId('new-message').fill('Tidy the README');
-      await form.screenshot({ path: `${SHOTS}/32-new-session-${theme.id}.png`, animations: 'disabled' });
       await form.getByRole('button', { name: 'Cancel' }).click();
 
       // The Needs-you tab.
@@ -174,7 +189,6 @@ test.describe('live chat in each theme', () => {
       await expect(chat.getByTestId('msg-assistant').first()).toBeVisible();
       await chat.getByTestId('composer').fill('Now run the tests');
       await expect(chat.getByTestId('send')).toBeEnabled();
-      await chat.screenshot({ path: `${SHOTS}/33-chat-${theme.id}.png`, animations: 'disabled' });
       expect(errors).toEqual([]);
     });
   }

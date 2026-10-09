@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { type Page, expect, test } from '@playwright/test';
 
+import { shoot } from './shots.ts';
+
 import { LIVE_DIR, LIVE_HOME, LIVE_PORT, LIVE_SKILLS, LIVE_TOKEN } from '../playwright.config.ts';
 
 /**
@@ -40,7 +42,7 @@ test('start a session from the browser and talk to it', async ({ page }) => {
   await expect(chat.getByTestId('msg-tool')).toContainText('Read');
   await expect(chat.getByTestId('msg-assistant').last()).toHaveText('You said: please use a tool');
   await expect(chat.getByTestId('composer')).toHaveValue('');
-  await page.screenshot({ path: 'e2e-screenshots/10-chat.png', animations: 'disabled' });
+  await shoot(page, '10-chat');
 
   // The session walked into the guild as a hero named after the session.
   await chat.getByRole('button', { name: 'Close chat' }).click();
@@ -126,7 +128,7 @@ test('the Town Crier runs on demand, writes a report, and the report opens', asy
   const report = page.getByTestId('report');
   await expect(report.getByRole('heading', { level: 1 })).toContainText('Town Crier');
   await expect(report).toContainText('Fake model released');
-  await page.screenshot({ path: 'e2e-screenshots/11-town-crier-report.png', animations: 'disabled' });
+  await shoot(page, '11-town-crier-report');
 });
 
 test('control routes refuse requests without the token', async ({ request }) => {
@@ -173,7 +175,7 @@ test('the King is crowned, raises a Knight, and gives it orders through the guil
       timeout: 20_000,
     },
   );
-  await page.screenshot({ path: 'e2e-screenshots/15-king-chat.png', animations: 'disabled' });
+  await shoot(page, '15-king-chat');
   await chat.getByRole('button', { name: 'Close chat' }).click();
 
   // On the map the King leads the roster, crowned, and Squire serves him.
@@ -182,7 +184,7 @@ test('the King is crowned, raises a Knight, and gives it orders through the guil
   await page.locator('.roster').getByRole('button', { name: 'Open King' }).click();
   await expect(page.getByTestId('hero-rank')).toContainText('King');
   await page.getByTestId('back').click();
-  await page.screenshot({ path: 'e2e-screenshots/16-king-map.png', animations: 'disabled' });
+  await shoot(page, '16-king-map');
 
   // With a King crowned, the button opens his chat straight away.
   await page.getByTestId('talk-to-king').click();
@@ -221,7 +223,7 @@ test('a Knight shows what it is working on, and "Talk" on the map opens its chat
   await expect(talk).toBeVisible();
   await expect(talk).toHaveClass(/talk-urgent/);
   await expect(page.getByRole('button', { name: 'Talk to Bedivere' })).toBeVisible();
-  await page.screenshot({ path: 'e2e-screenshots/17-talk-on-map.png', animations: 'disabled' });
+  await shoot(page, '17-talk-on-map');
 
   // Its panel names the work.
   await page.locator('.roster').getByRole('button', { name: 'Open Bedivere' }).click();
@@ -230,7 +232,7 @@ test('a Knight shows what it is working on, and "Talk" on the map opens its chat
   await talk.click();
   const chat = page.getByTestId('chat');
   await expect(chat.getByRole('heading', { name: 'Bedivere' })).toBeVisible();
-  await page.screenshot({ path: 'e2e-screenshots/18-talk-opens-chat.png', animations: 'disabled' });
+  await shoot(page, '18-talk-opens-chat');
 });
 
 test('the librarians find and review a skill, and the user installs it from the Skills tab', async ({
@@ -255,7 +257,7 @@ test('the librarians find and review a skill, and the user installs it from the 
   // The threshold holds: the Archive refused the Scout's 340-star find.
   await expect(panel).toContainText('tiny-helper had too few stars.');
   await expect(panel.getByTestId('archive')).not.toContainText('tiny-helper');
-  await page.screenshot({ path: 'e2e-screenshots/19-skills-to-review.png', animations: 'disabled' });
+  await shoot(page, '19-skills-to-review');
 
   // The user's decision: installed at the reviewed commit, into the skills folder.
   await card.getByTestId('install-csv-wrangler').click();
@@ -265,7 +267,7 @@ test('the librarians find and review a skill, and the user installs it from the 
     'name: csv-wrangler',
   );
   await expect(page.getByTestId('tab-skills')).not.toContainText('1');
-  await page.screenshot({ path: 'e2e-screenshots/20-skill-installed.png', animations: 'disabled' });
+  await shoot(page, '20-skill-installed');
 
   // The librarians are inside the Library: its page shows them at their desks.
   await page.getByTestId('tab-guild').click();
@@ -293,13 +295,13 @@ test('the librarians find and review a skill, and the user installs it from the 
   await yours.getByTestId('sort-stars').click();
   expect(await order()).toEqual(['csv-wrangler', 'zebra-notes']);
   await yours.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: 'e2e-screenshots/22-your-skills.png', animations: 'disabled' });
+  await shoot(page, '22-your-skills');
   await expect(library.getByTestId('desk-Reviewer')).toHaveAttribute('data-state', 'resting');
   await expect(library.getByTestId('library-min-stars')).toHaveText('★ 5,000');
   await expect(library.getByTestId('library-archive')).toContainText('1 installed');
   const scene = page.locator('[data-testid="library-scene"][data-ready="true"]');
   await expect(scene).toHaveAttribute('aria-label', /0 skills wait for you on the Archive board/);
-  await page.screenshot({ path: 'e2e-screenshots/21-library-page-live.png', animations: 'disabled' });
+  await shoot(page, '21-library-page-live');
   // The Archive board in the scene leads to the Skills tab.
   const box = (await scene.boundingBox())!;
   await scene.click({ position: { x: (560 / 1120) * box.width, y: (640 / 720) * box.height } });
@@ -337,7 +339,7 @@ test('a Knight asks the Forge for a skill; the Blacksmith forges it, the Library
     timeout: 20_000,
   });
   await expect(chat.getByTestId('msg-tool')).toContainText('request_equipment');
-  await page.screenshot({ path: 'e2e-screenshots/23-knight-asks-the-forge.png', animations: 'disabled' });
+  await shoot(page, '23-knight-asks-the-forge');
   await chat.getByRole('button', { name: 'Close chat' }).click();
 
   // 2. The Blacksmith forges it in the Knight's project; the Library's Reviewer tests it.
@@ -353,11 +355,7 @@ test('a Knight asks the Forge for a skill; the Blacksmith forges it, the Library
   const scene = page.locator('[data-testid="forge-scene"][data-ready="true"]');
   await expect(scene).toHaveAttribute('aria-label', /1 piece waits for you on the rack/);
   await expect(page.getByTestId('desk-Blacksmith')).toHaveAttribute('data-state', 'resting');
-  await page.screenshot({
-    path: 'e2e-screenshots/24-forge-rack.png',
-    animations: 'disabled',
-    fullPage: true,
-  });
+  await shoot(page, '24-forge-rack', { fullPage: true });
 
   // 3. The user approves: exactly the reviewed files land in the Knight's project.
   await card.getByRole('button', { name: 'Approve & install' }).click();
@@ -375,7 +373,7 @@ test('a Knight asks the Forge for a skill; the Blacksmith forges it, the Library
     'The Forge: the skill you asked for, "release-notes", was reviewed and the user installed it',
     { timeout: 20_000 },
   );
-  await page.screenshot({ path: 'e2e-screenshots/25-knight-told.png', animations: 'disabled' });
+  await shoot(page, '25-knight-told');
 
   // 5. The Library sees it: in "Your skills", as the bakery's own, and in the King's archive.
   await chat.getByRole('button', { name: 'Close chat' }).click();
@@ -437,7 +435,7 @@ test('the Portal Keeper opens a portal for each service on a local port', async 
     const pill = page.locator('[data-testid^="portal-pill-"]', { hasText: `:${web.port}` });
     await expect(pill).toBeVisible({ timeout: 15_000 });
     await expect(pill).toHaveAttribute('href', `http://localhost:${web.port}/`);
-    await page.screenshot({ path: 'e2e-screenshots/26-portal-on-the-map.png', animations: 'disabled' });
+    await shoot(page, '26-portal-on-the-map');
 
     // The Tower page: one purple portal (a Knight's website), one stone arch (not a website).
     await page.getByTestId('open-tower').click();
@@ -454,11 +452,7 @@ test('the Portal Keeper opens a portal for each service on a local port', async 
     await expect(arch.getByTestId(`open-portal-${db.port}`)).toHaveCount(0);
     const scene = page.locator('[data-testid="tower-scene"][data-ready="true"]');
     await expect(scene).toHaveAttribute('aria-label', /portals? open/);
-    await page.screenshot({
-      path: 'e2e-screenshots/27-tower-portals.png',
-      animations: 'disabled',
-      fullPage: true,
-    });
+    await shoot(page, '27-tower-portals', { fullPage: true });
 
     // Through the portal: the service itself, in a new tab.
     const [opened] = await Promise.all([
@@ -536,7 +530,7 @@ test('everything waiting on the user is in one inbox, and each decision is made 
   const skill = inbox.locator('[data-testid^="skill:"]', { hasText: 'md-tables' });
   await expect(skill).toContainText('Nothing installed formats Markdown tables.', { timeout: 40_000 });
   await expect(page.getByTestId('tab-inbox').locator('.tab-badge')).not.toHaveText('0');
-  await page.screenshot({ path: 'e2e-screenshots/28-needs-you-inbox.png', animations: 'disabled' });
+  await shoot(page, '28-needs-you-inbox');
   await page.getByTestId('tab-guild').click();
   await toast.click();
   await expect(inbox).toBeVisible();
@@ -580,5 +574,5 @@ test('each utility shows its cost and last run, and a failed run cannot be misse
   await expect(lastRun).toHaveAttribute('data-ok', 'false');
   await expect(lastRun).toContainText('without hanging a piece');
   await page.getByTestId('forge-health').scrollIntoViewIfNeeded();
-  await page.screenshot({ path: 'e2e-screenshots/29-forge-health.png', animations: 'disabled' });
+  await shoot(page, '29-forge-health');
 });

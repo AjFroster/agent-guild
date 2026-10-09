@@ -1,5 +1,7 @@
 import { type Page, expect, test } from '@playwright/test';
 
+import { shoot } from './shots.ts';
+
 /**
  * Clicking around the village. Positions are map coordinates from the layout in
  * src/village.ts (1120 x 720): at party t=20 Ada is alone at the Forge (building foot at
@@ -36,7 +38,7 @@ test('clicking a hero on the map opens their sessions panel', async ({ page }) =
   await expect(panel).toContainText('Quests 3/4');
   await expect(panel.getByTestId('activity').locator('li').first()).toContainText('Write');
   await expect(page).toHaveURL(/select=hero%3As-ada/);
-  await page.screenshot({ path: 'e2e-screenshots/7-hero-panel.png', animations: 'disabled' });
+  await shoot(page, '7-hero-panel');
 
   // Party links move between members.
   await panel.getByRole('button', { name: 'Tester' }).click();
@@ -56,7 +58,7 @@ test('clicking a building shows who is there and what happened there', async ({ 
   const panel = page.getByTestId('panel-building');
   await expect(panel.getByRole('heading', { name: 'Arena' })).toBeVisible();
   await expect(panel).toContainText('Tools: Bash');
-  await page.screenshot({ path: 'e2e-screenshots/8-building-panel.png', animations: 'disabled' });
+  await shoot(page, '8-building-panel');
 
   // From a building straight to a hero: Ada is at the Forge (whose panel a link still opens).
   await page.goto('/?demo=party&t=20&select=building:forge');
