@@ -68,6 +68,10 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   type-checks (against the API types Claude Code lays in `mod/.claude-plugin/types/` once
   it has loaded the mod; skipped where they are missing, as in CI) and tests it. The agents in
   `.claude/agents/` (mod-dev, mod-tester, mod-qa) build and check it.
+- Daily ideas: `.claude/skills/daily-ideas` is run each day by a Claude routine. A blind
+  `visitor` sub-agent (`.claude/agents/visitor.md`, browser only via `scripts/ideas-browser.sh`)
+  tours the guild that `scripts/ideas-serve.sh` serves (demo plus the fake live server), then
+  the session grounds what it saw in the code and files one `ideas` issue.
 - `npm run rehearse` (`scripts/rehearse.ts`): a free preflight of the CLI flags and MCP
   roles; `-- --live` runs each utility once on the real `claude` (the user runs it: it
   spends usage). Never from CI or tests.
