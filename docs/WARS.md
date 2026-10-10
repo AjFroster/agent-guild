@@ -152,6 +152,144 @@ His prompt gains one line: plan by war, and give each order a battle.
 - **Needs you** gains stalled battles and battles whose branch is gone with no word on how
   they ended ("It was won" / "Retreated" right there).
 
+## Proposed: battles are threads, and a war menu
+
+Status: proposal (2026-10-10), not built. Asked for after trying the live guild: the War
+Camp does not reflect a project and its threads.
+
+### Why the current model misses
+
+Today a war is a repository folder and a battle is a branch in it. Most work now happens
+in project threads (a Claude Project's project chat, with one thread per ask and a
+Claude working each thread), and threads do not line up with branches:
+
+- A thread that never makes its own branch (a question, an investigation, a setup task)
+  has no battle. Its Knight wanders the map with nothing to fight.
+- A thread that does make a branch shows as a battle named after the branch
+  (`claude/xyz…`), not after what the thread is about. Two threads on one branch become
+  one battle.
+- Threads running in the Windows desktop app write transcripts to
+  `C:\Users\<you>\.claude\projects`, which a guild running in WSL never reads
+  (`CLAUDE_PROJECTS_DIR` takes one folder). Cloud threads write none locally.
+
+### The new mapping
+
+| Kingdom     | Means                                                                           | Ends                                                             |
+| ----------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **War**     | A Claude Project (or, for sessions outside any project, a repository, as today) | You end it (archived)                                            |
+| **Battle**  | One thread in that project, named by the thread's title                         | **Won** when resolved or its PR merges; **retreated** if dropped |
+| **Knight**  | A session working a thread (unchanged)                                          | When the session ends                                            |
+| **Marshal** | The project's coordinator session, which opens threads and hands them out       | Never; it is replaced quietly                                    |
+
+A battle keeps everything a branch battle has when its thread has a branch (branch, PR,
+checks, worktree and the clearing guards), but the branch is an attribute of the battle,
+not its identity. Repository wars with branch battles stay for sessions that are not in
+any project, so nothing built today is lost.
+
+### Where the guild learns about threads
+
+Everything comes from transcripts the guild already reads; nothing new is called.
+
+- **Project and thread.** Each turn of a project thread starts with a wake envelope that
+  names the project (`<project id="chan_…">`) and the thread (`<thread ts="cmsg_…">`, or
+  the root message id on the first turn). The transcript watcher records both on the
+  session.
+- **Title.** The thread label if Claude set one (`set_thread_label`), else the first line
+  of its latest status checklist (`update_status`), else the first words of the root
+  message.
+- **State.** From the session's tool calls and turns:
+  - **fighting**: a turn is running.
+  - **needs you**: the last `reply` asked a question, or an `ask_decision` card or
+    `AskUserQuestion` is open. These join Needs you.
+  - **holding**: idle, open, not stalled.
+  - **stalled**: no turn for the stall time (2 days, the existing setting).
+  - **won**: `set_thread_resolved(true)`, or the thread's PR merged (existing `gh` read).
+  - **retreated**: you mark it so. Resolved-with-no-PR counts as won, since a resolved
+    thread delivered what was asked.
+- **Progress.** The status checklist's ✓/✱/○ lines become the battle's quests, the same
+  way TodoWrite items are today, so the goblin's health bar is "steps 2/4".
+- **Branch and PR.** The session's `gitBranch` from the transcript, and its PR from `gh`
+  as today.
+- **Project name.** Not in the transcript. The guild suggests a war for a project id it
+  has seen ("A project with 4 threads: declare a war?") and you name it, as with folders.
+
+**Known gaps.** A thread resolved by you in the app (not by Claude) is not in any
+transcript, so it shows as holding until it stalls or you mark it. Cloud-only threads stay
+invisible. The guild needs to watch more than one projects folder:
+`CLAUDE_PROJECTS_DIR` becomes a list (`:`-separated, Windows paths allowed through
+`/mnt/c/...`), and `autostart-wsl.sh install` adds the Windows folder when it finds one.
+
+**Privacy.** Today only tool names, todo titles and turn ends reach the page. This adds
+thread titles and status checklist lines (the same kind of text as todo titles), and the
+project and thread ids. Replies and messages still never reach the map; they stay in
+Open chat as today.
+
+### The war menu
+
+The War Camp (`?page=wars`) becomes a menu of wars rather than one page for all of them.
+You pick a war, then see only its battles.
+
+**The menu** (`?page=wars`):
+
+```
+ ⚔ WAR CAMP                                              [ + Declare a war ]
+ ┌────────────────────────┐ ┌────────────────────────┐ ┌────────────────────────┐
+ │ ▓ Blue banner           │ │ ▓ Red banner            │ │ ░ Green (sleeping)      │
+ │ Agent Kingdom           │ │ Hearthlands             │ │ Movie League            │
+ │ "Ship wars v2"          │ │ "Playable alpha"        │ │ "Season 2 picks"        │
+ │ ⚔ 2 fighting  ! 1 you   │ │ ⚔ 1 fighting            │ │ last battle 3 days ago  │
+ │ ⏸ 1 stalled  ★ 9 won    │ │ ★ 4 won                 │ │ ★ 12 won                │
+ └────────────────────────┘ └────────────────────────┘ └────────────────────────┘
+   Ended wars (2) ▸
+```
+
+- One card per war: banner, name, goal, counts of fighting, needs-you, stalled and won
+  battles, and when it last saw action. Active wars first, then sleeping, ended ones
+  folded away.
+- A small tent scene on top stays as the camp's art, one tent per war, without the
+  all-wars duel field (that moves to each war's page).
+- Clicking a card or its tent, or arrow keys and Enter, opens the war. Declare a war stays
+  on the menu; battle report settings move to each war.
+
+**A war's page** (`?page=wars&war=<id>`):
+
+```
+ ‹ All wars    [ Agent Kingdom ▾ ]      Goal: Ship wars v2      ★ 9 won
+ ┌─ battlefield: this war's fighting Knights duel their goblins ─────────────┐
+ └───────────────────────────────────────────────────────────────────────────┘
+ NEEDS YOU      Battle for the war menu           waiting on your pick     [Open]
+ FIGHTING       Battle for the Windows folder     steps 2/4  feat/… PR ✓   [Open]
+                Battle for setup                  steps 3/3                [Open]
+ STALLED        Battle for the Forge redesign     5 days quiet             [Open]
+ WON (recent)   Battle for themes                 resolved Oct 9   PR #23  [Open]
+```
+
+- A switcher in the header jumps between wars without going back to the menu.
+- Battles grouped by state, needs-you first. Each row: thread title, its status line or
+  step count, Knights, branch and PR with checks when present, last activity, and Open
+  chat. Won battles show the last week, with "All victories" below.
+- The battlefield scene shows only this war's Knights, as `fieldScene.ts` does today.
+- The war's card (goal, tokens, loose ends, battle reports) sits below the battles.
+
+### Build order
+
+1. Watch several projects folders (`CLAUDE_PROJECTS_DIR` as a list, autostart picks up the
+   Windows folder). Useful on its own.
+2. Transcript parsing: project id, thread id, title, checklist and resolve calls on each
+   session (`core/src/transcript.ts`), unit-tested on recorded transcripts.
+3. Thread battles in `core/src/wars.ts` beside branch battles, with states above; project
+   wars declared from a suggestion.
+4. The war menu and the per-war page in `web/src/wars.tsx`; Needs you picks up thread
+   battles.
+5. e2e: a recorded project with three threads (one fighting, one needing you, one
+   resolved) shows on the menu and the war's page.
+
+### Open questions
+
+- Should the Marshal (coordinator session) appear on the war's page, or only on the map?
+- Should a resolved thread with an open PR count as won, or wait for the merge? Proposed:
+  wait for the merge when there is a PR.
+
 ## Status
 
 Built (2026-10-09), all but the chronicler's account:
