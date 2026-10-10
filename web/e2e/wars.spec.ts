@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { type APIRequestContext, type Page, expect, test } from '@playwright/test';
 
 import { LIVE_GH, LIVE_HOME, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
+import { shoot } from './shots.ts';
 
 /**
  * The War Camp (docs/WARS.md) against the real server: a real git repository under the
@@ -120,11 +121,7 @@ test('declare a war on a repository, plan a battle and send a Knight into its wo
   await page.reload();
   await expect(page.getByTestId(`duel-${fought.knights[0]!.id}`).locator('.war-foe')).toHaveText(foe!);
   await expect(page.locator('[data-testid="war-scene"][data-ready="true"]')).toHaveCount(1);
-  await page.screenshot({
-    path: 'e2e-screenshots/30-war-battlefield.png',
-    animations: 'disabled',
-    fullPage: true,
-  });
+  await shoot(page, '30-war-battlefield', { fullPage: true });
 
   // Back in the War Camp: the war's tent stands faded, since its Knight's turn is over, and
   // the Knight rests on the field before its goblin.
@@ -134,18 +131,14 @@ test('declare a war on a repository, plan a battle and send a Knight into its wo
   const camp = page.locator('[data-testid="wars-scene"][data-ready="true"]');
   await expect(camp).toHaveAttribute('aria-label', /Siege of the Castle \(0 victories, sleeping\)/);
   await expect(camp).toHaveAttribute('aria-label', new RegExp(`raise-the-banners faces ${foe}`));
-  await page.screenshot({
-    path: 'e2e-screenshots/36-war-camp-page.png',
-    animations: 'disabled',
-    fullPage: true,
-  });
+  await shoot(page, '36-war-camp-page', { fullPage: true });
   // Clicking the tent opens the war again.
   const box = (await camp.boundingBox())!;
   await camp.click({ position: { x: (330 / 1120) * box.width, y: (200 / 720) * box.height } });
   await expect(page.getByTestId('war-page')).toBeVisible();
   await page.getByTestId('war-back').click();
   await page.getByTestId('all-wars').scrollIntoViewIfNeeded();
-  await page.screenshot({ path: 'e2e-screenshots/35-all-wars.png', animations: 'disabled' });
+  await shoot(page, '35-all-wars');
 
   // On the map the Knight wears the war's banner, and its panel names the war.
   await page.getByTestId('wars-back').click();
@@ -153,7 +146,7 @@ test('declare a war on a repository, plan a battle and send a Knight into its wo
   await knight.click();
   await expect(page.getByTestId('panel-hero').getByTestId('hero-war')).toHaveText('Siege of the Castle');
   await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
-  await page.screenshot({ path: 'e2e-screenshots/31-war-camp.png', animations: 'disabled' });
+  await shoot(page, '31-war-camp');
   expect(errors).toEqual([]);
 });
 
@@ -202,11 +195,7 @@ test('a merged pull request wins the battle, and the field is cleared only when 
   // ...and by hand too, while the Knight is still running in it.
   await battle.getByTestId(`clear-${BATTLE}`).click();
   await expect(war.getByRole('alert')).toContainText('A Knight is working in that worktree');
-  await page.screenshot({
-    path: 'e2e-screenshots/32-battle-won.png',
-    animations: 'disabled',
-    fullPage: true,
-  });
+  await shoot(page, '32-battle-won', { fullPage: true });
 
   // Once the Knight stops, clearing by hand removes the worktree; the branch stays.
   expect((await request.post(`${LIVE}/api/chats/${knightId}/stop`, { headers: AUTH })).ok()).toBe(true);
@@ -233,7 +222,7 @@ test('a branch gone without a word waits in Needs you until the user says how it
   const row = inbox.getByTestId(`inbox-won-${GONE}`);
   await expect(row).toBeVisible({ timeout: 15_000 });
   await expect(page.getByTestId('tab-inbox').locator('.tab-badge')).not.toHaveText('0');
-  await page.screenshot({ path: 'e2e-screenshots/33-needs-you-battle.png', animations: 'disabled' });
+  await shoot(page, '33-needs-you-battle');
 
   await row.click();
   await expect(row).toHaveCount(0);
@@ -255,6 +244,6 @@ test('a battle report covers the war, and is kept in the reports folder', async 
   const saved = await readdir(join(LIVE_HOME, '.agent-guild', 'battle-reports'));
   expect(saved.some((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f))).toBe(true);
   await report.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: 'e2e-screenshots/34-battle-report.png', animations: 'disabled' });
+  await shoot(page, '34-battle-report');
   expect(errors).toEqual([]);
 });

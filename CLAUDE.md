@@ -78,6 +78,11 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   from Tiny Swords (`web/public/assets/tiny-swords/`, CC0, see its CREDITS) or, for what the
   pack lacks, the guild's own props drawn in its style by `scripts/art/props.py`
   (`web/public/assets/props/`). How to add one: `docs/BUILDING-PAGES.md`.
+- Themes: `web/src/styles.css` is the Classic look; `web/src/themes.css` repaints everything
+  that is not the village (Control Room, the default; Telemetry; Hazard) on `<html data-theme>`,
+  chosen in Settings behind the gear button (`settings.ts`, `chrome.tsx`). Fonts are bundled
+  (`web/src/fonts.ts`). A new panel or form should use the shared classes so every theme reaches
+  it; `web/e2e/themes.spec.ts` checks each theme.
 - `web/src/village.ts`: pure drawing and hit-testing. `VillageCanvas.tsx` owns the
   animation loop; `panels.tsx` the side panels; `selection.ts` keeps the open panel in
   `?select=`. Interaction tests click canvas coordinates taken from the layout in
@@ -102,7 +107,13 @@ committing:
     playwright-cli close
 
 If the change needs a new state on screen, add or extend a fixture and a `capture()` in
-`web/e2e/guild.spec.ts` so CI shows it on the PR.
+`web/e2e/guild.spec.ts` (or `shoot()` from `web/e2e/shots.ts`) so CI shows it on the PR. On a PR,
+CI takes only the shots for the screens its changes reach: `scripts/import-graph.ts` follows each
+changed module through its importers to the areas in `web/e2e/shot-areas.ts`
+(`scripts/shot-select.ts`), and `shoot()` skips the rest (`GUILD_SHOTS`, `GUILD_SHOT_THEMES`).
+Every theme is taken only when a theme file changed, posted side by side
+(`scripts/shot-table.ts`). A new shot or page needs a place in that map;
+`scripts/shot-select.test.ts` fails until it has one. The `screenshots: all` label takes all.
 
 ## Commands
 

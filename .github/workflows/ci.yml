@@ -157,6 +157,31 @@ jobs:
         working-directory: web
         run: npx playwright install --with-deps chromium
 
+      # Only the screens a PR's changes reach are photographed: each changed module is
+      # followed through the import graph to the areas that use it (web/e2e/shot-areas.ts,
+      # scripts/shot-select.ts), and every theme is taken only when a theme file changed.
+      # The tests themselves all run. The "screenshots: all" label takes every shot.
+      - name: Choose the screenshots for this PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs')
+            const { execFileSync } = require('child_process')
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner, repo: context.repo.repo,
+              pull_number: context.issue.number, per_page: 100,
+            })
+            // A rename changes both paths.
+            const changed = files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean))
+            fs.writeFileSync('changed-files.txt', changed.join('\n'))
+            const labels = context.payload.pull_request.labels.map((l) => l.name)
+            const args = ['scripts/shot-select.ts', 'plan', 'changed-files.txt', 'shot-plan']
+            if (labels.includes('screenshots: all')) args.push('--all')
+            core.info(execFileSync('node', args, { encoding: 'utf8' }))
+            // GUILD_SHOTS and GUILD_SHOT_THEMES, which web/e2e/shots.ts obeys.
+            fs.appendFileSync(process.env.GITHUB_ENV, fs.readFileSync('shot-plan/plan.env', 'utf8'))
+
       # Demo mode replays recorded fixtures frozen at a fixed second, so these tests have no
       # live backend, network or clock to flake on. That is why this job blocks merges from
       # the start, where movie-league's real-backend browser job had to earn it.
@@ -180,18 +205,20 @@ jobs:
           path: web/playwright-report/
           retention-days: 7
 
+      # !cancelled(), not always(): a run cut short by a newer push has only some of the
+      # shots, and must not replace the comment the newer run is about to write.
       # GitHub strips data: URIs from images in summaries and PR comments, so the images
       # need a real URL. A branch on a public repo gives one through raw.githubusercontent,
       # with no auth. Skipped for fork PRs, whose token cannot push.
       - name: Publish the screenshots
         if: >-
-          always() && github.event_name == 'pull_request' &&
+          !cancelled() && github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository
         id: publish
         env:
           PR: ${{ github.event.pull_request.number }}
         run: |
-          test -d web/e2e-screenshots || exit 0
+          test -f shot-plan/plan.json || exit 0
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -206,7 +233,7 @@ jobs:
           DIR="pr-$PR/$SHA"
           rm -rf "../shots/pr-$PR"   # keep only the current commit's shots
           mkdir -p "../shots/$DIR"
-          cp web/e2e-screenshots/*.png "../shots/$DIR/"
+          find web/e2e-screenshots -name '*.png' -exec cp {} "../shots/$DIR/" \;
 
           cd ../shots
           git add -A
@@ -229,8 +256,21 @@ jobs:
           fi
           echo "base=https://raw.githubusercontent.com/${{ github.repository }}/ci-screenshots/$DIR" >> "$GITHUB_OUTPUT"
 
+      # One comment per PR, updated in place: why these shots, then each shot's themes side
+      # by side (scripts/shot-table.ts). A new shoot() in a spec needs a place in
+      # web/e2e/shot-areas.ts (a unit test says so), not an edit to this workflow.
+      - name: Lay the screenshots out by theme
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.publish.outputs.base != '' }}
+        env:
+          BASE: ${{ steps.publish.outputs.base }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          ARTIFACT_URL: ${{ steps.shots.outputs.artifact-url }}
+        run: |
+          SHA=${SHA:0:7} node scripts/shot-select.ts header shot-plan
+          node scripts/shot-table.ts web/e2e-screenshots "$BASE" > shot-table.md
+
       - name: Put the screenshots in the run summary
-        if: always()
+        if: ${{ !cancelled() }}
         env:
           SHOTS_URL: ${{ steps.shots.outputs.artifact-url }}
           BASE: ${{ steps.publish.outputs.base }}
@@ -241,41 +281,26 @@ jobs:
             echo "Captured while the browser tests ran, so a green tick can be checked by eye."
             echo
           } >> "$GITHUB_STEP_SUMMARY"
-          for f in $(ls web/e2e-screenshots/*.png 2>/dev/null | sort); do
-            name=$(basename "$f" .png | sed 's/^[0-9]*-//; s/-/ /g')
-            {
-              echo "### ${name}"
-              echo
-              if [ -n "$BASE" ]; then echo "![${name}](${BASE}/$(basename "$f"))"; else echo "_Published only for pull requests from this repo._"; fi
-              echo
-            } >> "$GITHUB_STEP_SUMMARY"
-          done
+          if [ -z "$BASE" ]; then
+            echo "_Published only for pull requests from this repo._" >> "$GITHUB_STEP_SUMMARY"
+          else
+            cat shot-plan/header.md shot-table.md >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "[Download at full resolution]($SHOTS_URL)" >> "$GITHUB_STEP_SUMMARY"
 
-      # One comment per PR, updated in place. The shot list comes from the directory, so a
-      # new capture() in a spec shows up here without editing this workflow.
       - name: Show them on the pull request
-        if: always() && github.event_name == 'pull_request' && steps.publish.outputs.base != ''
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.publish.outputs.base != '' }}
         uses: actions/github-script@v9
-        env:
-          BASE: ${{ steps.publish.outputs.base }}
         with:
           script: |
             const fs = require('fs')
-            const shots = fs.readdirSync('web/e2e-screenshots')
-              .filter((f) => f.endsWith('.png'))
-              .sort()
             const body = [
               '<!-- ui-screenshots -->',
               '### UI screenshots',
               '',
-              `From the browser tests on ${context.sha.slice(0, 7)}.`,
+              fs.readFileSync('shot-plan/header.md', 'utf8'),
               '',
-              ...shots.map((file) => {
-                const label = file.replace(/\.png$/, '').replace(/^[0-9]+-/, '').replace(/-/g, ' ')
-                return `<details open><summary>${label}</summary>\n\n` +
-                       `![${label}](${process.env.BASE}/${file})\n\n</details>`
-              }),
+              fs.readFileSync('shot-table.md', 'utf8'),
             ].join('\n')
 
             const comments = await github.paginate(github.rest.issues.listComments, {
