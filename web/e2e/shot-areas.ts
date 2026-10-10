@@ -153,6 +153,7 @@ export const AREAS: readonly Area[] = [
     ],
     files: ['web/e2e/fake-gh.mjs'],
     shots: [
+      '20-war-camp-demo',
       '30-war-battlefield',
       '31-war-camp',
       '32-battle-won',

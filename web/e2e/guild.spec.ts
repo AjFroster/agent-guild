@@ -183,7 +183,7 @@ test('the War Camp drills the demo Knights against goblins', async ({ page }) =>
     'aria-label',
     /drilling the demo.s Knights\. On the field, .*Ada (fights|faces) /,
   );
-  await page.screenshot({ path: `${SHOTS}/20-war-camp-demo.png`, animations: 'disabled', fullPage: true });
+  await shoot(page, '20-war-camp-demo', { fullPage: true });
   await camp.getByTestId('wars-back').click();
   await expect(page.getByTestId('village')).toBeVisible();
   expect(errors).toEqual([]);

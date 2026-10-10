@@ -142,7 +142,7 @@ test('the Settings dialog wears each theme', async ({ page }) => {
   }
 });
 
-test.describe('live chat in each theme', () => {
+test.describe('live pages in each theme', () => {
   test.describe.configure({ mode: 'serial' });
   let chatId = '';
 
@@ -189,6 +189,34 @@ test.describe('live chat in each theme', () => {
       await expect(chat.getByTestId('msg-assistant').first()).toBeVisible();
       await chat.getByTestId('composer').fill('Now run the tests');
       await expect(chat.getByTestId('send')).toBeEnabled();
+      expect(errors).toEqual([]);
+    });
+  }
+
+  for (const theme of THEMES) {
+    test(`the War Camp keeps its parchment, and the page around it takes ${theme.name}`, async ({ page }) => {
+      const errors = watchForErrors(page);
+      await page.addInitScript((id) => {
+        window.localStorage.setItem('agent-guild:settings', JSON.stringify({ theme: id }));
+      }, theme.id);
+      await page.goto(`${LIVE}/?token=${LIVE_TOKEN}&page=wars`);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id);
+      const card = page.getByTestId('declare-war');
+      await expect(card).toBeVisible();
+
+      // The card and its buttons are the pack's art, the same in every theme.
+      expect(await css(card, 'font-family')).toContain('Inter');
+      const declare = card.locator('.send');
+      await expect(declare).toHaveCSS('background-color', 'rgb(255, 204, 51)');
+      await expect(declare).toHaveCSS('text-transform', 'none');
+      expect(await declare.evaluate((el) => getComputedStyle(el, '::before').content)).toBe('none');
+      await expect(card.locator('input').first()).toHaveCSS('font-family', /Inter/);
+
+      // The hint under the scene sits on the page, in the theme's ink: light on a dark floor.
+      const hint = page.locator('.library-hint');
+      const [r, g, b] = (await css(hint, 'color')).match(/\d+/g)!.map(Number);
+      expect(r! + g! + b!).toBeGreaterThan(3 * 100);
+      await expect(page.locator('.topbar')).toBeVisible();
       expect(errors).toEqual([]);
     });
   }

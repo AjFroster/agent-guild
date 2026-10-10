@@ -957,6 +957,13 @@
     color: var(--ink);
     font: 12px var(--mono);
   }
+  /* A building page sits on the dark floor: light ink around its cards. */
+  .library-page {
+    color: var(--raised);
+  }
+  .library-page > .library-hint {
+    color: #b9b8b1;
+  }
 
   .guild {
     gap: 16px 18px;

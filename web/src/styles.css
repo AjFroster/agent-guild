@@ -1113,6 +1113,51 @@ h2.ts-ribbon {
   margin-top: 6px;
 }
 
+/*
+ * Parchment is the pack's art, so the themes (themes.css) leave what is drawn on it alone:
+ * these outrank a theme's plain `.chip` or `button` rules and keep every card the same in
+ * every theme. The page around the cards still takes the theme.
+ */
+.ts-card {
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.ts-card :is(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+.ts-card code {
+  background: #efe2b8;
+  color: #3c2410;
+  padding: 0 4px;
+  border-radius: 4px;
+  font:
+    12px ui-monospace,
+    monospace;
+}
+
+.ts-card :is(.chip, .send) {
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+  border-radius: 999px;
+}
+
+.ts-card .send {
+  background: #ffcc33;
+  color: #1b1500;
+  border: 1px solid #8a6a44;
+}
+
+.ts-card .send:hover:not(:disabled) {
+  background: #f3bb1c;
+}
+
+.ts-card :is(.chip, .send)::before,
+.ts-card :is(.chip, .send)::after {
+  content: none;
+}
+
 /* The pack's blue button (3-slice), pressed when clicked. */
 .ts-button {
   box-sizing: border-box;
@@ -1671,14 +1716,7 @@ input.war-days {
   background: #fff8e4;
 }
 
-/* On parchment: dark ink for code, buttons and errors. */
-:is(.wars-page, .war-page) .ts-card code {
-  background: #efe2b8;
-  color: #3c2410;
-  padding: 0 4px;
-  border-radius: 4px;
-}
-
+/* On parchment: dark ink for buttons and errors. */
 :is(.wars-page, .war-page) .ts-card .chip {
   background: #fff8e4;
   color: #3c2410;
