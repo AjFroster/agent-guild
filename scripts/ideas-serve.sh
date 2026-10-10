@@ -64,7 +64,9 @@ echo $! >>"$pids"
 
 for _ in $(seq 60); do
   if curl -fs "http://127.0.0.1:$demo_port/" >/dev/null && curl -fs "http://127.0.0.1:$live_port/api/health" >/dev/null; then
-    echo "Demo: http://127.0.0.1:$demo_port/?demo=<fixture>&t=<seconds>  (fixtures: $(cd "$root/fixtures" && ls -- *.json | sed 's/\.json$//' | tr '\n' ' '))"
+    fixtures=()
+    for f in "$root"/fixtures/*.json; do fixtures+=("$(basename "$f" .json)"); done
+    echo "Demo: http://127.0.0.1:$demo_port/?demo=<fixture>&t=<seconds>  (fixtures: ${fixtures[*]})"
     echo "Live: http://127.0.0.1:$live_port/?token=$token"
     exit 0
   fi
