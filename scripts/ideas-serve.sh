@@ -34,7 +34,13 @@ home=$scratch/home
 remotes=$scratch/remotes
 
 cd "$root/web"
-[ -d "$root/node_modules" ] || (cd "$root" && npm ci --no-audit --no-fund)
+# Install when the lockfile changed since the last install, not only when nothing is
+# installed: a container that runs this every day keeps yesterday's node_modules.
+lock=$(sha256sum "$root/package-lock.json" | cut -d' ' -f1)
+if [ "$(cat "$root/node_modules/.ideas-lock" 2>/dev/null)" != "$lock" ]; then
+  (cd "$root" && npm ci --no-audit --no-fund >"$scratch/install.log" 2>&1)
+  echo "$lock" >"$root/node_modules/.ideas-lock"
+fi
 npx vite build >"$scratch/build.log" 2>&1
 
 cp -r e2e/transcripts "$projects"
