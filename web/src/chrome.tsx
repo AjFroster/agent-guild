@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import type { Settings } from './settings.ts';
+import { type Settings, THEMES } from './settings.ts';
 import type { Toast } from './useNotices.ts';
 
 /** Page furniture around the map: toasts, the settings dialog, the first-run hint. */
@@ -65,15 +65,37 @@ export function SettingsButton({
     <>
       <button
         type="button"
-        className="chip"
+        className="chip gear"
+        aria-label="Settings"
+        title="Settings"
         onClick={() => dialog.current?.showModal()}
         data-testid="open-settings"
       >
-        Settings
+        <GearIcon />
       </button>
       <dialog ref={dialog} className="settings" aria-labelledby="settings-title" data-testid="settings">
         <h2 id="settings-title">Settings</h2>
         <p className="muted small">Saved in this browser only.</p>
+        <fieldset className="theme-picker" data-testid="theme-picker">
+          <legend>Theme</legend>
+          {THEMES.map((t) => (
+            <label key={t.id} className="theme-option" data-testid={`theme-${t.id}`}>
+              <input
+                type="radio"
+                name="theme"
+                value={t.id}
+                checked={settings.theme === t.id}
+                onChange={() => onChange({ theme: t.id })}
+              />
+              <span className={`theme-swatch swatch-${t.id}`} aria-hidden="true" />
+              <span>
+                {t.name}
+                <span className="muted small theme-note">{t.note}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        <p className="settings-group">Notices</p>
         <label>
           <input
             type="checkbox"
@@ -122,6 +144,18 @@ export function SettingsButton({
         </form>
       </dialog>
     </>
+  );
+}
+
+function GearIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path
+        fill="currentColor"
+        fillRule="evenodd"
+        d="M10.3 2h3.4l.5 2.6a7.9 7.9 0 0 1 1.9 1.1l2.5-.9 1.7 2.9-2 1.8a8 8 0 0 1 0 2.2l2 1.8-1.7 2.9-2.5-.9a7.9 7.9 0 0 1-1.9 1.1l-.5 2.6h-3.4l-.5-2.6a7.9 7.9 0 0 1-1.9-1.1l-2.5.9-1.7-2.9 2-1.8a8 8 0 0 1 0-2.2l-2-1.8 1.7-2.9 2.5.9a7.9 7.9 0 0 1 1.9-1.1zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"
+      />
+    </svg>
   );
 }
 

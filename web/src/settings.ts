@@ -1,4 +1,8 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+
+import { DEFAULT_THEME, type ThemeId, themeOf } from './themes.ts';
+
+export { DEFAULT_THEME, THEMES, type ThemeId, themeOf } from './themes.ts';
 
 /**
  * Per-browser preferences. They live in localStorage because they belong to this viewer
@@ -7,6 +11,8 @@ import { useCallback, useState } from 'react';
  */
 
 export interface Settings {
+  /** How the panels, chat and forms look (see themes.css). */
+  theme: ThemeId;
   /** Play a short chime with notices. */
   sound: boolean;
   /** Also raise a desktop notification while the tab is in the background. */
@@ -17,7 +23,13 @@ export interface Settings {
   comings: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { sound: true, desktop: false, finished: true, comings: false };
+export const DEFAULT_SETTINGS: Settings = {
+  theme: DEFAULT_THEME,
+  sound: true,
+  desktop: false,
+  finished: true,
+  comings: false,
+};
 
 const KEY = 'agent-guild:settings';
 const HINT_KEY = 'agent-guild:hint-dismissed';
@@ -39,8 +51,42 @@ function write(key: string, value: unknown): void {
   }
 }
 
+/** Stored settings over the defaults, with anything unrecognised put back to its default. */
+export function parseSettings(raw: string | null): Settings {
+  let stored: Partial<Record<keyof Settings, unknown>> = {};
+  try {
+    const parsed: unknown = raw === null ? null : JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') stored = parsed;
+  } catch {
+    // Unreadable: the defaults stand.
+  }
+  const flag = (key: Exclude<keyof Settings, 'theme'>) =>
+    typeof stored[key] === 'boolean' ? stored[key] : DEFAULT_SETTINGS[key];
+  return {
+    theme: themeOf(stored.theme),
+    sound: flag('sound'),
+    desktop: flag('desktop'),
+    finished: flag('finished'),
+    comings: flag('comings'),
+  };
+}
+
+export function readSettings(): Settings {
+  try {
+    return parseSettings(window.localStorage.getItem(KEY));
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+/** Puts the theme on <html>, where themes.css picks it up. */
+export function applyTheme(theme: ThemeId): void {
+  document.documentElement.dataset.theme = theme;
+}
+
 export function useSettings(): [Settings, (patch: Partial<Settings>) => void] {
-  const [settings, setSettings] = useState<Settings>(() => read(KEY, DEFAULT_SETTINGS));
+  const [settings, setSettings] = useState<Settings>(readSettings);
+  useEffect(() => applyTheme(settings.theme), [settings.theme]);
   const update = useCallback((patch: Partial<Settings>) => {
     setSettings((s) => {
       const next = { ...s, ...patch };

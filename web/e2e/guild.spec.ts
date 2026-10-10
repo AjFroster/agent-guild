@@ -1,19 +1,15 @@
-import { mkdirSync } from 'node:fs';
-
 import { type Page, expect, test } from '@playwright/test';
 
-const SHOTS = 'e2e-screenshots';
-mkdirSync(SHOTS, { recursive: true });
+import { shoot } from './shots.ts';
 
 /**
- * Save the screen for a person to look at. CI posts these on the pull request, because
- * an assertion can say an element exists but not that the page looks right: a blank
- * canvas next to one correct label still passes.
+ * Save the screen, in every theme, for a person to look at (see shots.ts): a blank canvas
+ * next to one correct label still passes an assertion.
  */
 async function capture(page: Page, name: string) {
   // The canvas marks itself ready once its sprites have loaded and it has drawn.
   await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
-  await page.screenshot({ path: `${SHOTS}/${name}.png`, animations: 'disabled' });
+  await shoot(page, name);
 }
 
 /** Fail the test on any console error or uncaught exception, not just on assertions. */
@@ -131,7 +127,7 @@ test('the librarians work inside the Library, and its signs show what each is do
   const scene = page.locator('[data-testid="library-scene"][data-ready="true"]');
   await expect(scene).toHaveCount(1);
   await expect(scene).toHaveAttribute('aria-label', /the Scout is at work, the Reviewer is resting/);
-  await page.screenshot({ path: `${SHOTS}/16-library-page.png`, animations: 'disabled', fullPage: true });
+  await shoot(page, '16-library-page', { fullPage: true });
   // Clicking a librarian in the scene opens its session (demo mode has no chats).
   const box = (await scene.boundingBox())!;
   await scene.click({ position: { x: (300 / 1120) * box.width, y: (360 / 720) * box.height } });
@@ -154,7 +150,7 @@ test('the Forge: a Knight asks for equipment, and the Blacksmith works inside', 
   await expect(forge.getByTestId('desk-Armorer')).toHaveAttribute('data-state', 'unhired');
   const scene = page.locator('[data-testid="forge-scene"][data-ready="true"]');
   await expect(scene).toHaveAttribute('aria-label', /the Blacksmith is at the anvil/);
-  await page.screenshot({ path: `${SHOTS}/18-forge-page.png`, animations: 'disabled', fullPage: true });
+  await shoot(page, '18-forge-page', { fullPage: true });
   await forge.getByTestId('forge-back').click();
   await expect(page.getByTestId('village')).toBeVisible();
   expect(errors).toEqual([]);
@@ -169,7 +165,7 @@ test('the Tower: its grounds and wizards, and the Portal Keeper', async ({ page 
   // Demo mode cannot look at ports: the page says so instead of showing none.
   await expect(tower).toContainText('The Portal Keeper looks for services when the guild runs live.');
   await expect(tower.getByTestId('desk-Seer')).toContainText('Coming soon');
-  await page.screenshot({ path: `${SHOTS}/19-tower-page.png`, animations: 'disabled', fullPage: true });
+  await shoot(page, '19-tower-page', { fullPage: true });
   await tower.getByTestId('tower-back').click();
   await expect(page.getByTestId('village')).toBeVisible();
   expect(errors).toEqual([]);
@@ -187,7 +183,7 @@ test('the War Camp drills the demo Knights against goblins', async ({ page }) =>
     'aria-label',
     /drilling the demo.s Knights\. On the field, .*Ada (fights|faces) /,
   );
-  await page.screenshot({ path: `${SHOTS}/20-war-camp-demo.png`, animations: 'disabled', fullPage: true });
+  await shoot(page, '20-war-camp-demo', { fullPage: true });
   await camp.getByTestId('wars-back').click();
   await expect(page.getByTestId('village')).toBeVisible();
   expect(errors).toEqual([]);

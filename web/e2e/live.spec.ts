@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { expect, test } from '@playwright/test';
 
+import { shoot } from './shots.ts';
+
 import { LIVE_DIR, LIVE_PORT, LIVE_TOKEN } from '../playwright.config.ts';
 
 const LIVE = `http://127.0.0.1:${LIVE_PORT}`;
@@ -36,7 +38,7 @@ test('the live guild shows sessions read from Claude Code transcripts', async ({
   await expect(page.getByText('fixture prompt')).toHaveCount(0);
 
   await expect(page.locator('[data-testid="village"][data-ready="true"]')).toHaveCount(1);
-  await page.screenshot({ path: 'e2e-screenshots/6-live-session.png', animations: 'disabled' });
+  await shoot(page, '6-live-session');
 
   // Token counts come through from the transcript's usage, a reply split over two lines
   // counted once: 1,200 + 300 + 8,000 + 500 for the first reply, 9,900 for the second.
@@ -86,7 +88,7 @@ test('a session that starts waiting on the user raises a toast that opens it', a
   await appendFile(file, line(1, [{ type: 'tool_use', name: 'AskUserQuestion', input: {} }]));
   const toast = page.getByTestId('toasts').getByRole('button', { name: 'notice-demo needs you' });
   await expect(toast).toBeVisible();
-  await page.screenshot({ path: 'e2e-screenshots/9-needs-you-toast.png', animations: 'disabled' });
+  await shoot(page, '9-needs-you-toast');
 
   await toast.click();
   await expect(page.getByTestId('panel-hero').getByRole('heading', { name: 'notice-demo' })).toBeVisible();

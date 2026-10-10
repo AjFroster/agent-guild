@@ -1113,6 +1113,51 @@ h2.ts-ribbon {
   margin-top: 6px;
 }
 
+/*
+ * Parchment is the pack's art, so the themes (themes.css) leave what is drawn on it alone:
+ * these outrank a theme's plain `.chip` or `button` rules and keep every card the same in
+ * every theme. The page around the cards still takes the theme.
+ */
+.ts-card {
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.ts-card :is(button, input, select, textarea) {
+  font-family: inherit;
+}
+
+.ts-card code {
+  background: #efe2b8;
+  color: #3c2410;
+  padding: 0 4px;
+  border-radius: 4px;
+  font:
+    12px ui-monospace,
+    monospace;
+}
+
+.ts-card :is(.chip, .send) {
+  text-transform: none;
+  letter-spacing: normal;
+  box-shadow: none;
+  border-radius: 999px;
+}
+
+.ts-card .send {
+  background: #ffcc33;
+  color: #1b1500;
+  border: 1px solid #8a6a44;
+}
+
+.ts-card .send:hover:not(:disabled) {
+  background: #f3bb1c;
+}
+
+.ts-card :is(.chip, .send)::before,
+.ts-card :is(.chip, .send)::after {
+  content: none;
+}
+
 /* The pack's blue button (3-slice), pressed when clicked. */
 .ts-button {
   box-sizing: border-box;
@@ -1442,6 +1487,88 @@ h2.ts-ribbon {
   outline-offset: 1px;
 }
 
+/* --- the gear button and the theme picker in Settings ------------------- */
+
+.chip.gear {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.theme-picker {
+  border: 0;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.theme-picker legend,
+.settings-group {
+  padding: 0;
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-group {
+  margin-top: 18px;
+}
+
+.settings .theme-option {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.theme-option:has(input:checked) {
+  border-color: var(--accent);
+}
+
+.theme-note {
+  display: block;
+}
+
+/* A small preview of each theme: its page, its panel and its accent. */
+.theme-swatch {
+  width: 36px;
+  height: 24px;
+  border: 1px solid rgb(127 127 127 / 0.5);
+  background: linear-gradient(90deg, var(--a) 0 50%, var(--b) 50% 80%, var(--c) 80%);
+}
+
+.swatch-control-room {
+  --a: #0b0c0e;
+  --b: #1b1e22;
+  --c: #f5b301;
+}
+
+.swatch-telemetry {
+  --a: #050607;
+  --b: #0f1416;
+  --c: #4ff0d2;
+}
+
+.swatch-hazard {
+  --a: #d8d7d1;
+  --b: #111111;
+  --c: #ffd400;
+}
+
+.swatch-classic {
+  --a: #0e120c;
+  --b: #182015;
+  --c: #ffcc33;
+}
+
 /* --- the War Room page ------------------------------------------------ */
 
 .war-cards {
@@ -1589,14 +1716,7 @@ input.war-days {
   background: #fff8e4;
 }
 
-/* On parchment: dark ink for code, buttons and errors. */
-:is(.wars-page, .war-page) .ts-card code {
-  background: #efe2b8;
-  color: #3c2410;
-  padding: 0 4px;
-  border-radius: 4px;
-}
-
+/* On parchment: dark ink for buttons and errors. */
 :is(.wars-page, .war-page) .ts-card .chip {
   background: #fff8e4;
   color: #3c2410;
