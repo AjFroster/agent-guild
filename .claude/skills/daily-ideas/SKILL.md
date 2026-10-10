@@ -43,11 +43,14 @@ Take the day of the year (`date +%j`) modulo 7:
 
 ## 3. Send the visitor
 
-Start the `visitor` sub-agent (`.claude/agents/visitor.md`). Its brief is only: the two
-addresses with their fixtures and token, today's focus and where to start. Tell it nothing
-about the code, the roadmap or earlier ideas: it must stay blind. If the `visitor` agent is
-not available, start a general-purpose agent with the same brief, the text of
-`visitor.md`, and the rule that it may use only the `mcp__playwright__*` tools.
+    scripts/ideas-visit.sh "<brief>"
+
+It runs the visitor (`.claude/agents/visitor.md`) as its own headless Claude whose only
+tool is the browser, and prints its report. The brief is only: the two addresses with
+their fixtures and token, today's focus and where to start. Tell it nothing about the
+code, the roadmap or earlier ideas: it must stay blind. (A `visitor` sub-agent started from
+this session may come up with no tools, because its browser is declared inline; the script
+does not depend on that.)
 
 ## 4. Ground the observations
 
@@ -66,8 +69,10 @@ saw, not a guess.
 
 ## 5. Publish the screenshots
 
-The visitor's screenshots are in `${TMPDIR:-/tmp}/agent-guild-ideas/shots`; it may report
-them under another folder, so match them by file name. For each idea, copy the visitor's best screenshot to `<YYYY-MM-DD>/<n>.png` on the
+The visitor names each screenshot's file. The files are in
+`${TMPDIR:-/tmp}/agent-guild-ideas/shots` or under `~/.claude/projects/*agent-guild-ideas*/`
+even when the folder it names differs, so match them by file name, and look at each
+before you use it. For each idea, copy the visitor's best screenshot to `<YYYY-MM-DD>/<n>.png` on the
 `claude/ideas-screenshots` branch (an orphan branch: fetch it, or create it with
 `git worktree add --orphan -b claude/ideas-screenshots`), commit and push with retries.
 Link each as `https://raw.githubusercontent.com/AjFroster/agent-guild/claude/ideas-screenshots/<YYYY-MM-DD>/<n>.png`.
