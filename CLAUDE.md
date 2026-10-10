@@ -49,6 +49,13 @@ sub-agents, quests are todo items, and XP comes from finished quests and turns.
   with a GET whether each is a website, and sends the page the port, program, folder name
   and Knight only; `portalRoutes.ts` holds its routes. `web/src/tower.tsx` and
   `towerScene.ts` are its page.
+- The War Room (docs/WARS.md): `core/src/wars.ts` holds the rules (battles from branches,
+  states, the clearing guards, the dispatch); `server/src/wars.ts` reads git and `gh` (pull
+  request states and checks only, never titles), makes a worktree per battle and clears
+  won ones only past every guard; `warRoutes.ts` holds its routes. `web/src/wars.tsx`,
+  `campScene.ts` (the War Camp), `fieldScene.ts` (one war's battlefield) and `duel.ts`
+  (Knights against the pack's goblins) are its page, `warBanners.ts` the war colours on the map. Browser tests use
+  `web/e2e/fake-gh.mjs`, never the real `gh`.
 - Shared foundations for every utility (docs/BUILDING-PAGES.md, "Adding a utility"):
   `server/src/routes.ts` (`guard`: the token check on every control route),
   `mcpConfig.ts` (`writeMcpConfig` for each MCP role), `jsonStore.ts` (the queued, atomic,

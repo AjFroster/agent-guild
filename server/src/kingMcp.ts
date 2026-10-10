@@ -139,6 +139,70 @@ export const TOOLS: Tool[] = [
     run: async (args, call) => text(await call('POST', '/api/forge/commission', args)),
   },
   {
+    name: 'list_wars',
+    description:
+      "The user's wars (one repository each, with a goal) and their battles (one branch each): which are fighting, stalled, won or planned, which Knights fight them, and each branch's pull request and checks. Plan by war: give each order a battle.",
+    inputSchema: { type: 'object', properties: {} },
+    run: async (_, call) => text(await call('GET', '/api/king/wars')),
+  },
+  {
+    name: 'declare_battle',
+    description:
+      'Add a battle to a war ahead of time (a war aim): a feature, fix or refactor to be fought on its own branch. Writes nothing to the repository; send_knight starts it.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        war: { type: 'string', description: 'The war: its name or id from list_wars.' },
+        title: { type: 'string', description: 'What the battle is for, in a few words.' },
+        kind: { type: 'string', enum: ['feature', 'fix', 'refactor', 'other'] },
+        branch: {
+          type: 'string',
+          description: 'Optional branch name; by default made from the kind and title (feat/..., fix/...).',
+        },
+      },
+      required: ['war', 'title', 'kind'],
+    },
+    run: async (args, call) =>
+      text(
+        await call('POST', `/api/king/wars/${encodeURIComponent(String(args.war))}/battles`, {
+          title: args.title,
+          kind: args.kind,
+          branch: args.branch,
+        }),
+      ),
+  },
+  {
+    name: 'send_knight',
+    description:
+      "Send a new Knight to fight a battle: the guild makes a git worktree for the battle's branch (from the default branch if new) and starts the Knight there with this order, so several battles in one war run at once. The Knight is told its war, battle and branch. Waits for its first answer.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        war: { type: 'string', description: 'The war: its name or id from list_wars.' },
+        branch: { type: 'string', description: "The battle's branch, from list_wars or declare_battle." },
+        order: { type: 'string', description: 'Its first order, written as a complete instruction.' },
+        name: { type: 'string', description: 'A short name for the Knight (max 40 characters).' },
+        mode: {
+          type: 'string',
+          enum: ['acceptEdits', 'plan', 'auto', 'default'],
+          description: 'Permissions, as for raise_knight (default acceptEdits).',
+        },
+        wait_seconds: waitArg,
+      },
+      required: ['war', 'branch', 'order'],
+    },
+    run: async (args, call) =>
+      text(
+        await call('POST', `/api/king/wars/${encodeURIComponent(String(args.war))}/knights`, {
+          branch: args.branch,
+          order: args.order,
+          name: args.name,
+          mode: args.mode,
+          waitSeconds: args.wait_seconds,
+        }),
+      ),
+  },
+  {
     name: 'halt_knight',
     description: "Stop a Knight's current turn. Its session is kept and can be given new orders.",
     inputSchema: { type: 'object', properties: { knight: knightArg }, required: ['knight'] },

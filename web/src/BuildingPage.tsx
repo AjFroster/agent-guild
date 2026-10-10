@@ -13,6 +13,7 @@ export function BuildingPage<M, P>({
   title,
   ribbon,
   onBack,
+  backLabel = '← Back to the village',
   scene,
   hint,
   children,
@@ -22,6 +23,8 @@ export function BuildingPage<M, P>({
   title: string;
   ribbon: 'yellow' | 'red' | 'blue';
   onBack: () => void;
+  /** What the way back says, for a page inside another one. */
+  backLabel?: string;
   scene: {
     model: M;
     animate: boolean;
@@ -43,7 +46,7 @@ export function BuildingPage<M, P>({
     >
       <div className="library-head">
         <button type="button" className="ts-button" onClick={onBack} data-testid={`${id}-back`}>
-          ← Back to the village
+          {backLabel}
         </button>
         <h2 className={`ts-ribbon ts-ribbon-${ribbon}`}>{title}</h2>
       </div>

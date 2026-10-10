@@ -119,3 +119,13 @@ test('a link to a hero who has left falls back to the guild', async ({ page }) =
   await expect(page.getByTestId('panel-hero')).toHaveCount(0);
   await expect(page.locator('.roster')).toBeVisible();
 });
+
+test('the war camp on the Barracks fence opens the War Room', async ({ page }) => {
+  await page.goto('/?demo=party&t=20');
+  await ready(page);
+  await village(page).click({ position: await at(page, { x: 170, y: 400 }) });
+  await expect(page.getByTestId('wars-page')).toBeVisible();
+  await expect(page).toHaveURL(/page=wars/);
+  await page.getByTestId('wars-back').click();
+  await expect(page.getByTestId('village')).toBeVisible();
+});

@@ -426,9 +426,10 @@ export function bedPlaces(n: number): { x: number; y: number }[] {
  * keeps it across reloads, moving to the next free one if another Knight has it. A
  * Knight's followers wear its colour.
  */
-export function heroTeams(state: GuildState): Map<string, Team> {
+export function heroTeams(state: GuildState, banners?: ReadonlyMap<string, Team>): Map<string, Team> {
   const teams = new Map<string, Team>();
-  const taken = new Set<Team>();
+  // A war's banner is its Knights' alone: a Knight in no war picks another colour.
+  const taken = new Set<Team>(banners?.values());
   for (const hero of roster(state)) {
     const parentTeam = hero.parentId ? teams.get(hero.parentId) : undefined;
     if (parentTeam) {
@@ -447,6 +448,12 @@ export function heroTeams(state: GuildState): Map<string, Team> {
     }
     if (hero.crowned) {
       teams.set(hero.id, 'Gold');
+      continue;
+    }
+    // Knights fighting in a war wear its banner (docs/WARS.md).
+    const banner = banners?.get(hero.id);
+    if (banner) {
+      teams.set(hero.id, banner);
       continue;
     }
     const start = hash(hero.id) % KNIGHT_TEAMS.length;
@@ -499,7 +506,8 @@ export function walkerPosition(
 }
 
 /** Something on the map the user can click: a hero or a building. */
-export type Selection = { kind: 'hero'; id: string } | { kind: 'building'; id: Location };
+export type Selection =
+  { kind: 'hero'; id: string } | { kind: 'building'; id: Location } | { kind: 'warroom'; id: 'wars' };
 
 export const sameSelection = (a: Selection | null, b: Selection | null) =>
   a?.kind === b?.kind && a?.id === b?.id;
@@ -578,6 +586,8 @@ export function hitTest(
     if (px >= signs.left && px <= signs.right && py >= signs.top && py <= signs.bottom)
       return { kind: 'building', id };
   }
+  if (px >= WAR_CAMP.left && px <= WAR_CAMP.right && py >= WAR_CAMP.top && py <= WAR_CAMP.bottom)
+    return { kind: 'warroom', id: 'wars' };
   return null;
 }
 
@@ -592,6 +602,18 @@ export interface VillageView {
   forgeWaiting?: number | undefined;
   /** Services open on local ports: a blue count on the Tower's door. */
   towerPortals?: number | undefined;
+  /** The wars, planted as banners on the Barracks fence (docs/WARS.md). */
+  wars?: readonly MapWar[] | undefined;
+  /** Knights fighting in a war, and its banner colour, which they wear. */
+  banners?: ReadonlyMap<string, Team> | undefined;
+}
+
+/** A war as the map shows it: its banner, with its victories and whether a battle is on. */
+export interface MapWar {
+  name: string;
+  banner: Team;
+  victories: number;
+  fighting: boolean;
 }
 
 export function drawVillage(
@@ -638,7 +660,9 @@ export function drawVillage(
     else if (sameSelection(view.hovered, sel)) outline(ctx, buildingBox(b), 'rgba(241, 239, 230, 0.8)', 2);
   }
 
-  const teams = heroTeams(state);
+  drawWarCamp(ctx, view.wars ?? [], nowMs, sameSelection(view.hovered, WAR_ROOM));
+
+  const teams = heroTeams(state, view.banners);
   const placed = placeHeroes(state, walkers, nowMs, view.clock);
 
   // The chain of command: gold lines from the King to each Knight he has given orders,
@@ -709,6 +733,67 @@ export function drawVillage(
   drawSigns(ctx, 'library', librariansIn(state), nowMs, view.libraryWaiting ?? 0);
   drawSigns(ctx, 'forge', smithsIn(state), nowMs, view.forgeWaiting ?? 0);
   if (view.towerPortals) doorBadge(ctx, 'tower', view.towerPortals, true);
+}
+
+/**
+ * The war camp, on the Barracks fence left of the gate: a banner for each war, its
+ * victories on the cloth, waving while one of its battles is being fought, and a sign
+ * that opens the War Room.
+ */
+export const WAR_CAMP = { left: 44, top: 340, right: 296, bottom: 436 };
+export const WAR_ROOM: Selection = { kind: 'warroom', id: 'wars' };
+const MAX_BANNERS = 4;
+
+/** Where each war's banner pole stands, left to right; past four, the last one says "+N". */
+export function bannerXs(n: number): number[] {
+  return Array.from({ length: Math.min(n, MAX_BANNERS) }, (_, i) => 72 + i * 46);
+}
+
+function drawWarCamp(
+  ctx: CanvasRenderingContext2D,
+  wars: readonly MapWar[],
+  nowMs: number,
+  hovered: boolean,
+) {
+  const shown = wars.slice(0, MAX_BANNERS);
+  const xs = bannerXs(wars.length);
+  ctx.save();
+  shown.forEach((war, i) => {
+    const x = xs[i]!;
+    const extra = i === MAX_BANNERS - 1 && wars.length > MAX_BANNERS ? wars.length - (MAX_BANNERS - 1) : 0;
+    const top = 368;
+    // The pole.
+    ctx.fillStyle = '#5c3a1c';
+    ctx.fillRect(x - 2, top, 4, 70);
+    ctx.fillStyle = '#d8b25a';
+    ctx.beginPath();
+    ctx.arc(x, top, 4, 0, Math.PI * 2);
+    ctx.fill();
+    // The cloth: a swallow-tailed banner that ripples while a battle is on.
+    const wave = war.fighting ? Math.sin(nowMs / 160 + i) * 3 : 0;
+    ctx.fillStyle = extra ? '#6b6b60' : TEAM_CSS[war.banner];
+    ctx.strokeStyle = 'rgba(20, 16, 10, 0.8)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x + 2, top + 4);
+    ctx.lineTo(x + 34, top + 4 + wave);
+    ctx.lineTo(x + 34, top + 34 + wave);
+    ctx.lineTo(x + 26, top + 28 + wave);
+    ctx.lineTo(x + 18, top + 34 + wave);
+    ctx.lineTo(x + 2, top + 30);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '800 12px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(extra ? `+${extra}` : `${war.victories}`, x + 18, top + 18 + wave / 2);
+  });
+  // The sign over the banners.
+  label(ctx, '⚔ War Camp', 170, 342, 'rgba(60, 30, 14, 0.85)', '#f8e7c0', 12);
+  if (hovered) outline(ctx, WAR_CAMP, 'rgba(241, 239, 230, 0.8)', 2);
+  ctx.restore();
 }
 
 /** The buildings whose workers live inside, shown as signs over the roof. */

@@ -9,6 +9,10 @@ resources (`resources/`), interface frames, ribbons and buttons (`ui/`), and
 dedicated to the public domain under CC0 1.0 (`LICENSE-CC0.txt`). Copied unmodified from
 the copy bundled in Agent Quest; `deco/Deco_NN.png` is the pack's `Deco/NN.png`.
 
+The goblins (`goblins/`: the Torch, TNT and Barrel goblins in red, blue, purple and yellow,
+`Goblin_House.png` and `Wood_Tower_Red.png`) are the pack's `Factions/Goblins/` sheets, from
+the same copy, unmodified and under the same CC0 dedication.
+
 ## Building art, from Agent Quest — MIT
 
 `buildings/Library.png`, `Forge.png`, `Arena.png`, `Tower.png` and `Castle.png` are the

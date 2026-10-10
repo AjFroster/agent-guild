@@ -175,6 +175,24 @@ test('the Tower: its grounds and wizards, and the Portal Keeper', async ({ page 
   expect(errors).toEqual([]);
 });
 
+test('the War Camp drills the demo Knights against goblins', async ({ page }) => {
+  const errors = watchForErrors(page);
+  await page.goto('/?demo=party&t=20&page=wars');
+  const camp = page.getByTestId('wars-page');
+  await expect(camp.getByRole('heading', { name: 'The War Camp' })).toBeVisible();
+  // Demo mode reads no wars, so the page says so, and the camp drills the demo's Knights.
+  await expect(camp).toContainText('The War Camp follows your repositories when the guild runs live.');
+  const scene = page.locator('[data-testid="wars-scene"][data-ready="true"]');
+  await expect(scene).toHaveAttribute(
+    'aria-label',
+    /drilling the demo.s Knights\. On the field, .*Ada (fights|faces) /,
+  );
+  await page.screenshot({ path: `${SHOTS}/20-war-camp-demo.png`, animations: 'disabled', fullPage: true });
+  await camp.getByTestId('wars-back').click();
+  await expect(page.getByTestId('village')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test('a kingdom: the King, Knights in their colours, and parties following them', async ({ page }) => {
   const errors = watchForErrors(page);
   await page.goto('/?demo=kingdom&t=20');

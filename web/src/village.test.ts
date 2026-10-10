@@ -20,6 +20,8 @@ import {
   recolor,
   rgbToHsl,
   walkerPosition,
+  WAR_CAMP,
+  WAR_ROOM,
 } from './village.ts';
 
 // Everyone busy at the guildhall (TodoWrite keeps a hero there), so nobody is in bed.
@@ -56,6 +58,22 @@ describe('heroTeams', () => {
   it("keeps a Knight's colour when others come and go", () => {
     const alone = heroTeams(replay([{ t: 0, session: 'b', type: 'session_start', name: 'B' }]));
     expect(heroTeams(party).get('b')).toBe(alone.get('b'));
+  });
+
+  it("dresses a Knight at war in its war's banner, and keeps that colour off everyone else", () => {
+    const state = replay(
+      Array.from({ length: 6 }, (_, i) => ({
+        t: i,
+        session: `k${i}`,
+        type: 'session_start' as const,
+        name: `K${i}`,
+      })),
+    );
+    const plain = heroTeams(state);
+    const banner = plain.get('k1')!;
+    const teams = heroTeams(state, new Map([['k0', banner]]));
+    expect(teams.get('k0')).toBe(banner);
+    expect([...teams].filter(([, t]) => t === banner).map(([id]) => id)).toEqual(['k0']);
   });
 });
 
@@ -233,6 +251,12 @@ describe('hitTest', () => {
     const bed = heroPositions(asleep).get('s')!;
     expect(hitTest(asleep, new Map(), 0, bed.x + 25, bed.y)).toEqual({ kind: 'hero', id: 's' });
     expect(hitTest(asleep, new Map(), 0, bed.x, bed.y - 50)).toBeNull();
+  });
+
+  it('opens the War Room from the war camp on the Barracks fence', () => {
+    expect(hitTest(replay([]), none, 0, (WAR_CAMP.left + WAR_CAMP.right) / 2, WAR_CAMP.top + 10)).toEqual(
+      WAR_ROOM,
+    );
   });
 
   it('follows a hero part way along a walk', () => {
