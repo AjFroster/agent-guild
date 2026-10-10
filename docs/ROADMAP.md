@@ -37,6 +37,7 @@ MCP tool.
 | Consent-gated hooks installer                             | PA                    | planned                                            |
 | Agent teams (lead + teammates)                            | PA                    | done: the King commands Knights                    |
 | Skills Archive: librarians find and review, user installs | none                  | done                                               |
+| Wars (projects) and Battles (branches), battle reports    | none                  | done: docs/WARS.md                                 |
 | Village editor, saved layouts, project districts          | PA, AQ                | planned                                            |
 | Codex sessions                                            | AQ                    | planned                                            |
 | Start, chat with, stop and resume sessions from the UI    | PA (VS Code), PA #347 | done (as chat)                                     |

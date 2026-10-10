@@ -80,7 +80,7 @@ export const AREAS: readonly Area[] = [
     name: 'Chat',
     modules: ['web/src/chat.tsx', 'server/src/chats.ts', 'server/src/chatRoutes.ts', 'server/src/crier.ts'],
     files: ['web/e2e/fake-claude.mjs'],
-    shots: ['10-chat', '11-town-crier-report', '18-talk-opens-chat', '31-new-session'],
+    shots: ['10-chat', '11-town-crier-report', '18-talk-opens-chat', '38-new-session'],
   },
   {
     name: 'The King',
@@ -140,10 +140,33 @@ export const AREAS: readonly Area[] = [
     shots: ['19-tower-page', '26-portal-on-the-map', '27-tower-portals'],
   },
   {
+    name: 'Wars',
+    modules: [
+      'web/src/wars.tsx',
+      'web/src/campScene.ts',
+      'web/src/fieldScene.ts',
+      'web/src/duel.ts',
+      'web/src/warBanners.ts',
+      'core/src/wars.ts',
+      'server/src/wars.ts',
+      'server/src/warRoutes.ts',
+    ],
+    files: ['web/e2e/fake-gh.mjs'],
+    shots: [
+      '30-war-battlefield',
+      '31-war-camp',
+      '32-battle-won',
+      '33-needs-you-battle',
+      '34-battle-report',
+      '35-all-wars',
+      '36-war-camp-page',
+    ],
+  },
+  {
     name: 'Needs you',
     modules: ['web/src/inbox.tsx', 'web/src/decisions.ts'],
     files: [],
-    shots: ['5-needs-you', '9-needs-you-toast', '28-needs-you-inbox'],
+    shots: ['5-needs-you', '9-needs-you-toast', '28-needs-you-inbox', '33-needs-you-battle'],
   },
   {
     name: 'Settings and notices',
@@ -155,6 +178,6 @@ export const AREAS: readonly Area[] = [
       'web/src/useNotices.ts',
     ],
     files: [],
-    shots: ['9-needs-you-toast', '30-settings'],
+    shots: ['9-needs-you-toast', '37-settings'],
   },
 ];

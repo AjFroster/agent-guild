@@ -46,15 +46,15 @@ describe('the area map', () => {
 
 describe('selectShots', () => {
   it('shows only the chat shots, in the default theme, for a chat change', () => {
-    const s = pick(['web/src/chat.tsx']);
+    const s = pick(['server/src/chatRoutes.ts']);
     expect(s.shots.sort()).toEqual([
       '10-chat',
       '11-town-crier-report',
       '18-talk-opens-chat',
-      '31-new-session',
+      '38-new-session',
     ]);
     expect(s.themes).toBe('default');
-    expect(s.reasons).toEqual(['Chat (web/src/chat.tsx)']);
+    expect(s.reasons).toEqual(['Chat (server/src/chatRoutes.ts)']);
     expect(s.skipped).toContain('Forge');
   });
 
@@ -102,7 +102,13 @@ describe('selectShots', () => {
 
   it('follows a server helper to the areas whose routes use it', () => {
     const s = pick(['server/src/jsonStore.ts']);
-    expect(s.reasons.map((r) => r.split(' (')[0])).toEqual(['Library', 'Forge']);
+    expect(s.reasons.map((r) => r.split(' (')[0])).toEqual(['Library', 'Forge', 'Wars']);
+  });
+
+  it('follows a component another page borrows', () => {
+    // The War Room renders battle reports with the chat's Markdown.
+    const s = pick(['web/src/chat.tsx']);
+    expect(s.reasons).toEqual(['Chat (web/src/chat.tsx)', 'Wars (web/src/chat.tsx, used by wars.tsx)']);
   });
 
   it('shows nothing for a module no screen uses', () => {
@@ -111,7 +117,7 @@ describe('selectShots', () => {
 
   it('shows the touched area in every theme when the theme list changes', () => {
     const s = pick(['web/src/themes.ts']);
-    expect(s.shots.sort()).toEqual(['30-settings', '9-needs-you-toast']);
+    expect(s.shots.sort()).toEqual(['37-settings', '9-needs-you-toast']);
     expect(s.themes).toBe('all');
   });
 
@@ -166,7 +172,7 @@ describe('header', () => {
 
   it('says how many shots, why, and what was left out', () => {
     const text = header(
-      { ...base, shots: ['10-chat', '31-new-session'], themes: 'default' },
+      { ...base, shots: ['10-chat', '38-new-session'], themes: 'default' },
       36,
       'abc1234',
       'https://x/a',

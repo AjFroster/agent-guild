@@ -1,7 +1,7 @@
 import type { GuildState } from '@agent-guild/core';
 import { useCallback, useEffect, useState } from 'react';
 
-import { type Api, ApiError, type ArchiveEntry, type ForgeOrder } from './api.ts';
+import { type Api, ApiError, type ArchiveEntry, type ForgeOrder, type WarInfo } from './api.ts';
 import { type Decision, decisions } from './decisions.ts';
 import { ago } from './panels.tsx';
 import { SkillHead, VERDICT } from './skills.tsx';
@@ -25,6 +25,9 @@ export interface InboxControl {
   onAnswer: (heroId: string) => void;
   onOpenSkills: () => void;
   onOpenForge: () => void;
+  /** The wars, from the War Room's announcements: stalled and unclear battles wait here. */
+  wars?: readonly WarInfo[] | undefined;
+  onOpenWars?: (() => void) | undefined;
 }
 
 export function InboxPanel({
@@ -79,13 +82,14 @@ export function InboxPanel({
     }
   };
 
-  const list = decisions(state, entries, orders);
+  const list = decisions(state, entries, orders, control.wars ?? []);
   return (
     <section data-testid="inbox" aria-label="Needs you">
       <h2 className="section">Needs you</h2>
       <p className="muted small">
-        Everything waiting on your decision: Knights with a question, skills the librarians reviewed, and
-        pieces the Forge made. Nothing is installed until you approve it here.
+        Everything waiting on your decision: Knights with a question, skills the librarians reviewed, pieces
+        the Forge made, and battles that stalled or ended without a word. Nothing is installed until you
+        approve it here.
       </p>
       {error && (
         <p className="error small" role="alert">
@@ -106,7 +110,12 @@ export function InboxPanel({
                 busy={busy}
                 control={control}
                 act={(what, call, reload) =>
-                  void act(d.key, what, call, reload === 'skills' ? loadSkills : loadForge)
+                  void act(
+                    d.key,
+                    what,
+                    call,
+                    reload === 'skills' ? loadSkills : reload === 'forge' ? loadForge : async () => {},
+                  )
                 }
               />
             </li>
@@ -128,10 +137,56 @@ function Row({
   now: number;
   busy: string | null;
   control: InboxControl;
-  act: (what: string, call: () => Promise<unknown>, reload: 'skills' | 'forge') => void;
+  act: (what: string, call: () => Promise<unknown>, reload: 'skills' | 'forge' | 'wars') => void;
 }) {
   const { api } = control;
   const working = busy === d.key;
+  if (d.kind === 'battle') {
+    const b = d.battle;
+    return (
+      <>
+        <p className="inbox-kind">{b.state === 'stalled' ? 'Battle stalled' : 'How did this battle end?'}</p>
+        <p>
+          <strong>{b.title}</strong> <span className="muted">in {d.war.name}</span>{' '}
+          <code className="small">{b.branch}</code>
+        </p>
+        <p className="muted small">
+          {b.state === 'stalled'
+            ? `No commit and no Knight on it since ${ago(now - d.at)}.`
+            : 'Its branch is gone and the guild cannot tell whether it merged.'}
+        </p>
+        <div className="skill-actions">
+          {b.state === 'unclear' && (
+            <>
+              <button
+                type="button"
+                className="send"
+                disabled={busy !== null}
+                onClick={() => act('mark it', () => api.markBattle(d.war.id, b.branch, 'won'), 'wars')}
+                data-testid={`inbox-won-${b.branch}`}
+              >
+                {working ? 'Working…' : 'It was won'}
+              </button>
+              <button
+                type="button"
+                className="chip"
+                disabled={busy !== null}
+                onClick={() => act('mark it', () => api.markBattle(d.war.id, b.branch, 'retreated'), 'wars')}
+                data-testid={`inbox-retreated-${b.branch}`}
+              >
+                Retreated
+              </button>
+            </>
+          )}
+          {control.onOpenWars && (
+            <button type="button" className="link" onClick={control.onOpenWars}>
+              Open the War Camp
+            </button>
+          )}
+        </div>
+      </>
+    );
+  }
   if (d.kind === 'question')
     return (
       <>

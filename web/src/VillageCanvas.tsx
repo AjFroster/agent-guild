@@ -6,7 +6,9 @@ import { portalLook, portalUrl } from './towerScene.ts';
 
 import {
   BUILDINGS,
+  type MapWar,
   type Selection,
+  type Team,
   type Sprites,
   VILLAGE_HEIGHT,
   VILLAGE_WIDTH,
@@ -49,6 +51,9 @@ interface Props {
   forgeWaiting?: number | undefined;
   /** Services on local ports: counted on the Tower's door, and a button beside their Knight. */
   portals?: PortalInfo[] | undefined;
+  /** The wars' banners on the Barracks fence, and the colour each Knight at war wears. */
+  wars?: readonly MapWar[] | undefined;
+  banners?: ReadonlyMap<string, Team> | undefined;
 }
 
 export function VillageCanvas({
@@ -63,6 +68,8 @@ export function VillageCanvas({
   libraryWaiting,
   forgeWaiting,
   portals,
+  wars,
+  banners,
 }: Props) {
   const towerPortals = portals?.length;
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -79,6 +86,8 @@ export function VillageCanvas({
     libraryWaiting,
     forgeWaiting,
     towerPortals,
+    wars,
+    banners,
   });
   /** Heroes walking to a new building, keyed by hero id (live mode only). */
   const walkers = useRef(new Map<string, Walker>());
@@ -97,9 +106,11 @@ export function VillageCanvas({
       libraryWaiting,
       forgeWaiting,
       towerPortals,
+      wars,
+      banners,
     };
     redraw.current();
-  }, [state, selected, hovered, clock, animate, libraryWaiting, forgeWaiting, towerPortals]);
+  }, [state, selected, hovered, clock, animate, libraryWaiting, forgeWaiting, towerPortals, wars, banners]);
 
   useEffect(() => {
     let cancelled = false;

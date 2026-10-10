@@ -89,7 +89,7 @@ test('every theme is in the list the tests check', () => {
 test('the Settings dialog and the new-session form, in every theme', async ({ page }) => {
   await page.goto('/?demo=party&t=20');
   await page.getByRole('button', { name: 'Settings' }).click();
-  await shoot(page.getByTestId('settings'), '30-settings');
+  await shoot(page.getByTestId('settings'), '37-settings');
   await page.getByTestId('settings').getByRole('button', { name: 'Done' }).click();
 
   await page.goto(`${LIVE}/?token=${LIVE_TOKEN}&open=new`);
@@ -97,7 +97,7 @@ test('the Settings dialog and the new-session form, in every theme', async ({ pa
   await expect(form).toBeVisible();
   await form.getByTestId('new-cwd').fill('~/code/lighthouse');
   await form.getByTestId('new-message').fill('Fix the flaky upload test and open a PR.');
-  await shoot(form, '31-new-session');
+  await shoot(form, '38-new-session');
 });
 
 test('the chosen theme survives a reload and is on the page before it draws', async ({ page }) => {

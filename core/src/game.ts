@@ -48,6 +48,8 @@ export interface Hero {
   orderedAt: number | null;
   /** When a raven last brought it news from one of the guild's utilities, or null. */
   ravenAt: number | null;
+  /** Battles it fought that were won (docs/WARS.md). */
+  victories: number;
 }
 
 export interface Tokens {
@@ -80,6 +82,7 @@ export interface GuildState {
 
 export const XP_PER_QUEST = 50;
 export const XP_PER_TURN = 10;
+export const XP_PER_VICTORY = 100;
 export const XP_PER_LEVEL = 150;
 export const RECENT_LIMIT = 25;
 
@@ -162,6 +165,7 @@ function newHero(id: string, name: string, parentId: string | null, t: number): 
     smith: false,
     orderedAt: null,
     ravenAt: null,
+    victories: 0,
   };
 }
 
@@ -200,6 +204,13 @@ export function applyEvent(state: GuildState, event: GuildEvent): GuildState {
     if (!existing) return state;
     const git = { unpushed: event.unpushed, dirty: event.dirty, remote: event.remote };
     return { ...state, heroes: { ...state.heroes, [existing.id]: { ...existing, git } } };
+  }
+
+  // A victory comes when a branch merges, often after its Knight has left: it counts anyway.
+  if (event.type === 'victory') {
+    if (!existing) return state;
+    const hero = withXp({ ...existing, victories: existing.victories + 1 }, XP_PER_VICTORY);
+    return { ...state, heroes: { ...state.heroes, [hero.id]: hero } };
   }
 
   if (!existing || existing.status === 'gone') return state;

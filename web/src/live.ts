@@ -1,7 +1,7 @@
 import { EventStream, type GuildEvent } from '@agent-guild/core';
 import { useEffect, useState } from 'react';
 
-import type { ChatInfo, PortalStatus } from './api.ts';
+import type { ChatInfo, PortalStatus, WarStatus } from './api.ts';
 
 export type LiveStatus = 'connecting' | 'live' | 'reconnecting' | 'unauthorized';
 
@@ -21,6 +21,8 @@ export interface Announcements {
   runs: { failed: number; last: { utility: 'library' | 'forge'; detail: string } | null; version: number };
   /** Services listening on local ports, kept current by the Portal Keeper. */
   portals: PortalStatus | null;
+  /** The War Room: the user's wars and their battles, kept current by its polls. */
+  wars: WarStatus | null;
   chats: ChatInfo[];
   crierVersion: number;
 }
@@ -43,6 +45,7 @@ export function useLiveEvents(token: string): {
     forge: { waiting: 0, version: 0 },
     runs: { failed: 0, last: null, version: 0 },
     portals: null,
+    wars: null,
     chats: [],
     crierVersion: 0,
   });
@@ -80,6 +83,7 @@ export function useLiveEvents(token: string): {
     source.addEventListener('portals', (e) =>
       setAnnouncements((a) => ({ ...a, portals: json(e) as PortalStatus })),
     );
+    source.addEventListener('wars', (e) => setAnnouncements((a) => ({ ...a, wars: json(e) as WarStatus })));
     source.addEventListener('chats', (e) =>
       setAnnouncements((a) => ({ ...a, chats: json(e) as ChatInfo[] })),
     );

@@ -75,19 +75,21 @@ export function usePanelTab(): [PanelTab, (t: PanelTab) => void] {
   return [tab, open];
 }
 
-/** Which page is open: the village, or a building's (`?page=library`, `?page=forge`). */
-export type Page = 'village' | 'library' | 'forge' | 'tower';
+/** Which page is open: the village, or a building's (`?page=library`, `?page=forge`, `?page=wars`). */
+export type Page = 'village' | 'library' | 'forge' | 'tower' | 'wars';
 
 export function usePage(): [Page, (p: Page) => void] {
   const [page, setPage] = useState<Page>(() => {
     const p = new URLSearchParams(window.location.search).get('page');
-    return p === 'library' || p === 'forge' || p === 'tower' ? p : 'village';
+    return p === 'library' || p === 'forge' || p === 'tower' || p === 'wars' ? p : 'village';
   });
   const open = useCallback((p: Page) => {
     setPage(p);
     const url = new URL(window.location.href);
     if (p !== 'village') url.searchParams.set('page', p);
     else url.searchParams.delete('page');
+    // One war's battlefield belongs to the War Room; leaving it closes the war.
+    if (p !== 'wars') url.searchParams.delete('war');
     window.history.replaceState(null, '', url);
   }, []);
   return [page, open];

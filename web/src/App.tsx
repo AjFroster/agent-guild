@@ -2,7 +2,7 @@ import { type GuildEvent, type GuildState, replay, roster } from '@agent-guild/c
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fixtures, readDemoRequest } from './demo.ts';
-import { type Api, type ChatInfo, type PortalStatus, api } from './api.ts';
+import { type Api, type ChatInfo, type PortalStatus, type WarStatus, api } from './api.ts';
 import { ChatDrawer, CrierCard, CrownDialog, NewChatDialog, ReportDrawer } from './chat.tsx';
 import { type Announcements, type LiveStatus, useLiveEvents } from './live.ts';
 import { Hint, SettingsButton, Toasts } from './chrome.tsx';
@@ -18,6 +18,8 @@ import { browserStore, takeToken } from './token.ts';
 import { useHint, useSettings } from './settings.ts';
 import { useNotices } from './useNotices.ts';
 import { VillageCanvas } from './VillageCanvas.tsx';
+import { BannerContext, warBanners } from './warBanners.ts';
+import { WarsPage } from './wars.tsx';
 import type { Selection } from './village.ts';
 
 export function App() {
@@ -89,6 +91,8 @@ interface Control {
   portals: PortalStatus | null;
   /** The utilities' runs: how many failed, and a counter that ticks when one ends. */
   runs: Announcements['runs'];
+  /** The War Room: wars, battles and what waits on the user there. */
+  wars: WarStatus | null;
 }
 
 const lastTime = (events: GuildEvent[]) => events.reduce((m, e) => Math.max(m, e.t), 0);
@@ -149,6 +153,7 @@ function Live({ token }: { token: string }) {
               forge: announcements.forge,
               portals: announcements.portals,
               runs: announcements.runs,
+              wars: announcements.wars,
             }
           : undefined
       }
@@ -184,6 +189,10 @@ function Guild({
         openPage(s.id);
         return;
       }
+      if (s?.kind === 'warroom') {
+        openPage('wars');
+        return;
+      }
       if (s) {
         openTab('guild');
         openPage('village');
@@ -202,7 +211,10 @@ function Guild({
     [control?.skills, control?.forge, control?.runs], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const { toasts, dismiss } = useNotices(state, connected, settings, waitingAnnounced);
-  const inboxCount = control ? waitingCount(state, control.skills.waiting, control.forge.waiting) : 0;
+  const inboxCount = control
+    ? waitingCount(state, control.skills.waiting, control.forge.waiting, control.wars?.waiting ?? 0)
+    : 0;
+  const banners = useMemo(() => warBanners(control?.wars?.wars), [control?.wars]);
   const [drawer, openDrawer] = useDrawer();
   const [projects, setProjects] = useState<string[]>([]);
   useEffect(() => {
@@ -216,244 +228,276 @@ function Guild({
   const chatId = hero && hero.parentId === null && SESSION_ID.test(hero.id) ? hero.id : null;
 
   return (
-    <main className="guild" data-testid="guild">
-      <header className="topbar">
-        <h1>Agent Guild</h1>
-        {live && (
-          <span className="live" data-testid="live-status">
-            {live}
-          </span>
-        )}
-        {waiting.length > 0 && (
-          <p className="beacon" role="status" data-testid="beacon">
-            {waiting.map((h, i) => (
-              <span key={h.id}>
-                {i > 0 && ', '}
-                <button
-                  type="button"
-                  className="beacon-link"
-                  onClick={() => select({ kind: 'hero', id: h.id })}
-                >
-                  {h.name}
-                </button>
-              </span>
-            ))}{' '}
-            {waiting.length === 1 ? 'needs' : 'need'} you
-          </p>
-        )}
-        <span className="topbar-end">
-          {control && (
-            <button
-              type="button"
-              className="send king-button"
-              onClick={() =>
-                openDrawer(control.kingId ? { kind: 'chat', id: control.kingId } : { kind: 'king' })
-              }
-              data-testid="talk-to-king"
-            >
-              ♛ Talk to the King
-            </button>
+    <BannerContext.Provider value={banners}>
+      <main className="guild" data-testid="guild">
+        <header className="topbar">
+          <h1>Agent Guild</h1>
+          {live && (
+            <span className="live" data-testid="live-status">
+              {live}
+            </span>
           )}
-          {control && (
-            <button
-              type="button"
-              className="send"
-              onClick={() => openDrawer({ kind: 'new' })}
-              data-testid="new-session"
-            >
-              New session
-            </button>
+          {waiting.length > 0 && (
+            <p className="beacon" role="status" data-testid="beacon">
+              {waiting.map((h, i) => (
+                <span key={h.id}>
+                  {i > 0 && ', '}
+                  <button
+                    type="button"
+                    className="beacon-link"
+                    onClick={() => select({ kind: 'hero', id: h.id })}
+                  >
+                    {h.name}
+                  </button>
+                </span>
+              ))}{' '}
+              {waiting.length === 1 ? 'needs' : 'need'} you
+            </p>
           )}
-          <SettingsButton settings={settings} onChange={updateSettings} />
-        </span>
-      </header>
-      {page === 'tower' ? (
-        <TowerPage
-          now={now}
-          animate={live !== undefined}
-          onBack={() => openPage('village')}
-          control={control && { api: control.api, portals: control.portals }}
-        />
-      ) : page === 'forge' ? (
-        <ForgePage
-          state={state}
-          now={now}
-          animate={live !== undefined}
-          onBack={() => openPage('village')}
-          onSelectHero={(id) => select({ kind: 'hero', id })}
-          control={
-            control && {
-              api: control.api,
-              version: control.forge.version,
-              onTalk: (id) => openDrawer({ kind: 'chat', id }),
-              runsVersion: control.runs.version,
-            }
-          }
-        />
-      ) : page === 'library' ? (
-        <LibraryPage
-          state={state}
-          now={now}
-          animate={live !== undefined}
-          onBack={() => openPage('village')}
-          onSelectHero={(id) => select({ kind: 'hero', id })}
-          control={
-            control && {
-              api: control.api,
-              version: control.skills.version,
-              runsVersion: control.runs.version,
-              onTalk: (id) => openDrawer({ kind: 'chat', id }),
-              onOpenSkills: () => {
-                openTab('skills');
-                openPage('village');
-              },
-            }
-          }
-        />
-      ) : (
-        <>
-          <div className="map-col">
-            <VillageCanvas
-              state={state}
-              heroes={heroes}
-              animate={live !== undefined}
-              selected={selection}
-              onSelect={select}
-              onTalk={control ? (id) => openDrawer({ kind: 'chat', id }) : undefined}
-              canTalk={(h) => h.parentId === null && SESSION_ID.test(h.id)}
-              clock={live === undefined ? now : undefined}
-              libraryWaiting={control?.skills.waiting}
-              forgeWaiting={control?.forge.waiting}
-              portals={control?.portals?.portals}
-            />
-            {showHint && <Hint onDismiss={dismissHint} />}
-          </div>
-          <Toasts
-            toasts={toasts}
-            onOpen={(t) => {
-              if (t.heroId) select({ kind: 'hero', id: t.heroId });
-              else if (t.page) openPage(t.page);
-              else openTab('inbox');
-            }}
-            onDismiss={dismiss}
-          />
-          <aside className="panel" aria-label="Guild details">
+          <span className="topbar-end">
             {control && (
-              <div className="panel-tabs" role="tablist" aria-label="Side panel">
-                <button
-                  type="button"
-                  role="tab"
-                  className="panel-tab"
-                  aria-selected={tab === 'guild'}
-                  onClick={() => openTab('guild')}
-                  data-testid="tab-guild"
-                >
-                  Guild
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  className="panel-tab"
-                  aria-selected={tab === 'inbox'}
-                  onClick={() => openTab('inbox')}
-                  data-testid="tab-inbox"
-                >
-                  Needs you
-                  {inboxCount > 0 && (
-                    <span className="tab-badge" aria-label={`${inboxCount} waiting on you`}>
-                      {inboxCount}
-                    </span>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  className="panel-tab"
-                  aria-selected={tab === 'skills'}
-                  onClick={() => openTab('skills')}
-                  data-testid="tab-skills"
-                >
-                  Skills
-                  {control.skills.waiting > 0 && (
-                    <span className="tab-badge" aria-label={`${control.skills.waiting} to review`}>
-                      {control.skills.waiting}
-                    </span>
-                  )}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="send king-button"
+                onClick={() =>
+                  openDrawer(control.kingId ? { kind: 'chat', id: control.kingId } : { kind: 'king' })
+                }
+                data-testid="talk-to-king"
+              >
+                ♛ Talk to the King
+              </button>
             )}
-            {control && tab === 'inbox' ? (
-              <InboxPanel
-                state={state}
-                now={now}
-                control={{
-                  api: control.api,
-                  skillsVersion: control.skills.version,
-                  forgeVersion: control.forge.version,
-                  onAnswer: (id) => {
-                    const h = state.heroes[id];
-                    if (h && h.parentId === null && SESSION_ID.test(id)) openDrawer({ kind: 'chat', id });
-                    else select({ kind: 'hero', id: h?.parentId ?? id });
-                  },
-                  onOpenSkills: () => openTab('skills'),
-                  onOpenForge: () => openPage('forge'),
-                }}
-              />
-            ) : control && tab === 'skills' ? (
-              <SkillsPanel api={control.api} version={control.skills.version} now={now} />
-            ) : hero ? (
-              <HeroPanel
-                state={state}
-                hero={hero}
-                now={now}
-                onSelect={select}
-                onOpenChat={control && chatId ? () => openDrawer({ kind: 'chat', id: chatId }) : undefined}
-              />
-            ) : selection?.kind === 'building' ? (
-              <BuildingPanel
-                state={state}
-                location={selection.id}
-                now={now}
-                onSelect={select}
-                onOpenArchive={control && selection.id === 'library' ? () => openTab('skills') : undefined}
-              />
-            ) : (
-              <GuildPanel state={state} onSelect={select}>
-                {control && (
-                  <CrierCard
-                    api={control.api}
-                    version={control.crierVersion}
-                    onOpenChat={(id) => openDrawer({ kind: 'chat', id })}
-                    onOpenReport={(date) => openDrawer({ kind: 'report', date })}
-                  />
-                )}
-              </GuildPanel>
+            {control && (
+              <button
+                type="button"
+                className="send"
+                onClick={() => openPage(page === 'wars' ? 'village' : 'wars')}
+                aria-pressed={page === 'wars'}
+                data-testid="open-war-room"
+              >
+                ⚔ War Camp
+              </button>
             )}
-          </aside>
-        </>
-      )}
-      {control && drawer?.kind === 'chat' && (
-        <ChatDrawer key={drawer.id} api={control.api} id={drawer.id} onClose={() => openDrawer(null)} />
-      )}
-      {control && drawer?.kind === 'report' && (
-        <ReportDrawer api={control.api} date={drawer.date} onClose={() => openDrawer(null)} />
-      )}
-      {control && drawer?.kind === 'king' && (
-        <CrownDialog
-          api={control.api}
-          onCrowned={(id) => openDrawer({ kind: 'chat', id })}
-          onCancel={() => openDrawer(null)}
-        />
-      )}
-      {control && drawer?.kind === 'new' && (
-        <NewChatDialog
-          api={control.api}
-          projects={projects}
-          allowBypass={control.allowBypass}
-          onStarted={(id) => openDrawer({ kind: 'chat', id })}
-          onCancel={() => openDrawer(null)}
-        />
-      )}
-    </main>
+            {control && (
+              <button
+                type="button"
+                className="send"
+                onClick={() => openDrawer({ kind: 'new' })}
+                data-testid="new-session"
+              >
+                New session
+              </button>
+            )}
+            <SettingsButton settings={settings} onChange={updateSettings} />
+          </span>
+        </header>
+        {page === 'wars' ? (
+          <WarsPage
+            state={state}
+            now={now}
+            animate={live !== undefined}
+            onBack={() => openPage('village')}
+            control={
+              control && {
+                api: control.api,
+                wars: control.wars,
+                onTalk: (id) => openDrawer({ kind: 'chat', id }),
+                onSelectHero: (id) => select({ kind: 'hero', id }),
+              }
+            }
+          />
+        ) : page === 'tower' ? (
+          <TowerPage
+            now={now}
+            animate={live !== undefined}
+            onBack={() => openPage('village')}
+            control={control && { api: control.api, portals: control.portals }}
+          />
+        ) : page === 'forge' ? (
+          <ForgePage
+            state={state}
+            now={now}
+            animate={live !== undefined}
+            onBack={() => openPage('village')}
+            onSelectHero={(id) => select({ kind: 'hero', id })}
+            control={
+              control && {
+                api: control.api,
+                version: control.forge.version,
+                onTalk: (id) => openDrawer({ kind: 'chat', id }),
+                runsVersion: control.runs.version,
+              }
+            }
+          />
+        ) : page === 'library' ? (
+          <LibraryPage
+            state={state}
+            now={now}
+            animate={live !== undefined}
+            onBack={() => openPage('village')}
+            onSelectHero={(id) => select({ kind: 'hero', id })}
+            control={
+              control && {
+                api: control.api,
+                version: control.skills.version,
+                runsVersion: control.runs.version,
+                onTalk: (id) => openDrawer({ kind: 'chat', id }),
+                onOpenSkills: () => {
+                  openTab('skills');
+                  openPage('village');
+                },
+              }
+            }
+          />
+        ) : (
+          <>
+            <div className="map-col">
+              <VillageCanvas
+                state={state}
+                heroes={heroes}
+                animate={live !== undefined}
+                selected={selection}
+                onSelect={select}
+                onTalk={control ? (id) => openDrawer({ kind: 'chat', id }) : undefined}
+                canTalk={(h) => h.parentId === null && SESSION_ID.test(h.id)}
+                clock={live === undefined ? now : undefined}
+                libraryWaiting={control?.skills.waiting}
+                forgeWaiting={control?.forge.waiting}
+                portals={control?.portals?.portals}
+                wars={banners.map}
+                banners={banners.teams}
+              />
+              {showHint && <Hint onDismiss={dismissHint} />}
+            </div>
+            <Toasts
+              toasts={toasts}
+              onOpen={(t) => {
+                if (t.heroId) select({ kind: 'hero', id: t.heroId });
+                else if (t.page) openPage(t.page);
+                else openTab('inbox');
+              }}
+              onDismiss={dismiss}
+            />
+            <aside className="panel" aria-label="Guild details">
+              {control && (
+                <div className="panel-tabs" role="tablist" aria-label="Side panel">
+                  <button
+                    type="button"
+                    role="tab"
+                    className="panel-tab"
+                    aria-selected={tab === 'guild'}
+                    onClick={() => openTab('guild')}
+                    data-testid="tab-guild"
+                  >
+                    Guild
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    className="panel-tab"
+                    aria-selected={tab === 'inbox'}
+                    onClick={() => openTab('inbox')}
+                    data-testid="tab-inbox"
+                  >
+                    Needs you
+                    {inboxCount > 0 && (
+                      <span className="tab-badge" aria-label={`${inboxCount} waiting on you`}>
+                        {inboxCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    className="panel-tab"
+                    aria-selected={tab === 'skills'}
+                    onClick={() => openTab('skills')}
+                    data-testid="tab-skills"
+                  >
+                    Skills
+                    {control.skills.waiting > 0 && (
+                      <span className="tab-badge" aria-label={`${control.skills.waiting} to review`}>
+                        {control.skills.waiting}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
+              {control && tab === 'inbox' ? (
+                <InboxPanel
+                  state={state}
+                  now={now}
+                  control={{
+                    api: control.api,
+                    skillsVersion: control.skills.version,
+                    forgeVersion: control.forge.version,
+                    onAnswer: (id) => {
+                      const h = state.heroes[id];
+                      if (h && h.parentId === null && SESSION_ID.test(id)) openDrawer({ kind: 'chat', id });
+                      else select({ kind: 'hero', id: h?.parentId ?? id });
+                    },
+                    onOpenSkills: () => openTab('skills'),
+                    onOpenForge: () => openPage('forge'),
+                    wars: control.wars?.wars,
+                    onOpenWars: () => openPage('wars'),
+                  }}
+                />
+              ) : control && tab === 'skills' ? (
+                <SkillsPanel api={control.api} version={control.skills.version} now={now} />
+              ) : hero ? (
+                <HeroPanel
+                  state={state}
+                  hero={hero}
+                  now={now}
+                  onSelect={select}
+                  onOpenChat={control && chatId ? () => openDrawer({ kind: 'chat', id: chatId }) : undefined}
+                />
+              ) : selection?.kind === 'building' ? (
+                <BuildingPanel
+                  state={state}
+                  location={selection.id}
+                  now={now}
+                  onSelect={select}
+                  onOpenArchive={control && selection.id === 'library' ? () => openTab('skills') : undefined}
+                />
+              ) : (
+                <GuildPanel state={state} onSelect={select}>
+                  {control && (
+                    <CrierCard
+                      api={control.api}
+                      version={control.crierVersion}
+                      onOpenChat={(id) => openDrawer({ kind: 'chat', id })}
+                      onOpenReport={(date) => openDrawer({ kind: 'report', date })}
+                    />
+                  )}
+                </GuildPanel>
+              )}
+            </aside>
+          </>
+        )}
+        {control && drawer?.kind === 'chat' && (
+          <ChatDrawer key={drawer.id} api={control.api} id={drawer.id} onClose={() => openDrawer(null)} />
+        )}
+        {control && drawer?.kind === 'report' && (
+          <ReportDrawer api={control.api} date={drawer.date} onClose={() => openDrawer(null)} />
+        )}
+        {control && drawer?.kind === 'king' && (
+          <CrownDialog
+            api={control.api}
+            onCrowned={(id) => openDrawer({ kind: 'chat', id })}
+            onCancel={() => openDrawer(null)}
+          />
+        )}
+        {control && drawer?.kind === 'new' && (
+          <NewChatDialog
+            api={control.api}
+            projects={projects}
+            allowBypass={control.allowBypass}
+            onStarted={(id) => openDrawer({ kind: 'chat', id })}
+            onCancel={() => openDrawer(null)}
+          />
+        )}
+      </main>
+    </BannerContext.Provider>
   );
 }
